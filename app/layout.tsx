@@ -1,0 +1,22 @@
+import "bootstrap/dist/css/bootstrap.min.css";
+import "./globals.css";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Daka",
+  description: "Daka is a platform for creating and managing your daily tasks",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
