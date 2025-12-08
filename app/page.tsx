@@ -45,7 +45,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <h3 className="text-xl font-bold text-[#131E29] mb-2 font-sans">
+              <h3 className="text-xl font-bold text-black mb-2 font-sans">
                 Escanea el código
               </h3>
               <div className="w-16 h-1 bg-[#A9780F] rounded-full mb-3"></div>

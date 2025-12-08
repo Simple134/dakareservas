@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      locales: {
+        Row: {
+          id: number
+          level: number
+          area_mt2: number
+          price_per_mt2: number
+          total_value: number
+          separation_10: number
+          separation_45: number
+          status: string
+        }
+        Insert: {
+          id?: number
+          level: number
+          area_mt2: number
+          price_per_mt2: number
+          total_value: number
+          separation_10: number
+          separation_45: number
+          status: string
+        }
+        Update: {
+          id?: number
+          level?: number
+          area_mt2?: number
+          price_per_mt2?: number
+          total_value?: number
+          separation_10?: number
+          separation_45?: number
+          status?: string
+        }
+        Relationships: []
+      }
       reservations: {
         Row: {
           address_apto: string | null
@@ -50,6 +83,7 @@ export type Database = {
           passport: string | null
           payment_method: string | null
           product: string | null
+          receipt_url: string | null
           rep_identification: string | null
           rep_marital_status: string | null
           rep_name: string | null
@@ -193,7 +227,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_reservation: {
+        Args: {
+          payload: Json
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
