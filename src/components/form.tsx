@@ -29,10 +29,6 @@ export default function ClientForm() {
           />
         </div>
         <h2 className="text-2xl font-bold text-[#131E29] mb-2">Formulario de Solicitud</h2>
-        <div className="inline-block bg-gray-100 px-4 py-2 rounded-full">
-          <span className="text-gray-600 mr-2">Producto seleccionado:</span>
-          <span className="font-bold text-[#A9780F] uppercase">{producto}</span>
-        </div>
       </div>
 
       {/* Type Selector */}
@@ -69,9 +65,9 @@ export default function ClientForm() {
         className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-100"
       >
         {personType === "juridica" ? (
-          <JuridicaForm producto={producto} />
+          <JuridicaForm/>
         ) : (
-          <FisicaForm producto={producto} />
+          <FisicaForm/>
         )}
       </motion.div>
     </div>

@@ -49,7 +49,7 @@ interface JuridicaFormData {
     payment_method: string;
     banco: string;
     numTransaccion: string;
-    producto: string;
+    product: string;
 
     // V. Declaraciones
     conozcoInmueble: string;
@@ -64,12 +64,12 @@ const steps = [
     { id: "declaraciones", title: "Declaraciones" },
 ];
 
-export default function JuridicaForm({ producto }: { producto: string }) {
+export default function JuridicaForm() {
     const [currentStep, setCurrentStep] = useState(0);
     const { register, handleSubmit, trigger, setValue, watch, formState: { errors } } = useForm<JuridicaFormData>({
         mode: "onChange",
         defaultValues: {
-            producto: producto || "DAKA CAPITAL PLUS",
+            product: "DAKA CAPITAL PLUS",
             moneda: "USD",
             payment_method: "Transferencia",
         }
@@ -317,7 +317,7 @@ export default function JuridicaForm({ producto }: { producto: string }) {
                 bank_name: data.banco || "Banco Popular",
                 transaction_number: data.numTransaccion || null,
                 receipt_url: receiptUrl,
-                product: data.producto,
+                product: data.product,
 
                 // Declarations
                 knows_property: data.conozcoInmueble === "SI",
@@ -619,7 +619,7 @@ export default function JuridicaForm({ producto }: { producto: string }) {
                                     value={selectedLevel}
                                     {...register("nivel", {
                                         required: "Seleccione un nivel",
-                                        onChange: (e) => setSelectedLevel(e.target.value)
+                                        onChange: (e) => (setSelectedLocale(null), setSelectedLevel(e.target.value))
                                     })}
                                 >
                                     <option value="">Seleccione Nivel</option>
@@ -721,7 +721,7 @@ export default function JuridicaForm({ producto }: { producto: string }) {
                                         {...register("montoReserva", {
                                             required: "El monto de reserva es requerido",
                                             validate: (value) => {
-                                                const product = watch("producto");
+                                                const product = watch("product");
                                                 const currency = watch("moneda");
                                                 const amount = value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0;
 
@@ -873,7 +873,7 @@ export default function JuridicaForm({ producto }: { producto: string }) {
                         <div className="mb-4">
                             <div className="space-y-3 flex flex-col lg:flex-row justify-between">
                                 <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors`}>
-                                    <input type="radio" value="DAKA CAPITAL" {...register("producto")} className="mt-1 accent-[#A9780F]" />
+                                    <input type="radio" value="DAKA CAPITAL" {...register("product")} className="mt-1 accent-[#A9780F]" />
                                     <div>
                                         <span className="font-bold block">DAKA CAPITAL (Estándar)</span>
                                         <ul className="text-sm text-gray-600 list-disc list-inside">
@@ -884,7 +884,7 @@ export default function JuridicaForm({ producto }: { producto: string }) {
                                     </div>
                                 </label>
                                 <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors bg-yellow-50 border-[#A9780F]`}>
-                                    <input type="radio" value="DAKA CAPITAL PLUS" {...register("producto")} className="mt-1 accent-[#A9780F]" />
+                                    <input type="radio" value="DAKA CAPITAL PLUS" {...register("product")} className="mt-1 accent-[#A9780F]" />
                                     <div>
                                         <span className="font-bold block">DAKA CAPITAL PLUS (Premium)</span>
                                         <ul className="text-sm text-gray-600 list-disc list-inside">

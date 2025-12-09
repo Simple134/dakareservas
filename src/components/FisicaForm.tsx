@@ -47,7 +47,7 @@ interface FisicaFormData {
   payment_method: string;
   banco: string;
   numTransaccion: string;
-  producto: string;
+  product: string;
 
   // IV. Declaraciones
   conozcoInmueble: string;
@@ -66,12 +66,12 @@ const steps = [
   { id: "declaraciones", title: "Declaraciones" },
 ];
 
-export default function FisicaForm({ producto }: { producto: string }) {
+export default function FisicaForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const { register, handleSubmit, watch, trigger, setValue, formState: { errors } } = useForm<FisicaFormData>({
     mode: "onChange",
     defaultValues: {
-      producto: producto || "DAKA CAPITAL PLUS",
+      product: "DAKA CAPITAL PLUS",
       moneda: "USD",
       payment_method: "Transferencia",
     }
@@ -311,7 +311,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
         bank_name: data.banco || "Banco Popular",
         transaction_number: data.numTransaccion || null,
         receipt_url: receiptUrl,
-        product: producto, // Add product key from props
+        product: data.product,
 
         // Declarations
         knows_property: data.conozcoInmueble === "SI",
@@ -326,7 +326,6 @@ export default function FisicaForm({ producto }: { producto: string }) {
         status: 'pending'
       }
 
-      console.log(dbData);
 
       // Call the RPC function
       const { data: insertedData, error } = await supabase
@@ -366,7 +365,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
       }
 
       // Validate Minimum Amount for DAKA CAPITAL PLUS
-      const product = watch("producto");
+      const product = watch("product");
       const currency = watch("moneda");
       const reservationAmountStr = watch("montoReserva");
       const reservationAmount = reservationAmountStr ? parseFloat(reservationAmountStr.replace(/[^0-9.]/g, '')) : 0;
@@ -668,14 +667,16 @@ export default function FisicaForm({ producto }: { producto: string }) {
             {selectedLocale && (
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 animate-fadeIn">
                 <h4 className="font-bold text-[#A9780F] mb-3">Detalles del Local {selectedLocale.id}</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-500">Metros Cuadrados</p>
-                    <p className="font-semibold">{selectedLocale.area_mt2} m²</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-500">Precio por m²</p>
-                    <p className="font-semibold">{formatCurrency(selectedLocale.price_per_mt2)}</p>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                  <div className="col-span-2 md:col-span-2">
+                    <div>
+                      <p className="text-gray-500">Metros Cuadrados</p>
+                      <p className="font-semibold">{selectedLocale.area_mt2} m²</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Precio por m²</p>
+                      <p className="font-semibold">{formatCurrency(selectedLocale.price_per_mt2)}</p>
+                    </div>
                   </div>
                   <div className="col-span-2 md:col-span-2">
                     <p className="text-gray-500">Valor Total</p>
@@ -714,7 +715,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
                   <input {...register("montoReserva", {
                     required: "El monto de reserva es requerido",
                     validate: (value) => {
-                      const product = watch("producto");
+                      const product = watch("product");
                       const currency = watch("moneda");
                       const amount = value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0;
 
@@ -862,9 +863,9 @@ export default function FisicaForm({ producto }: { producto: string }) {
             )}
 
             <div className="mb-4">
-              <div className="flex flex-col gap-4">
-                <label className={`flex items - start gap - 3 p - 4 border rounded - lg cursor - pointer transition - colors`}>
-                  <input type="radio" value="DAKA CAPITAL" {...register("producto")} className="mt-1 accent-[#A9780F]" />
+              <div className="flex flex-col gap-4 ">
+                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors`}>
+                  <input type="radio" value="DAKA CAPITAL" {...register("product")} className="mt-1 accent-[#A9780F]" />
                   <div>
                     <span className="font-bold block">DAKA CAPITAL (Estándar)</span>
                     <ul className="text-sm text-gray-600 list-disc list-inside">
@@ -875,7 +876,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
                   </div>
                 </label>
                 <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors bg-yellow-50 border-[#A9780F]`}>
-                  <input type="radio" value="DAKA CAPITAL PLUS" {...register("producto")} className="mt-1 accent-[#A9780F]" />
+                  <input type="radio" value="DAKA CAPITAL PLUS" {...register("product")} className="mt-1 accent-[#A9780F]" />
                   <div>
                     <span className="font-bold block">DAKA CAPITAL PLUS (Premium)</span>
                     <ul className="text-sm text-gray-600 list-disc list-inside">
