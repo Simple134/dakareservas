@@ -13,6 +13,7 @@ interface JuridicaFormData {
     razonSocial: string;
     rnc: string;
     registroMercantil: string;
+    email: string;
     calleEmpresa: string;
     casaEmpresa: string;
     aptoEmpresa: string;
@@ -58,20 +59,17 @@ interface JuridicaFormData {
 
 const steps = [
     { id: "empresa", title: "Datos de la Empresa" },
-    { id: "representante", title: "Representante" },
+    { id: "representante", title: "Representante Legal" },
     { id: "inmueble", title: "Datos del Inmueble" },
-    { id: "pago", title: "Formas de Pago" },
     { id: "declaraciones", title: "Declaraciones" },
 ];
 
 export default function JuridicaForm() {
     const [currentStep, setCurrentStep] = useState(0);
-    const { register, handleSubmit, trigger, setValue, watch, formState: { errors } } = useForm<JuridicaFormData>({
+    const { register, handleSubmit, watch, trigger, setValue, formState: { errors } } = useForm<JuridicaFormData>({
         mode: "onChange",
         defaultValues: {
-            product: "DAKA CAPITAL PLUS",
-            moneda: "USD",
-            payment_method: "Transferencia",
+            tipoEmpresa: "SRL"
         }
     });
 
@@ -80,8 +78,6 @@ export default function JuridicaForm() {
     const [locales, setLocales] = useState<any[]>([]);
     const [selectedLevel, setSelectedLevel] = useState<string>("");
     const [selectedLocale, setSelectedLocale] = useState<any>(null);
-    const [receiptFile, setReceiptFile] = useState<File | null>(null);
-    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
     const [userId, setUserId] = useState<string>("");
     const [lockedLocales, setLockedLocales] = useState<string[]>([]);
@@ -90,19 +86,6 @@ export default function JuridicaForm() {
     useEffect(() => {
         setUserId(crypto.randomUUID());
     }, []);
-
-    // Handle Preview URL
-    useEffect(() => {
-        if (!receiptFile) {
-            setPreviewUrl(null);
-            return;
-        }
-
-        const objectUrl = URL.createObjectURL(receiptFile);
-        setPreviewUrl(objectUrl);
-
-        return () => URL.revokeObjectURL(objectUrl);
-    }, [receiptFile]);
 
     // Fetch Levels on Mount
     useEffect(() => {
@@ -120,6 +103,29 @@ export default function JuridicaForm() {
         fetchLevels();
     }, []);
 
+    // Handle Locale Selection
+    const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const localeId = e.target.value;
+        const locale = locales.find(l => l.id.toString() === localeId);
+
+        if (lockedLocales.includes(localeId)) {
+            alert("Este local está siendo visto por otro cliente en este momento.");
+            return;
+        }
+
+        // Check for all unavailable statuses
+        if (locale && locale.status !== 'DISPONIBLE') {
+            alert(`Este local no está disponible (${locale.status}).`);
+            return;
+        }
+
+        setSelectedLocale(locale || null);
+        setValue("localComercial", localeId);
+        if (locale) {
+            setValue("metros", locale.area_mt2.toString());
+        }
+    };
+
     // Realtime Locales Update, Fetch logic AND Presence
     useEffect(() => {
         const fetchLocales = async () => {
@@ -132,7 +138,6 @@ export default function JuridicaForm() {
                 .from('locales')
                 .select('*')
                 .eq('level', parseInt(selectedLevel))
-                // .in('status', ['DISPONIBLE']) // REMOVED: Fetch all to show status
                 .order('id');
 
             if (data) setLocales(data);
@@ -141,7 +146,7 @@ export default function JuridicaForm() {
         fetchLocales();
 
         // Subscribe to changes in locales table & Presence
-        console.log("Setting up Supabase channel (Juridica)...");
+        console.log("Setting up Supabase channel...");
         const channel = supabase.channel('locales_presence', {
             config: {
                 presence: {
@@ -159,13 +164,9 @@ export default function JuridicaForm() {
                     table: 'locales',
                 },
                 (payload) => {
-                    console.log('Realtime update received:', payload);
-
                     if (payload.new.level === parseInt(selectedLevel)) {
-                        // Update the specific locale in the list
                         setLocales(prev => prev.map(l => l.id === payload.new.id ? payload.new : l));
 
-                        // If the currently selected locale becomes occupied, deselect it
                         if (selectedLocale && selectedLocale.id === payload.new.id && payload.new.status !== 'DISPONIBLE') {
                             alert("¡El local seleccionado acaba de ser reservado por otro usuario!");
                             setSelectedLocale(null);
@@ -176,14 +177,15 @@ export default function JuridicaForm() {
             )
             .on('presence', { event: 'sync' }, () => {
                 const newState = channel.presenceState();
-                console.log("Presence SYNC (Juridica):", newState);
                 const locks: string[] = [];
 
                 Object.values(newState).forEach((presences: any) => {
                     presences.forEach((p: any) => {
                         if (p.localeId) {
-                            const lockId = String(p.localeId);
+                            const lockId = String(p.localeId); // FORCE STRING
+                            // Check against current selection (also forced to string)
                             const currentId = selectedLocale?.id ? String(selectedLocale.id) : null;
+
                             if (lockId !== currentId) {
                                 locks.push(lockId);
                             }
@@ -193,12 +195,10 @@ export default function JuridicaForm() {
                 setLockedLocales(locks);
             })
             .subscribe(async (status) => {
-                console.log("Channel Status (Juridica):", status);
                 if (status === 'SUBSCRIBED') {
-                    // Track current selection if exists
                     if (selectedLocale) {
                         await channel.track({
-                            localeId: String(selectedLocale.id),
+                            localeId: String(selectedLocale.id), // FORCE STRING
                             user_id: userId
                         });
                     }
@@ -223,62 +223,21 @@ export default function JuridicaForm() {
         }
     }, [selectedLocale, userId]);
 
-    // Handle Locale Selection
-    const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const localeId = e.target.value;
-        const locale = locales.find(l => l.id.toString() === localeId);
-
-        if (lockedLocales.includes(localeId)) {
-            alert("Este local está siendo visto por otro cliente en este momento.");
-            return;
-        }
-
-        if (locale && locale.status !== 'DISPONIBLE') {
-            alert(`Este local no está disponible (${locale.status}).`);
-            return;
-        }
-
-        setSelectedLocale(locale || null);
-        setValue("localComercial", localeId);
-        if (locale) {
-            setValue("metros", locale.area_mt2.toString());
-        }
-    };
-
     const onSubmit = async (data: JuridicaFormData) => {
         try {
             if (uploading) return;
+            setUploading(true);
 
-            let receiptUrl = null;
-            if (receiptFile) {
-                setUploading(true);
-                const fileExt = receiptFile.name.split('.').pop();
-                const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-                const filePath = `${fileName}`;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('receipts')
-                    .upload(filePath, receiptFile);
-
-                if (uploadError) {
-                    throw uploadError;
-                }
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('receipts')
-                    .getPublicUrl(filePath);
-
-                receiptUrl = publicUrl;
-                setUploading(false);
-            }
-
-            // Map form data to database schema
             const dbData = {
-                client_type: 'juridica',
+                // Company Info
                 company_type: data.tipoEmpresa,
                 company_name: data.razonSocial,
                 rnc: data.rnc,
+                // Note: Interface says registroMercantil, looking at lines 15 & 268 it might be inconsistently named.
+                // Line 268 in view_file (Step 137) was: mercantil_registry: data.registroMercantil
+                // Let's use what was there before but careful with property names.
                 mercantil_registry: data.registroMercantil,
+                email: data.email,
 
                 // Company Address
                 company_address_street: data.calleEmpresa,
@@ -289,7 +248,7 @@ export default function JuridicaForm() {
                 company_address_municipality: data.municipioEmpresa,
                 company_address_province: data.provinciaEmpresa,
 
-                // Representative
+                // Representative Info
                 rep_name: data.nombreRepresentante,
                 rep_identification: data.cedulaRepresentante,
                 rep_passport: data.pasaporteRepresentante,
@@ -311,40 +270,53 @@ export default function JuridicaForm() {
                 unit_level: data.nivel || null,
                 unit_meters: data.metros || null,
                 unit_parking: data.parqueo || null,
-
-                // Payment Info
-                reservation_amount: data.montoReserva ? parseFloat(data.montoReserva.replace(/[^0-9.]/g, '')) : 0,
-                bank_name: data.banco || "Banco Popular",
-                transaction_number: data.numTransaccion || null,
-                receipt_url: receiptUrl,
-                product: data.product,
+                locale_id: data.localComercial ? parseInt(data.localComercial) : null,
 
                 // Declarations
                 knows_property: data.conozcoInmueble === "SI",
                 licit_funds: data.origenLicito === "SI",
-                moneda: data.moneda,
-                payment_method: data.payment_method,
 
                 status: 'pending'
-            }
+            };
 
-            console.log(dbData);
-
-            // Call the RPC function
+            // Insert into persona_juridica
             const { data: insertedData, error } = await supabase
-                .rpc('create_reservation', { payload: dbData });
+                .from('persona_juridica')
+                .insert(dbData)
+                .select()
+                .single();
 
             if (error) {
-                console.error("RPC Error:", error);
+                console.error("Supabase Error:", error);
                 throw new Error(error.message);
             }
 
-            // Redirect to confirmation page with reservation ID
-            const reservation = insertedData as any;
-            window.location.href = `/confirmacion/${reservation.id}`
+            // Update locale status to 'RESERVADO'
+            if (data.localComercial) {
+                const { error: updateError } = await supabase
+                    .from('locales')
+                    .update({ status: 'RESERVADO' })
+                    .eq('id', parseInt(data.localComercial));
+
+                if (updateError) {
+                    console.error("Error updating locale status:", updateError);
+                    // Decide if this should prevent form submission or just log
+                }
+            }
+
+            // Save session to LocalStorage
+            if (insertedData) {
+                localStorage.setItem('daka_user_id', insertedData.id);
+                localStorage.setItem('daka_user_type', 'juridica');
+
+                // Redirect to Product Selection
+                window.location.href = `/seleccion-producto`;
+            }
+
         } catch (error: any) {
             console.error('Error submitting form:', error)
-            alert(error.message || "Hubo un error al enviar la solicitud. Por favor intente nuevamente.")
+            alert(error.message || "Hubo un error al guardar los datos.")
+            setUploading(false);
         }
     };
 
@@ -352,22 +324,13 @@ export default function JuridicaForm() {
         let fieldsToValidate: (keyof JuridicaFormData)[] = [];
 
         if (currentStep === 0) {
-            fieldsToValidate = ["tipoEmpresa", "razonSocial", "rnc"];
+            fieldsToValidate = ["tipoEmpresa", "razonSocial", "rnc", "email"];
         } else if (currentStep === 1) {
-            fieldsToValidate = ["nombreRepresentante", "cedulaRepresentante"];
+            fieldsToValidate = ["nombreRepresentante", "cedulaRepresentante", "estadoCivil"];
         } else if (currentStep === 2) {
             fieldsToValidate = ["nivel", "localComercial"];
-        } else if (currentStep === 3) {
-            fieldsToValidate = ["montoReserva"];
-
-            fieldsToValidate = ["montoReserva"];
-
-            const paymentMethod = watch("payment_method");
-            if (paymentMethod === "Transferencia" && !receiptFile) {
-                alert("Debes subir el comprobante de pago para continuar.");
-                return;
-            }
         }
+        // Step 3 (Declarations) handled by required
 
         const isValid = await trigger(fieldsToValidate);
         if (isValid) {
@@ -443,6 +406,22 @@ export default function JuridicaForm() {
                             <div>
                                 <label className="block text-sm font-semibold mb-1">Registro Mercantil No.</label>
                                 <input {...register("registroMercantil")} placeholder=" 45678" className="p-2 border rounded w-full" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-1">Correo Electrónico *</label>
+                                <input
+                                    type="email"
+                                    {...register("email", {
+                                        required: "El correo es requerido",
+                                        pattern: {
+                                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                            message: "Dirección de correo inválida"
+                                        }
+                                    })}
+                                    placeholder=" empresa@ejemplo.com"
+                                    className="p-2 border rounded w-full"
+                                />
+                                {errors.email && <span className="text-red-500 text-xs block mt-1">{errors.email.message}</span>}
                             </div>
                         </div>
 
@@ -671,6 +650,19 @@ export default function JuridicaForm() {
                             </div>
                         </div>
 
+                        {selectedLevel && (
+                            <div className="mb-6 w-full animate-fadeIn">
+                                <p className="text-sm font-semibold mb-2 text-gray-700">Plano del Nivel {selectedLevel}</p>
+                                <div className="w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                                    <img
+                                        src={`/piso/piso${selectedLevel}.png`}
+                                        alt={`Plano Nivel ${selectedLevel}`}
+                                        className="w-full h-auto object-contain block"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {selectedLocale && (
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 animate-fadeIn">
                                 <h4 className="font-bold text-[#A9780F] mb-3">Detalles del Local {selectedLocale.id}</h4>
@@ -692,7 +684,7 @@ export default function JuridicaForm() {
                                         <p className="font-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_10)}</p>
                                     </div>
                                     <div className="col-span-2 md:col-span-2 mt-2 pt-2 border-t border-gray-200">
-                                        <p className="text-gray-600 font-medium">Separación (45%)</p>
+                                        <p className="text-gray-600 font-medium">Separación</p>
                                         <p className="font-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_45)}</p>
                                     </div>
                                 </div>
@@ -703,255 +695,90 @@ export default function JuridicaForm() {
 
                 {currentStep === 3 && (
                     <motion.div key="step3" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
-                        <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Formas de pago</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                            <div>
-                                <label className="block text-sm font-semibold mb-1">Reserva (NO REEMBOLSABLE) *</label>
-                                <div className="flex items-center border rounded overflow-hidden">
-                                    <select
-                                        {...register("moneda", {
-                                            onChange: () => trigger("montoReserva")
-                                        })}
-                                        className="h-full px-3 py-2 bg-gray-50 border-r text-sm font-medium outline-none"
-                                    >
-                                        <option value="USD">USD</option>
-                                        <option value="DOP">DOP</option>
-                                    </select>
-                                    <input
-                                        {...register("montoReserva", {
-                                            required: "El monto de reserva es requerido",
-                                            validate: (value) => {
-                                                const product = watch("product");
-                                                const currency = watch("moneda");
-                                                const amount = value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0;
-
-                                                if (product === "DAKA CAPITAL PLUS") {
-                                                    const minAmount = currency === "USD" ? 5000 : 315000;
-                                                    if (amount < minAmount) {
-                                                        return `El monto mínimo para DAKA CAPITAL PLUS es ${currency} ${minAmount.toLocaleString()}`;
-                                                    }
-                                                }
-                                                return true;
-                                            },
-                                            onChange: () => trigger("montoReserva")
-                                        })}
-                                        placeholder={watch("moneda") === "USD" ? "5,000" : "315,000"}
-                                        className="w-full p-2 outline-none border-none"
-                                    />
-                                </div>
-                                {errors.montoReserva && <span className="text-red-500 text-xs block mt-1">{errors.montoReserva.message}</span>}
-                            </div>
-                        </div>
-
-                        <div className="mb-6">
-                            <label className="block text-sm font-semibold mb-2">Método de Pago *</label>
-                            <div className="flex justify-center flex-col gap-4">
-                                <label className="flex items-center gap-2 cursor-pointer p-4 border rounded-lg w-full hover:bg-gray-50 transition-colors">
-                                    <input
-                                        type="radio"
-                                        value="Transferencia"
-                                        {...register("payment_method", { required: "Seleccione un método de pago" })}
-                                        className="accent-[#A9780F]"
-                                    />
-                                    <span className="font-medium">Transferencia Bancaria</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer p-4 border rounded-lg w-full hover:bg-gray-50 transition-colors">
-                                    <input
-                                        type="radio"
-                                        value="Tarjeta"
-                                        {...register("payment_method", { required: "Seleccione un método de pago" })}
-                                        className="accent-[#A9780F]"
-                                    />
-                                    <span className="font-medium">Tarjeta de Crédito/Débito</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        {watch("payment_method") === "Transferencia" && (
-                            <>
-                                <div className={`transition-all duration-300 ${watch("payment_method") === "Transferencia" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden"}`}>
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-semibold mb-1">Tipo de Banco</label>
-                                        <select
-                                            {...register("banco")}
-                                            className="p-2 border rounded w-full"
-                                            defaultValue=""
-                                        >
-                                            <option value="">Seleccione Banco</option>
-                                            <option value="Banco Popular">Banco Popular</option>
-                                            <option value="Banreservas">Banreservas</option>
-                                            <option value="BHD">BHD</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                {watch("banco") === "Banco Popular" && (
-                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                                        <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - Popular</h4>
-                                        <p className="text-sm text-gray-700"><strong>Cuenta (Pesos):</strong> 844338509 - Daka Dominicana</p>
-                                        <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-                                    </div>
-                                )}
-
-                                {watch("banco") === "Banreservas" && (
-                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                                        <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - Banreservas</h4>
-                                        <p className="text-sm text-gray-700"><strong>Cuenta Corriente:</strong> 9605943513</p>
-                                        <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-                                    </div>
-                                )}
-
-                                {watch("banco") === "BHD" && (
-                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                                        <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - BHD</h4>
-                                        <p className="text-sm text-gray-700"><strong>Cuenta Corriente (Pesos):</strong> 30588390012</p>
-                                        <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-                                    </div>
-                                )}
-
-                                <div className="mb-6">
-                                    <label className="block text-sm font-semibold mb-2">Subir Comprobante de Pago *</label>
-                                    <div className="w-full">
-                                        <input
-                                            type="file"
-                                            id="file-upload-juridica"
-                                            accept="image/*,.pdf"
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    setReceiptFile(e.target.files[0]);
-                                                }
-                                            }}
-                                            className="hidden"
-                                        />
-                                        <label
-                                            htmlFor="file-upload-juridica"
-                                            className={`w-full flex items-center justify-center px-4 py-3 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 ${receiptFile
-                                                ? "border-[#A9780F] bg-[#A9780F]/10 text-[#A9780F]"
-                                                : "border-gray-300 hover:border-[#A9780F] hover:bg-gray-50 text-gray-500"
-                                                }`}
-                                        >
-                                            <div className="flex flex-col items-center space-y-2">
-                                                {receiptFile ? (
-                                                    <div className="relative w-full flex flex-col items-center">
-                                                        {/* Preview Content */}
-                                                        {receiptFile.type.startsWith('image/') && previewUrl ? (
-                                                            <div className="relative w-full h-48 mb-2 rounded-lg overflow-hidden">
-                                                                <img
-                                                                    src={previewUrl}
-                                                                    alt="Preview"
-                                                                    className="w-full h-full object-contain"
-                                                                />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                                                                <span className="text-2xl">📄</span>
-                                                            </div>
-                                                        )}
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.preventDefault();
-                                                                setReceiptFile(null);
-                                                            }}
-                                                            className="mt-3 px-4 py-1 bg-red-50 text-red-600 rounded-full text-sm font-medium hover:bg-red-100 transition-colors z-20"
-                                                        >
-                                                            Eliminar imagen
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <span className="font-semibold">Click para subir imagen</span>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-
-                        <div className="mb-4">
-                            <div className="space-y-3 flex flex-col lg:flex-row justify-between">
-                                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors`}>
-                                    <input type="radio" value="DAKA CAPITAL" {...register("product")} className="mt-1 accent-[#A9780F]" />
-                                    <div>
-                                        <span className="font-bold block">DAKA CAPITAL (Estándar)</span>
-                                        <ul className="text-sm text-gray-600 list-disc list-inside">
-                                            <li>10% separación (no reembolsable)</li>
-                                            <li>40% durante construcción</li>
-                                            <li>50% contra entrega</li>
-                                        </ul>
-                                    </div>
-                                </label>
-                                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors bg-yellow-50 border-[#A9780F]`}>
-                                    <input type="radio" value="DAKA CAPITAL PLUS" {...register("product")} className="mt-1 accent-[#A9780F]" />
-                                    <div>
-                                        <span className="font-bold block">DAKA CAPITAL PLUS (Premium)</span>
-                                        <ul className="text-sm text-gray-600 list-disc list-inside">
-                                            <li>Gana 35% de plusvalía más un Cash Back del 20%</li>
-                                            <li>Reserva con 5,000 USD</li>
-                                            <li>39,185 USD a la firma del contrato</li>
-                                            <li>Completa el 45% durante la construcción</li>
-                                            <li>55% contra entrega</li>
-                                        </ul>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-
-                {currentStep === 4 && (
-                    <motion.div key="step4" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
                         <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Declaraciones</h3>
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between p-3 border rounded">
-                                <span>Conozco el estado del inmueble</span>
+                            <div className="p-4 bg-gray-50 rounded-lg border">
+                                <p className="mb-2 font-medium">¿Conoce usted el inmueble objeto de esta operación?</p>
                                 <div className="flex gap-4">
-                                    <label><input type="radio" value="SI" {...register("conozcoInmueble", { required: true })} className="mr-1 accent-[#A9780F]" /> SI</label>
-                                    <label><input type="radio" value="NO" {...register("conozcoInmueble", { required: true })} className="mr-1 accent-[#A9780F]" /> NO</label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="SI" {...register("conozcoInmueble", { required: "Debe seleccionar una opción" })} className="accent-[#A9780F]" />
+                                        <span>Sí</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="NO" {...register("conozcoInmueble", { required: "Debe seleccionar una opción" })} className="accent-[#A9780F]" />
+                                        <span>No</span>
+                                    </label>
                                 </div>
+                                {errors.conozcoInmueble && <span className="text-red-500 text-xs block mt-1">{errors.conozcoInmueble.message}</span>}
                             </div>
-                            <div className="flex items-center justify-between p-3 border rounded">
-                                <span>Declaro que los fondos provienen de origen lícito (Ley 155-17)</span>
+
+                            <div className="p-4 bg-gray-50 rounded-lg border">
+                                <p className="mb-2 font-medium">¿El origen de los fondos para esta operación es lícito?</p>
                                 <div className="flex gap-4">
-                                    <label><input type="radio" value="SI" {...register("origenLicito", { required: true })} className="mr-1 accent-[#A9780F]" /> SI</label>
-                                    <label><input type="radio" value="NO" {...register("origenLicito", { required: true })} className="mr-1 accent-[#A9780F]" /> NO</label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="SI" {...register("origenLicito", { required: "Debe declarar el origen de los fondos" })} className="accent-[#A9780F]" />
+                                        <span>Sí, declaro que el origen es lícito</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" value="NO" {...register("origenLicito", { required: "Debe declarar el origen de los fondos" })} className="accent-[#A9780F]" />
+                                        <span>No</span>
+                                    </label>
                                 </div>
+                                {errors.origenLicito && <span className="text-red-500 text-xs block mt-1">{errors.origenLicito.message}</span>}
                             </div>
+                        </div>
+
+                        <div className="mt-8 flex justify-center">
+                            <button
+                                type="submit"
+                                disabled={uploading}
+                                className={`
+                                    bg-[#A9780F] text-white px-8 py-3 rounded-lg font-bold hover:bg-[#8a620c] transition-colors
+                                    ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
+                                `}
+                            >
+                                {uploading ? 'Procesando...' : 'Registrar y Continuar'}
+                            </button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Navigation Buttons */}
-            <div className={`flex flex-col gap-2  ${currentStep === steps.length - 1 ? "justify-center" : "justify-between"}`}>
-                <button
-                    type="button"
-                    onClick={prevStep}
-                    disabled={currentStep === 0}
-                    className={`p-2 rounded-lg font-semibold border ${currentStep === 0 ? "hidden" : ""}`}
-                >
-                    Anterior
-                </button>
+            {/* Navigation Buttons for previous steps */}
+            {currentStep < 3 && (
+                <div className="flex justify-between mt-6">
+                    <button
+                        type="button"
+                        onClick={prevStep}
+                        disabled={currentStep === 0}
+                        className={`p-2 rounded-lg font-semibold border px-4 hover:bg-gray-50 ${currentStep === 0 ? "invisible" : ""}`}
+                    >
+                        Anterior
+                    </button>
 
-                {currentStep < steps.length - 1 ? (
                     <button
                         type="button"
                         onClick={nextStep}
-                        className={`p-2 rounded-lg font-bold text-white bg-[#A9780F]  ${currentStep < steps.length - 1 ? "w-full" : ""}`}
+                        className="p-2 rounded-lg font-bold text-white bg-[#A9780F] px-6 hover:bg-[#8a620c]"
                     >
                         Siguiente
                     </button>
-                ) : (
+                </div>
+            )}
+
+            {/* Back button for Step 3 is handled differently or unnecessary if we just have the submit button. 
+                But let's add a "Anterior" button for Step 3 just in case they want to review. */}
+            {currentStep === 3 && (
+                <div className="flex justify-start mt-4">
                     <button
-                        type="submit"
-                        className="p-2 rounded-lg font-bold text-white bg-gradient-to-r from-[#A9780F] to-[#131E29] hover:shadow-xl transition-all"
+                        type="button"
+                        onClick={prevStep}
+                        className="p-2 rounded-lg font-semibold border px-4 hover:bg-gray-50 text-sm text-gray-500"
                     >
-                        Enviar Solicitud {uploading && "(Subiendo...)"}
+                        ← Volver a revisar
                     </button>
-                )}
-            </div>
+                </div>
+            )}
         </form>
     );
 }

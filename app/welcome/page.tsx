@@ -11,10 +11,17 @@ export default function WelcomePage() {
 
     return (
         <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
-
-            {/* Background Decorative Elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#A9780F] rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#131E29] rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
+            {/* Background Animation Layer - Blue Top */}
+            <motion.div
+                initial={{ height: "100%", borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}
+                animate={{
+                    height: step === "explanation" ? "50%" : "100%",
+                    borderBottomLeftRadius: step === "explanation" ? "20px" : "0px",
+                    borderBottomRightRadius: step === "explanation" ? "20px" : "0px"
+                }}
+                transition={{ duration: 0.8, ease: "easeInOut" }}
+                className="absolute top-0 left-0 w-full bg-[#081845] z-0"
+            />
 
             {/* Main Content Container */}
             <div className="w-full max-w-md z-10 min-h-[400px] flex flex-col justify-center">
@@ -33,7 +40,7 @@ export default function WelcomePage() {
                             {/* Logo Section */}
                             <div className="relative w-48 h-24 md:w-64 md:h-32">
                                 <Image
-                                    src="/logoDaka.png"
+                                    src="/daka2.png"
                                     alt="Daka Logo"
                                     fill
                                     className="object-contain"
@@ -43,16 +50,11 @@ export default function WelcomePage() {
 
                             {/* Action Section */}
                             <div className="w-full flex flex-col items-center space-y-6">
-                                <h1 className="text-2xl font-bold text-black text-center">
-                                    Bienvenido
-                                </h1>
-
                                 <button
                                     onClick={() => setStep("explanation")}
-                                    className="group w-full bg-[#A9780F] hover:bg-[#8e650c] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
+                                    className="group w-full bg-[#C8A31D] hover:bg-[#8e650c] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
                                 >
-                                    <span>Continuar</span>
-                                    <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    <span>Ir al Sistema</span>
                                 </button>
                             </div>
                         </motion.div>
@@ -68,59 +70,27 @@ export default function WelcomePage() {
                             transition={{ duration: 0.5 }}
                             className="flex flex-col items-center space-y-8"
                         >
-                            <div className="text-center space-y-2">
-                                <h2 className="text-2xl font-bold text-black">
-                                    ¿Qué haremos?
-                                </h2>
-                                <p className="text-gray-500">
-                                    Completa tu reserva en 2 simples pasos
-                                </p>
+                            <div className="text-center space-y-2 text-white">
+                                <h2 className="text-2xl text-white">Sistema de <br /> <span className="font-bold text-3xl">Compra y Reserva</span> </h2>
                             </div>
 
                             {/* Steps Visualization */}
-                            <div className="w-full space-y-4">
-
-                                {/* Step Item 1 */}
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.2 }}
-                                    className="bg-white border border-gray-100 rounded-2xl p-4 shadow-lg flex items-center space-x-4"
-                                >
-                                    <div className="w-12 h-12 bg-[#131E29]/5 rounded-full flex items-center justify-center shrink-0">
-                                        <FileText className="w-6 h-6 text-[#131E29]" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-black">Llenar Formulario</h3>
-                                        <p className="text-sm text-gray-400">Datos básicos para tu registro</p>
-                                    </div>
-                                </motion.div>
-
-                                {/* Connector */}
-                                <motion.div
-                                    initial={{ height: 0 }}
-                                    animate={{ height: 24 }}
-                                    transition={{ delay: 0.4 }}
-                                    className="w-[2px] bg-gray-200 mx-auto"
+                            <div className="relative w-full h-64 md:h-80">
+                                <Image
+                                    src="/daka2House.png"
+                                    alt="Daka House"
+                                    fill
+                                    className="object-contain drop-shadow-xl"
+                                    priority
                                 />
-
-                                {/* Step Item 2 */}
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.5 }}
-                                    className="bg-white border border-gray-100 rounded-2xl p-4 shadow-lg flex items-center space-x-4"
-                                >
-                                    <div className="w-12 h-12 bg-[#A9780F]/10 rounded-full flex items-center justify-center shrink-0">
-                                        <CheckCircle2 className="w-6 h-6 text-[#A9780F]" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-semibold text-black">Seleccionar Producto</h3>
-                                        <p className="text-sm text-gray-400">Elije entre Daka Capital y Plus</p>
-                                    </div>
-                                </motion.div>
-
                             </div>
+                            <Image
+                                src="/daka2azul.png"
+                                alt="Daka House"
+                                width={500}
+                                height={500}
+                                className="object-contain drop-shadow-xl"
+                                />
 
                             {/* Action */}
                             <motion.div
@@ -131,10 +101,9 @@ export default function WelcomePage() {
                             >
                                 <Link
                                     href="/formulario"
-                                    className="group w-full bg-[#131E29] hover:bg-[#1c2b3a] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(19,30,41,0.2)]"
+                                    className="group w-full bg-[#C8A31D] hover:bg-[#8e650c] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
                                 >
-                                    <span>Comenzar</span>
-                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                    <span>Continuar</span>
                                 </Link>
                             </motion.div>
 

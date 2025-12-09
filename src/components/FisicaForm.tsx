@@ -16,6 +16,7 @@ interface FisicaFormData {
   pasaporte: string;
   estadoCivil: string;
   ocupacion: string;
+  email: string;
 
   // Cónyuge
   nombreConyuge: string;
@@ -62,7 +63,6 @@ const steps = [
   { id: "personal", title: "Datos Personales" },
   { id: "direccion", title: "Dirección y Nacionalidad" },
   { id: "inmueble", title: "Datos del Inmueble" },
-  { id: "pago", title: "Formas de Pago" },
   { id: "declaraciones", title: "Declaraciones" },
 ];
 
@@ -84,8 +84,6 @@ export default function FisicaForm() {
   const [locales, setLocales] = useState<any[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
   const [selectedLocale, setSelectedLocale] = useState<any>(null);
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [userId, setUserId] = useState<string>("");
   const [lockedLocales, setLockedLocales] = useState<string[]>([]);
@@ -94,19 +92,6 @@ export default function FisicaForm() {
   useEffect(() => {
     setUserId(crypto.randomUUID());
   }, []);
-
-  // Handle Preview URL
-  useEffect(() => {
-    if (!receiptFile) {
-      setPreviewUrl(null);
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(receiptFile);
-    setPreviewUrl(objectUrl);
-
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [receiptFile]);
 
   // Fetch Levels on Mount
   useEffect(() => {
@@ -248,33 +233,9 @@ export default function FisicaForm() {
   const onSubmit = async (data: FisicaFormData) => {
     try {
       if (uploading) return;
-
-      let receiptUrl = null;
-      if (receiptFile) {
-        setUploading(true);
-        const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `${Date.now()} -${Math.random().toString(36).substring(7)}.${fileExt} `;
-        const filePath = `${fileName} `;
-
-        const { error: uploadError } = await supabase.storage
-          .from('receipts')
-          .upload(filePath, receiptFile);
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('receipts')
-          .getPublicUrl(filePath);
-
-        receiptUrl = publicUrl;
-        setUploading(false);
-      }
+      setUploading(true);
 
       const dbData = {
-        client_type: 'fisica',
-
         // Personal Info
         first_name: data.nombre,
         last_name: data.apellido,
@@ -283,6 +244,7 @@ export default function FisicaForm() {
         passport: data.pasaporte,
         marital_status: data.estadoCivil,
         occupation: data.ocupacion,
+        email: data.email, // NEW FIELD
 
         // Spouse Info (if applicable)
         spouse_name: data.nombreConyuge,
@@ -300,18 +262,12 @@ export default function FisicaForm() {
         nationality: data.nacionalidad,
         other_nationality: data.otraNacionalidad,
 
-        // Property Info
+        // Property Info (Linked to this user, effectively reserving it temporarily or permanently depending on business logic)
         unit_code: data.localComercial || null,
         unit_level: data.nivel || null,
         unit_meters: data.metros || null,
         unit_parking: data.parqueo || null,
-
-        // Payment Info
-        reservation_amount: data.montoReserva ? parseFloat(data.montoReserva.replace(/[^0-9.]/g, '')) : 0,
-        bank_name: data.banco || "Banco Popular",
-        transaction_number: data.numTransaccion || null,
-        receipt_url: receiptUrl,
-        product: data.product,
+        locale_id: data.localComercial ? parseInt(data.localComercial) : null,
 
         // Declarations
         knows_property: data.conozcoInmueble === "SI",
@@ -320,28 +276,35 @@ export default function FisicaForm() {
         us_citizen: data.ciudadanoEEUU === "SI",
         us_permanence: data.permanenciaEEUU === "SI",
         us_political: data.politicoEEUU === "SI",
-        moneda: data.moneda,
-        payment_method: data.payment_method,
 
         status: 'pending'
       }
 
-
-      // Call the RPC function
+      // Insert into persona_fisica
       const { data: insertedData, error } = await supabase
-        .rpc('create_reservation', { payload: dbData });
+        .from('persona_fisica')
+        .insert(dbData)
+        .select()
+        .single();
 
       if (error) {
-        console.error("RPC Error:", error);
+        console.error("Supabase Error:", error);
         throw new Error(error.message);
       }
 
-      // Redirect to confirmation page with reservation ID
-      const reservation = insertedData as any;
-      window.location.href = `/confirmacion/${reservation.id}`;
-    } catch (error) {
+      // Save session to LocalStorage
+      if (insertedData) {
+        localStorage.setItem('daka_user_id', insertedData.id);
+        localStorage.setItem('daka_user_type', 'fisica');
+
+        // Redirect to Product Selection
+        window.location.href = `/seleccion-producto`;
+      }
+
+    } catch (error: any) {
       console.error('Error submitting form:', error)
-      alert("Hubo un error al enviar la solicitud. Por favor intente nuevamente.")
+      alert(error.message || "Hubo un error al guardar los datos. Por favor intente nuevamente.")
+      setUploading(false);
     }
   };
 
@@ -350,34 +313,13 @@ export default function FisicaForm() {
 
     // Define fields to validate per step
     if (currentStep === 0) {
-      fieldsToValidate = ["nombre", "apellido", "cedula", "sexo", "estadoCivil"];
+      fieldsToValidate = ["nombre", "apellido", "cedula", "sexo", "estadoCivil", "email"];
     } else if (currentStep === 1) {
       // Add address fields if they become required
     } else if (currentStep === 2) {
       fieldsToValidate = ["nivel", "localComercial"];
-    } else if (currentStep === 3) {
-      fieldsToValidate = ["montoReserva"];
-
-      const paymentMethod = watch("payment_method");
-      if (paymentMethod === "Transferencia" && !receiptFile) {
-        alert("Para transferencia, debe subir el comprobante de pago.");
-        return;
-      }
-
-      // Validate Minimum Amount for DAKA CAPITAL PLUS
-      const product = watch("product");
-      const currency = watch("moneda");
-      const reservationAmountStr = watch("montoReserva");
-      const reservationAmount = reservationAmountStr ? parseFloat(reservationAmountStr.replace(/[^0-9.]/g, '')) : 0;
-
-      if (product === "DAKA CAPITAL PLUS") {
-        const minAmount = currency === "USD" ? 5000 : 315000;
-        if (reservationAmount < minAmount) {
-          alert(`Para DAKA CAPITAL PLUS, el monto mínimo de reserva es de ${currency} ${minAmount.toLocaleString()}.`);
-          return;
-        }
-      }
     }
+    // Step 3 (Declarations) validation is handled by 'required' in register
 
     const isValid = await trigger(fieldsToValidate);
     if (isValid) {
@@ -438,6 +380,23 @@ export default function FisicaForm() {
                 <input {...register("apellido", { required: "El apellido es requerido" })} placeholder=" Pérez" className="p-2 border rounded w-full" />
                 {errors.apellido && <span className="text-red-500 text-xs block mt-1">{errors.apellido.message}</span>}
               </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-1">Correo Electrónico *</label>
+              <input
+                type="email"
+                {...register("email", {
+                  required: "El correo es requerido",
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: "Dirección de correo inválida"
+                  }
+                })}
+                placeholder=" juan@ejemplo.com"
+                className="p-2 border rounded w-full"
+              />
+              {errors.email && <span className="text-red-500 text-xs block mt-1">{errors.email.message}</span>}
             </div>
 
             <div className="mb-4">
@@ -664,6 +623,19 @@ export default function FisicaForm() {
               </div>
             </div>
 
+            {selectedLevel && (
+              <div className="mb-6 w-full animate-fadeIn">
+                <p className="text-sm font-semibold mb-2 text-gray-700">Plano del Nivel {selectedLevel}</p>
+                <div className="w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                  <img
+                    src={`/piso/piso${selectedLevel}.png`}
+                    alt={`Plano Nivel ${selectedLevel}`}
+                    className="w-full h-auto object-contain block"
+                  />
+                </div>
+              </div>
+            )}
+
             {selectedLocale && (
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 animate-fadeIn">
                 <h4 className="font-bold text-[#A9780F] mb-3">Detalles del Local {selectedLocale.id}</h4>
@@ -687,7 +659,7 @@ export default function FisicaForm() {
                     <p className="font-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_10)}</p>
                   </div>
                   <div className="col-span-2 md:col-span-2 mt-2 pt-2 border-t border-gray-200">
-                    <p className="text-gray-600 font-medium">Separación (45%)</p>
+                    <p className="text-gray-600 font-medium">Separación</p>
                     <p className="font-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_45)}</p>
                   </div>
                 </div>
@@ -698,203 +670,6 @@ export default function FisicaForm() {
 
         {currentStep === 3 && (
           <motion.div key="step3" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
-            <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Formas de Pago</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-semibold mb-1">Reserva (NO REEMBOLSABLE) *</label>
-                <div className="flex items-center border rounded overflow-hidden">
-                  <select
-                    {...register("moneda", {
-                      onChange: () => trigger("montoReserva")
-                    })}
-                    className="h-full px-3 py-2 bg-gray-50 border-r text-sm font-medium outline-none"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="DOP">DOP</option>
-                  </select>
-                  <input {...register("montoReserva", {
-                    required: "El monto de reserva es requerido",
-                    validate: (value) => {
-                      const product = watch("product");
-                      const currency = watch("moneda");
-                      const amount = value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0;
-
-                      if (product === "DAKA CAPITAL PLUS") {
-                        const minAmount = currency === "USD" ? 5000 : 315000;
-                        if (amount < minAmount) {
-                          return `Min: ${currency} ${minAmount.toLocaleString()}`;
-                        }
-                      }
-                      return true;
-                    },
-                    onChange: () => trigger("montoReserva")
-                  })}
-                    placeholder={watch("moneda") === "USD" ? "5,000" : "315,000"}
-                    className="w-full p-2 outline-none border-none" />
-                </div>
-                {errors.montoReserva && <span className="text-red-500 text-xs block mt-1">{errors.montoReserva.message}</span>}</div>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-2">Método de Pago *</label>
-              <div className="flex justify-center flex-col gap-4">
-                <label className="flex items-center gap-2 cursor-pointer p-4 border rounded-lg w-full hover:bg-gray-50 transition-colors">
-                  <input
-                    type="radio"
-                    value="Transferencia"
-                    {...register("payment_method", { required: "Seleccione un método de pago" })}
-                    className="accent-[#A9780F]"
-                  />
-                  <span className="font-medium">Transferencia Bancaria</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer p-4 border rounded-lg w-full hover:bg-gray-50 transition-colors">
-                  <input
-                    type="radio"
-                    value="Tarjeta"
-                    {...register("payment_method", { required: "Seleccione un método de pago" })}
-                    className="accent-[#A9780F]"
-                  />
-                  <span className="font-medium">Tarjeta de Crédito/Débito</span>
-                </label>
-              </div>
-            </div>
-
-            {watch("payment_method") === "Transferencia" && (
-              <>
-                <div className={`transition-all duration-300 ${watch("payment_method") === "Transferencia" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden"}`}>
-                  <div className="mb-6">
-                    <label className="block text-sm font-semibold mb-1">Tipo de Banco</label>
-                    <select
-                      {...register("banco")}
-                      className="p-2 border rounded w-full"
-                      defaultValue=""
-                    >
-                      <option value="">Seleccione Banco</option>
-                      <option value="Banco Popular">Banco Popular</option>
-                      <option value="Banreservas">Banreservas</option>
-                      <option value="BHD">BHD</option>
-                    </select>
-                  </div>
-                </div>
-
-                {watch("banco") === "Banco Popular" && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                    <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - Popular</h4>
-                    <p className="text-sm text-gray-700"><strong>Cuenta (Pesos):</strong> 844338509 - Daka Dominicana</p>
-                    <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-                  </div>
-                )}
-
-                {watch("banco") === "Banreservas" && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                    <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - Banreservas</h4>
-                    <p className="text-sm text-gray-700"><strong>Cuenta Corriente:</strong> 9605943513</p>
-                    <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-                  </div>
-                )}
-
-                {watch("banco") === "BHD" && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                    <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - BHD</h4>
-                    <p className="text-sm text-gray-700"><strong>Cuenta Corriente (Pesos):</strong> 30588390012</p>
-                    <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold mb-2">Subir Comprobante de Pago *</label>
-                  <div className="w-full">
-                    <input
-                      type="file"
-                      id="file-upload-juridica"
-                      accept="image/*,.pdf"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          setReceiptFile(e.target.files[0]);
-                        }
-                      }}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="file-upload-juridica"
-                      className={`w-full flex items-center justify-center px-4 py-3 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 ${receiptFile
-                        ? "border-[#A9780F] bg-[#A9780F]/10 text-[#A9780F]"
-                        : "border-gray-300 hover:border-[#A9780F] hover:bg-gray-50 text-gray-500"
-                        }`}
-                    >
-                      <div className="flex flex-col items-center space-y-2">
-                        {receiptFile ? (
-                          <div className="relative w-full flex flex-col items-center">
-                            {/* Preview Content */}
-                            {receiptFile.type.startsWith('image/') && previewUrl ? (
-                              <div className="relative w-full h-48 mb-2 rounded-lg overflow-hidden">
-                                <img
-                                  src={previewUrl}
-                                  alt="Preview"
-                                  className="w-full h-full object-contain"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
-                                <span className="text-2xl">📄</span>
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setReceiptFile(null);
-                              }}
-                              className="mt-3 px-4 py-1 bg-red-50 text-red-600 rounded-full text-sm font-medium hover:bg-red-100 transition-colors z-20"
-                            >
-                              Eliminar imagen
-                            </button>
-                          </div>
-                        ) : (
-                          <>
-                            <span className="font-semibold">Click para subir imagen</span>
-                          </>
-                        )}
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <div className="mb-4">
-              <div className="flex flex-col gap-4 ">
-                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors`}>
-                  <input type="radio" value="DAKA CAPITAL" {...register("product")} className="mt-1 accent-[#A9780F]" />
-                  <div>
-                    <span className="font-bold block">DAKA CAPITAL (Estándar)</span>
-                    <ul className="text-sm text-gray-600 list-disc list-inside">
-                      <li>10% separación</li>
-                      <li>40% en construcción</li>
-                      <li>50% contra entrega</li>
-                    </ul>
-                  </div>
-                </label>
-                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors bg-yellow-50 border-[#A9780F]`}>
-                  <input type="radio" value="DAKA CAPITAL PLUS" {...register("product")} className="mt-1 accent-[#A9780F]" />
-                  <div>
-                    <span className="font-bold block">DAKA CAPITAL PLUS (Premium)</span>
-                    <ul className="text-sm text-gray-600 list-disc list-inside">
-                      <li>Gana 35% de plusvalía más un Cash Back del 20%</li>
-                      <li>Reserva con 5,000 USD</li>
-                      <li>39,185 USD a la firma del contrato</li>
-                      <li>Completa el 45% durante la construcción</li>
-                      <li>55% contra entrega</li>
-                    </ul>
-                  </div>
-                </label>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {currentStep === 4 && (
-          <motion.div key="step4" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
             <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Declaraciones</h3>
             <div className="space-y-4 mb-8">
               {[
@@ -942,7 +717,7 @@ export default function FisicaForm() {
             type="submit"
             className="p-2 rounded-lg font-bold text-white bg-gradient-to-r from-[#A9780F] to-[#131E29] hover:shadow-xl transition-all"
           >
-            Enviar Solicitud {uploading && "(Subiendo...)"}
+            Registrar y Continuar {uploading && "(Guardando...)"}
           </button>
         )}
       </div>

@@ -3,18 +3,58 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/src/lib/supabase/client";
-import { Database } from "@/src/types/supabase";
+import { Database, Tables } from "@/src/types/supabase";
 import Login from "@/src/components/Login";
 import { LogOut, X, CheckCircle2, Clock } from "lucide-react";
 
-type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
+type ProductAllocationResponse = Tables<'product_allocations'> & {
+    product: { name: string } | null;
+    persona_fisica: (Tables<'persona_fisica'> & { locales: Tables<'locales'> | null }) | null;
+    persona_juridica: (Tables<'persona_juridica'> & { locales: Tables<'locales'> | null }) | null;
+};
+
+interface ReservationViewModel {
+    id: string;
+    created_at: string;
+    status: string;
+
+    client_name: string;
+    client_type_label: string;
+    identification_label: string;
+    identification_value: string;
+
+    product_name: string;
+    amount: number;
+    currency: string;
+    payment_method: string;
+    receipt_url: string | null;
+    bank_name: string | null;
+    transaction_number: string | null;
+
+    email: string | null;
+    phone?: string;
+    address_display: string;
+    unit_code: string | null;
+    locale_id: number | null;
+
+    locale_details?: {
+        level: number;
+        area_mt2: number;
+        price_per_mt2: number;
+        total_value: number;
+        status: string;
+    };
+
+    raw_fisica?: Tables<'persona_fisica'>;
+    raw_juridica?: Tables<'persona_juridica'>;
+}
 
 export default function AdminPage() {
     const [session, setSession] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [reservations, setReservations] = useState<Reservation[]>([]);
+    const [reservations, setReservations] = useState<ReservationViewModel[]>([]);
     const [fetchError, setFetchError] = useState<string | null>(null);
-    const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+    const [selectedReservation, setSelectedReservation] = useState<ReservationViewModel | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
 
@@ -42,13 +82,114 @@ export default function AdminPage() {
     const fetchReservations = async () => {
         try {
             const { data, error } = await supabase
-                .from("reservations")
-                .select("*")
-                .order("created_at", { ascending: false });
+                .from("product_allocations")
+                .select(`
+                    *,
+                    product:products(name),
+                    persona_fisica(*, locales(*)),
+                    persona_juridica(*, locales(*))
+                `)
+                .order("created_at", { ascending: false })
+                .returns<ProductAllocationResponse[]>();
 
             if (error) throw error;
-            setReservations(data || []);
+
+            const transformed: ReservationViewModel[] = (data || []).map((item) => {
+                const isFisica = !!item.persona_fisica;
+                const isJuridica = !!item.persona_juridica;
+
+                if (!isFisica && !isJuridica) return null;
+
+                let viewModel: ReservationViewModel;
+
+                if (isFisica && item.persona_fisica) {
+                    const pf = item.persona_fisica;
+                    const addressParts = [
+                        pf.address_street,
+                        pf.address_house ? `#${pf.address_house}` : '',
+                        pf.address_sector,
+                        pf.address_province
+                    ].filter(Boolean).join(", ");
+
+                    const locale = pf.locales;
+
+                    viewModel = {
+                        id: item.id,
+                        created_at: item.created_at,
+                        status: item.status || 'pending',
+                        client_name: `${pf.first_name || ''} ${pf.last_name || ''}`.trim(),
+                        client_type_label: "Cliente",
+                        identification_label: pf.passport ? "Pasaporte" : "Cédula",
+                        identification_value: pf.passport || pf.identification || "N/A",
+                        product_name: item.product?.name || "Desconocido",
+                        amount: item.amount || 0,
+                        currency: item.currency || "USD",
+                        payment_method: item.payment_method || "N/A",
+                        receipt_url: item.receipt_url,
+                        bank_name: item.bank_name,
+                        transaction_number: null, // Add to schema if needed
+                        email: pf.email,
+                        address_display: addressParts,
+                        unit_code: pf.unit_code,
+                        locale_id: pf.locale_id,
+                        locale_details: locale ? {
+                            level: locale.level,
+                            area_mt2: locale.area_mt2,
+                            price_per_mt2: locale.price_per_mt2,
+                            total_value: locale.total_value,
+                            status: locale.status
+                        } : undefined,
+                        raw_fisica: pf
+                    };
+                } else if (isJuridica && item.persona_juridica) {
+                    const pj = item.persona_juridica;
+                    const addressParts = [
+                        pj.company_address_street,
+                        pj.company_address_house ? `#${pj.company_address_house}` : '',
+                        pj.company_address_sector,
+                        pj.company_address_province
+                    ].filter(Boolean).join(", ");
+
+                    const locale = pj.locales;
+
+                    viewModel = {
+                        id: item.id,
+                        created_at: item.created_at,
+                        status: item.status || 'pending',
+                        client_name: pj.company_name || "Empresa Sin Nombre",
+                        client_type_label: "Empresa",
+                        identification_label: "RNC",
+                        identification_value: pj.rnc || "N/A",
+                        product_name: item.product?.name || "Desconocido",
+                        amount: item.amount || 0,
+                        currency: item.currency || "USD",
+                        payment_method: item.payment_method || "N/A",
+                        receipt_url: item.receipt_url,
+                        bank_name: item.bank_name,
+                        transaction_number: null,
+                        email: pj.email,
+                        address_display: addressParts,
+                        unit_code: pj.unit_code,
+                        locale_id: pj.locale_id,
+                        locale_details: locale ? {
+                            level: locale.level,
+                            area_mt2: locale.area_mt2,
+                            price_per_mt2: locale.price_per_mt2,
+                            total_value: locale.total_value,
+                            status: locale.status
+                        } : undefined,
+                        raw_juridica: pj
+                    };
+                } else {
+                    return null;
+                }
+
+                return viewModel;
+            }).filter((item): item is ReservationViewModel => item !== null);
+
+            setReservations(transformed);
         } catch (err: any) {
+            console.error("Error fetching:", err);
             setFetchError(err.message);
         }
     };
@@ -57,7 +198,7 @@ export default function AdminPage() {
         await supabase.auth.signOut();
     };
 
-    const handleRowClick = (reservation: Reservation) => {
+    const handleRowClick = (reservation: ReservationViewModel) => {
         setSelectedReservation(reservation);
         setSidebarOpen(true);
     };
@@ -72,20 +213,18 @@ export default function AdminPage() {
 
         setUpdatingStatus(true);
         try {
-            // 1. Update Reservation Status
-            const { error: reservationError } = await supabase
-                .from("reservations")
+            const { error: allocationError } = await supabase
+                .from("product_allocations")
                 .update({ status: newStatus })
                 .eq("id", selectedReservation.id);
 
-            if (reservationError) throw reservationError;
+            if (allocationError) throw allocationError;
 
-            // 2. If Approving AND unit_code exists, update Locale Status to 'VENDIDO'
-            if (newStatus === "approved" && selectedReservation.unit_code) {
+            if (newStatus === "approved" && selectedReservation.locale_id) {
                 const { error: localeError } = await supabase
                     .from("locales")
                     .update({ status: "VENDIDO" })
-                    .eq("id", parseInt(selectedReservation.unit_code)); // unit_code is the locale ID
+                    .eq("id", selectedReservation.locale_id);
 
                 if (localeError) {
                     console.error("Error updating locale status:", localeError);
@@ -161,19 +300,25 @@ export default function AdminPage() {
                                         scope="col"
                                         className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700"
                                     >
-                                        Cliente
+                                        Cliente / Empresa
                                     </th>
                                     <th
                                         scope="col"
                                         className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700"
                                     >
-                                        Cedula
+                                        ID
                                     </th>
                                     <th
                                         scope="col"
                                         className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700"
                                     >
                                         Producto
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700"
+                                    >
+                                        Moneda
                                     </th>
                                     <th
                                         scope="col"
@@ -206,25 +351,29 @@ export default function AdminPage() {
                                             {new Date(reservation.created_at).toLocaleDateString()}
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                            {reservation.first_name
-                                                ? `${reservation.first_name} ${reservation.last_name}`
-                                                : reservation.company_name || "N/A"}
+                                            <div className="flex flex-col">
+                                                <span>{reservation.client_name}</span>
+                                                <span className="text-xs text-gray-500">{reservation.client_type_label}</span>
+                                            </div>
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                            {reservation.identification ||
-                                                reservation.rnc ||
-                                                reservation.passport ||
-                                                "N/A"}
+                                            <div className="flex flex-col">
+                                                <span>{reservation.identification_value}</span>
+                                                <span className="text-xs text-gray-500">{reservation.identification_label}</span>
+                                            </div>
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                            {reservation.product || "-"}
+                                            {reservation.product_name || "-"}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                                            {reservation.currency || "USD"}
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                                             {reservation.payment_method || "-"}
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#A9780F]">
-                                            {reservation.reservation_amount
-                                                ? `$${reservation.reservation_amount.toLocaleString()}`
+                                            {reservation.amount
+                                                ? new Intl.NumberFormat('en-US', { style: 'currency', currency: reservation.currency || 'USD' }).format(reservation.amount)
                                                 : "-"}
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4">
@@ -296,58 +445,72 @@ export default function AdminPage() {
                             {/* Client Info */}
                             <div>
                                 <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
-                                    {selectedReservation.client_type === "fisica" ? "Información Personal" : "Información de Empresa"}
+                                    {selectedReservation.client_type_label}
                                 </h3>
                                 <div className="space-y-2">
-                                    {selectedReservation.first_name && (
-                                        <DetailRow label="Nombre" value={`${selectedReservation.first_name} ${selectedReservation.last_name}`} />
+                                    <DetailRow label="Nombre / Razón Social" value={selectedReservation.client_name} />
+                                    <DetailRow label={selectedReservation.identification_label} value={selectedReservation.identification_value} />
+
+                                    {selectedReservation.email && (
+                                        <DetailRow label="Email" value={selectedReservation.email} />
                                     )}
-                                    {selectedReservation.company_name && (
-                                        <DetailRow label="Empresa" value={selectedReservation.company_name} />
+
+                                    {/* Additional Individual Fields */}
+                                    {selectedReservation.raw_fisica && (
+                                        <>
+                                            <DetailRow label="Género" value={selectedReservation.raw_fisica.gender || '-'} />
+                                            <DetailRow label="Nacionalidad" value={selectedReservation.raw_fisica.nationality || '-'} />
+                                            <DetailRow label="Estado Civil" value={selectedReservation.raw_fisica.marital_status || '-'} />
+                                            <DetailRow label="Ocupación" value={selectedReservation.raw_fisica.occupation || '-'} />
+                                        </>
                                     )}
-                                    {selectedReservation.identification && (
-                                        <DetailRow label="Cédula" value={selectedReservation.identification} />
-                                    )}
-                                    {selectedReservation.rnc && (
-                                        <DetailRow label="RNC" value={selectedReservation.rnc} />
-                                    )}
-                                    {selectedReservation.passport && (
-                                        <DetailRow label="Pasaporte" value={selectedReservation.passport} />
-                                    )}
-                                    {selectedReservation.gender && (
-                                        <DetailRow label="Género" value={selectedReservation.gender} />
-                                    )}
-                                    {selectedReservation.nationality && (
-                                        <DetailRow label="Nacionalidad" value={selectedReservation.nationality} />
-                                    )}
-                                    {selectedReservation.marital_status && (
-                                        <DetailRow label="Estado Civil" value={selectedReservation.marital_status} />
-                                    )}
-                                    {selectedReservation.occupation && (
-                                        <DetailRow label="Ocupación" value={selectedReservation.occupation} />
+
+                                    {/* Additional Corporate Fields */}
+                                    {selectedReservation.raw_juridica && (
+                                        <>
+                                            <DetailRow label="Tipo Empresa" value={selectedReservation.raw_juridica.company_type || '-'} />
+                                            <DetailRow label="Rep. Legal" value={selectedReservation.raw_juridica.rep_name || '-'} />
+                                        </>
                                     )}
                                 </div>
                             </div>
 
                             {/* Address */}
-                            {selectedReservation.address_street && (
+                            <div>
+                                <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+                                    Dirección
+                                </h3>
+                                <div className="space-y-2">
+                                    <p className="text-sm text-gray-900">{selectedReservation.address_display}</p>
+                                </div>
+                            </div>
+
+                            {/* Unit Info (Enhanced) */}
+                            {selectedReservation.unit_code && (
                                 <div>
                                     <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
-                                        Dirección
+                                        Información de Unidad
                                     </h3>
                                     <div className="space-y-2">
-                                        <DetailRow label="Calle" value={selectedReservation.address_street} />
-                                        {selectedReservation.address_house && (
-                                            <DetailRow label="Casa #" value={selectedReservation.address_house} />
-                                        )}
-                                        {selectedReservation.address_sector && (
-                                            <DetailRow label="Sector" value={selectedReservation.address_sector} />
-                                        )}
-                                        {selectedReservation.address_municipality && (
-                                            <DetailRow label="Municipio" value={selectedReservation.address_municipality} />
-                                        )}
-                                        {selectedReservation.address_province && (
-                                            <DetailRow label="Provincia" value={selectedReservation.address_province} />
+                                        <DetailRow label="Código" value={selectedReservation.unit_code} />
+
+                                        {selectedReservation.locale_details ? (
+                                            <>
+                                                <DetailRow label="Nivel" value={selectedReservation.locale_details.level.toString()} />
+                                                <DetailRow label="Área" value={`${selectedReservation.locale_details.area_mt2} mt²`} />
+                                                <DetailRow
+                                                    label="Precio / mt²"
+                                                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(selectedReservation.locale_details.price_per_mt2)}
+                                                />
+                                                <DetailRow
+                                                    label="Valor Total"
+                                                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(selectedReservation.locale_details.total_value)}
+                                                    highlight
+                                                />
+                                                <DetailRow label="Estado Actual" value={selectedReservation.locale_details.status} />
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-yellow-600 italic">Detalles adicionales del local no disponibles en la base de datos.</p>
                                         )}
                                     </div>
                                 </div>
@@ -359,24 +522,16 @@ export default function AdminPage() {
                                     Producto & Pago
                                 </h3>
                                 <div className="space-y-2">
-                                    {selectedReservation.product && (
-                                        <DetailRow label="Producto" value={selectedReservation.product} />
-                                    )}
-                                    {selectedReservation.reservation_amount && (
-                                        <DetailRow
-                                            label="Monto"
-                                            value={`$${selectedReservation.reservation_amount.toLocaleString()}`}
-                                            highlight
-                                        />
-                                    )}
-                                    {selectedReservation.payment_method && (
-                                        <DetailRow label="Método de Pago" value={selectedReservation.payment_method} />
-                                    )}
+                                    <DetailRow label="Producto" value={selectedReservation.product_name} />
+                                    <DetailRow label="Moneda" value={selectedReservation.currency} />
+                                    <DetailRow
+                                        label="Monto Reserva"
+                                        value={new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedReservation.currency || 'USD' }).format(selectedReservation.amount)}
+                                        highlight
+                                    />
+                                    <DetailRow label="Método de Pago" value={selectedReservation.payment_method} />
                                     {selectedReservation.bank_name && (
                                         <DetailRow label="Banco" value={selectedReservation.bank_name} />
-                                    )}
-                                    {selectedReservation.transaction_number && (
-                                        <DetailRow label="# Transacción" value={selectedReservation.transaction_number} />
                                     )}
                                 </div>
                             </div>
@@ -411,26 +566,6 @@ export default function AdminPage() {
                                 </div>
                             )}
 
-                            {/* Unit Info */}
-                            {selectedReservation.unit_code && (
-                                <div>
-                                    <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
-                                        Información de Unidad
-                                    </h3>
-                                    <div className="space-y-2">
-                                        <DetailRow label="Código" value={selectedReservation.unit_code} />
-                                        {selectedReservation.unit_level && (
-                                            <DetailRow label="Nivel" value={selectedReservation.unit_level} />
-                                        )}
-                                        {selectedReservation.unit_meters && (
-                                            <DetailRow label="Metros²" value={selectedReservation.unit_meters} />
-                                        )}
-                                        {selectedReservation.unit_parking && (
-                                            <DetailRow label="Parqueo" value={selectedReservation.unit_parking} />
-                                        )}
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 )}

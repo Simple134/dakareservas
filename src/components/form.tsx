@@ -20,7 +20,7 @@ export default function ClientForm() {
       <div className="mb-8 text-center">
         <div className="flex justify-center mb-6">
           <Image
-            src="/logoDaka.png"
+            src="/daka2azul.png"
             alt="Daka Capital Logo"
             width={180}
             height={80}

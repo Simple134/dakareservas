@@ -47,180 +47,335 @@ export type Database = {
         }
         Relationships: []
       }
-      reservations: {
+      products: {
         Row: {
-          address_apto: string | null
+          id: string
+          name: string
+          currency: string
+          price: number
+          limit: number
+          count: number
+        }
+        Insert: {
+          id?: string
+          name: string
+          currency?: string
+          price?: number
+          limit?: number
+          count?: number
+        }
+        Update: {
+          id?: string
+          name?: string
+          currency?: string
+          price?: number
+          limit?: number
+          count?: number
+        }
+        Relationships: []
+      }
+      product_allocations: {
+        Row: {
+          id: string
+          created_at: string
+          product_id: string
+          user_type: string
+          amount: number | null
+          currency: string | null
+          persona_fisica_id: string | null
+          persona_juridica_id: string | null
+          payment_method: string | null
+          receipt_url: string | null
+          bank_name: string | null
+          status: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          product_id: string
+          user_type: string
+          amount?: number | null
+          currency?: string | null
+          persona_fisica_id?: string | null
+          persona_juridica_id?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          bank_name?: string | null
+          status?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          product_id?: string
+          user_type?: string
+          amount?: number | null
+          currency?: string | null
+          persona_fisica_id?: string | null
+          persona_juridica_id?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          bank_name?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_allocations_product_id_fkey"
+            columns: ["product_id"]
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_allocations_persona_fisica_id_fkey"
+            columns: ["persona_fisica_id"]
+            referencedRelation: "persona_fisica"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_allocations_persona_juridica_id_fkey"
+            columns: ["persona_juridica_id"]
+            referencedRelation: "persona_juridica"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      persona_fisica: {
+        Row: {
+          id: string
+          created_at: string
+          status: string | null
+          first_name: string | null
+          last_name: string | null
+          gender: string | null
+          identification: string | null
+          passport: string | null
+          marital_status: string | null
+          occupation: string | null
+          email: string | null
+          spouse_name: string | null
+          spouse_identification: string | null
+          spouse_occupation: string | null
+          address_street: string | null
           address_house: string | null
-          address_municipality: string | null
-          address_province: string | null
+          address_apto: string | null
           address_residential: string | null
           address_sector: string | null
-          address_street: string | null
-          bank_name: string | null
-          client_type: string
-          company_address_apto: string | null
-          company_address_house: string | null
-          company_address_municipality: string | null
-          company_address_province: string | null
-          company_address_residential: string | null
-          company_address_sector: string | null
-          company_address_street: string | null
-          company_name: string | null
-          company_type: string | null
-          created_at: string
-          first_name: string | null
-          gender: string | null
-          id: string
-          identification: string | null
-          knows_property: boolean | null
-          last_name: string | null
-          licit_funds: boolean | null
-          marital_status: string | null
-          mercantil_registry: string | null
+          address_municipality: string | null
+          address_province: string | null
           nationality: string | null
-          occupation: string | null
           other_nationality: string | null
-          passport: string | null
-          payment_method: string | null
-          product: string | null
-          receipt_url: string | null
-          rep_identification: string | null
-          rep_marital_status: string | null
-          rep_name: string | null
-          rep_nationality: string | null
-          rep_occupation: string | null
-          rep_passport: string | null
-          reservation_amount: number | null
-          rnc: string | null
-          spouse_identification: string | null
-          spouse_name: string | null
-          spouse_occupation: string | null
-          status: string
-          transaction_number: string | null
           unit_code: string | null
           unit_level: string | null
           unit_meters: string | null
           unit_parking: string | null
+          knows_property: boolean | null
+          licit_funds: boolean | null
+          us_residency: boolean | null
           us_citizen: boolean | null
           us_permanence: boolean | null
           us_political: boolean | null
-          us_residency: boolean | null
+          locale_id: number | null
         }
         Insert: {
-          address_apto?: string | null
+          id?: string
+          created_at?: string
+          status?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          gender?: string | null
+          identification?: string | null
+          passport?: string | null
+          marital_status?: string | null
+          occupation?: string | null
+          email?: string | null
+          spouse_name?: string | null
+          spouse_identification?: string | null
+          spouse_occupation?: string | null
+          address_street?: string | null
           address_house?: string | null
-          address_municipality?: string | null
-          address_province?: string | null
+          address_apto?: string | null
           address_residential?: string | null
           address_sector?: string | null
-          address_street?: string | null
-          bank_name?: string | null
-          client_type: string
-          company_address_apto?: string | null
-          company_address_house?: string | null
-          company_address_municipality?: string | null
-          company_address_province?: string | null
-          company_address_residential?: string | null
-          company_address_sector?: string | null
-          company_address_street?: string | null
-          company_name?: string | null
-          company_type?: string | null
-          created_at?: string
-          first_name?: string | null
-          gender?: string | null
-          id?: string
-          identification?: string | null
-          knows_property?: boolean | null
-          last_name?: string | null
-          licit_funds?: boolean | null
-          marital_status?: string | null
-          mercantil_registry?: string | null
+          address_municipality?: string | null
+          address_province?: string | null
           nationality?: string | null
-          occupation?: string | null
           other_nationality?: string | null
-          passport?: string | null
-          payment_method?: string | null
-          product?: string | null
-          rep_identification?: string | null
-          rep_marital_status?: string | null
-          rep_name?: string | null
-          rep_nationality?: string | null
-          rep_occupation?: string | null
-          rep_passport?: string | null
-          reservation_amount?: number | null
-          rnc?: string | null
-          spouse_identification?: string | null
-          spouse_name?: string | null
-          spouse_occupation?: string | null
-          status?: string
-          transaction_number?: string | null
           unit_code?: string | null
           unit_level?: string | null
           unit_meters?: string | null
           unit_parking?: string | null
+          knows_property?: boolean | null
+          licit_funds?: boolean | null
+          us_residency?: boolean | null
           us_citizen?: boolean | null
           us_permanence?: boolean | null
           us_political?: boolean | null
-          us_residency?: boolean | null
+          locale_id?: number | null
         }
         Update: {
-          address_apto?: string | null
+          id?: string
+          created_at?: string
+          status?: string | null
+          first_name?: string | null
+          last_name?: string | null
+          gender?: string | null
+          identification?: string | null
+          passport?: string | null
+          marital_status?: string | null
+          occupation?: string | null
+          email?: string | null
+          spouse_name?: string | null
+          spouse_identification?: string | null
+          spouse_occupation?: string | null
+          address_street?: string | null
           address_house?: string | null
-          address_municipality?: string | null
-          address_province?: string | null
+          address_apto?: string | null
           address_residential?: string | null
           address_sector?: string | null
-          address_street?: string | null
-          bank_name?: string | null
-          client_type?: string
-          company_address_apto?: string | null
-          company_address_house?: string | null
-          company_address_municipality?: string | null
-          company_address_province?: string | null
-          company_address_residential?: string | null
-          company_address_sector?: string | null
-          company_address_street?: string | null
-          company_name?: string | null
-          company_type?: string | null
-          created_at?: string
-          first_name?: string | null
-          gender?: string | null
-          id?: string
-          identification?: string | null
-          knows_property?: boolean | null
-          last_name?: string | null
-          licit_funds?: boolean | null
-          marital_status?: string | null
-          mercantil_registry?: string | null
+          address_municipality?: string | null
+          address_province?: string | null
           nationality?: string | null
-          occupation?: string | null
           other_nationality?: string | null
-          passport?: string | null
-          payment_method?: string | null
-          product?: string | null
-          rep_identification?: string | null
-          rep_marital_status?: string | null
-          rep_name?: string | null
-          rep_nationality?: string | null
-          rep_occupation?: string | null
-          rep_passport?: string | null
-          reservation_amount?: number | null
-          rnc?: string | null
-          spouse_identification?: string | null
-          spouse_name?: string | null
-          spouse_occupation?: string | null
-          status?: string
-          transaction_number?: string | null
           unit_code?: string | null
           unit_level?: string | null
           unit_meters?: string | null
           unit_parking?: string | null
+          knows_property?: boolean | null
+          licit_funds?: boolean | null
+          us_residency?: boolean | null
           us_citizen?: boolean | null
           us_permanence?: boolean | null
           us_political?: boolean | null
-          us_residency?: boolean | null
+          locale_id?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "persona_fisica_locale_id_fkey"
+            columns: ["locale_id"]
+            referencedRelation: "locales"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      persona_juridica: {
+        Row: {
+          id: string
+          created_at: string
+          status: string | null
+          company_type: string | null
+          company_name: string | null
+          rnc: string | null
+          mercantil_registry: string | null
+          email: string | null
+          company_address_street: string | null
+          company_address_house: string | null
+          company_address_apto: string | null
+          company_address_residential: string | null
+          company_address_sector: string | null
+          company_address_municipality: string | null
+          company_address_province: string | null
+          rep_name: string | null
+          rep_identification: string | null
+          rep_passport: string | null
+          rep_marital_status: string | null
+          rep_occupation: string | null
+          rep_nationality: string | null
+          address_street: string | null
+          address_house: string | null
+          address_apto: string | null
+          address_residential: string | null
+          address_sector: string | null
+          address_municipality: string | null
+          address_province: string | null
+          unit_code: string | null
+          unit_level: string | null
+          unit_meters: string | null
+          unit_parking: string | null
+          knows_property: boolean | null
+          licit_funds: boolean | null
+          locale_id: number | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          status?: string | null
+          company_type?: string | null
+          company_name?: string | null
+          rnc?: string | null
+          mercantil_registry?: string | null
+          email?: string | null
+          company_address_street?: string | null
+          company_address_house?: string | null
+          company_address_apto?: string | null
+          company_address_residential?: string | null
+          company_address_sector?: string | null
+          company_address_municipality?: string | null
+          company_address_province?: string | null
+          rep_name?: string | null
+          rep_identification?: string | null
+          rep_passport?: string | null
+          rep_marital_status?: string | null
+          rep_occupation?: string | null
+          rep_nationality?: string | null
+          address_street?: string | null
+          address_house?: string | null
+          address_apto?: string | null
+          address_residential?: string | null
+          address_sector?: string | null
+          address_municipality?: string | null
+          address_province?: string | null
+          unit_code?: string | null
+          unit_level?: string | null
+          unit_meters?: string | null
+          unit_parking?: string | null
+          knows_property?: boolean | null
+          licit_funds?: boolean | null
+          locale_id?: number | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          status?: string | null
+          company_type?: string | null
+          company_name?: string | null
+          rnc?: string | null
+          mercantil_registry?: string | null
+          email?: string | null
+          company_address_street?: string | null
+          company_address_house?: string | null
+          company_address_apto?: string | null
+          company_address_residential?: string | null
+          company_address_sector?: string | null
+          company_address_municipality?: string | null
+          company_address_province?: string | null
+          rep_name?: string | null
+          rep_identification?: string | null
+          rep_passport?: string | null
+          rep_marital_status?: string | null
+          rep_occupation?: string | null
+          rep_nationality?: string | null
+          address_street?: string | null
+          address_house?: string | null
+          address_apto?: string | null
+          address_residential?: string | null
+          address_sector?: string | null
+          address_municipality?: string | null
+          address_province?: string | null
+          unit_code?: string | null
+          unit_level?: string | null
+          unit_meters?: string | null
+          unit_parking?: string | null
+          knows_property?: boolean | null
+          licit_funds?: boolean | null
+          locale_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "persona_juridica_locale_id_fkey"
+            columns: ["locale_id"]
+            referencedRelation: "locales"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
@@ -230,6 +385,14 @@ export type Database = {
       create_reservation: {
         Args: {
           payload: Json
+        }
+        Returns: Json
+      },
+      allocate_product: {
+        Args: {
+          p_user_id: string
+          p_user_type: string
+          p_product_id: string
         }
         Returns: Json
       }
