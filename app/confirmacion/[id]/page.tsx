@@ -111,8 +111,8 @@ export default function ConfirmacionPage() {
             return;
         }
 
-        if (paymentMethod === 'transfer' && !receiptFile) {
-            alert("Por favor adjunte el comprobante de transferencia.");
+        if (!receiptFile) {
+            alert("Por favor adjunte el comprobante de pago.");
             return;
         }
 
@@ -120,8 +120,16 @@ export default function ConfirmacionPage() {
             setUpdating(true);
             let receiptUrl = null;
 
-            // Upload Receipt if Transfer
-            if (paymentMethod === 'transfer' && receiptFile) {
+            // Get user data from localStorage
+            const userId = localStorage.getItem('daka_user_id');
+            const userType = localStorage.getItem('daka_user_type');
+
+            if (!userId || !userType) {
+                throw new Error("Sesión no válida. Por favor vuelva a iniciar el proceso.");
+            }
+
+            // Upload Receipt (required for all payment methods)
+            if (receiptFile) {
                 const fileExt = receiptFile.name.split('.').pop();
                 const fileName = `${allocationId}-${Math.random()}.${fileExt}`;
                 const { error: uploadError, data: uploadData } = await supabase.storage
@@ -138,6 +146,19 @@ export default function ConfirmacionPage() {
                 receiptUrl = publicUrlData.publicUrl;
             }
 
+            // Fetch user's locale_id from their user table
+            const userTable = userType === 'fisica' ? 'persona_fisica' : 'persona_juridica';
+            const { data: userData, error: userError } = await supabase
+                .from(userTable)
+                .select('locale_id')
+                .eq('id', userId)
+                .single();
+
+            if (userError) throw new Error("Error al obtener datos del usuario: " + userError.message);
+            if (!userData?.locale_id) {
+                throw new Error("No se encontró un local asignado al usuario.");
+            }
+
             // Update Allocation
             const { error: allocError } = await supabase
                 .from('product_allocations')
@@ -152,8 +173,25 @@ export default function ConfirmacionPage() {
 
             if (allocError) throw allocError;
 
-            router.push('/welcome');
+            // Update Locale status to BLOQUEADO using the locale_id from the user
+            const { error: localesError } = await supabase
+                .from('locales')
+                .update({
+                    status: 'BLOQUEADO',
+                })
+                .eq('id', userData.locale_id);
 
+            if (localesError) throw localesError;
+
+            // Update local allocation state to show confirmation
+            setAllocation({
+                ...allocation!,
+                amount: numAmount,
+                currency: currency,
+                payment_method: paymentMethod,
+                receipt_url: receiptUrl,
+                status: 'pending'
+            });
         } catch (error: any) {
             console.error("Error updating payment:", error);
             alert(error.message || "Error actualizando el pago.");
@@ -344,7 +382,7 @@ export default function ConfirmacionPage() {
                                         </div>
                                     </div>
 
-                                    {/* 3. Conditional Content */}
+                                    {/* 3. Bank Accounts (only for transfer) */}
                                     {paymentMethod === 'transfer' && (
                                         <motion.div
                                             initial={{ opacity: 0, height: 0 }}
@@ -352,7 +390,7 @@ export default function ConfirmacionPage() {
                                             className="bg-gray-50 p-4 rounded-xl border border-gray-200"
                                         >
                                             <h6 className="font-bold text-sm text-gray-700 mb-3">Cuentas Bancarias Disponibles:</h6>
-                                            <div className="space-y-2 mb-4">
+                                            <div className="space-y-2">
                                                 {bankAccounts.map((account, idx) => (
                                                     <div key={idx} className="flex items-center justify-between bg-white p-2 rounded border border-gray-100 text-sm">
                                                         <div className="flex flex-col">
@@ -364,28 +402,36 @@ export default function ConfirmacionPage() {
                                                     </div>
                                                 ))}
                                             </div>
-
-                                            <div className="mt-4">
-                                                <label className="block text-sm font-semibold mb-2">Adjuntar Comprobante *</label>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*,.pdf"
-                                                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-[#2C3E50]"
-                                                />
-                                                {receiptPreview && (
-                                                    <div className="mt-3 relative h-48 w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
-                                                        <Image
-                                                            src={receiptPreview}
-                                                            alt="Vista previa del comprobante"
-                                                            fill
-                                                            className="object-contain"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
                                         </motion.div>
                                     )}
+
+                                    {/* 4. Receipt Upload (always required) */}
+                                    <div className="">
+                                        <label className="block text-sm font-semibold mb-2">
+                                            Adjuntar Comprobante de Pago *
+                                        </label>
+                                        <p className="text-xs text-gray-500 mb-3">
+                                            {paymentMethod === 'transfer'
+                                                ? 'Sube una captura de pantalla o foto del comprobante de transferencia bancaria.'
+                                                : 'Sube una captura de pantalla o foto del comprobante de pago con tarjeta.'}
+                                        </p>
+                                        <input
+                                            type="file"
+                                            accept="image/*,.pdf"
+                                            onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-[#2C3E50]"
+                                        />
+                                        {receiptPreview && (
+                                            <div className="mt-3 relative h-48 w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                                                <Image
+                                                    src={receiptPreview}
+                                                    alt="Vista previa del comprobante"
+                                                    fill
+                                                    className="object-contain"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
 
                                     <div className="d-flex gap-3 mt-4">
                                         <button
@@ -400,7 +446,7 @@ export default function ConfirmacionPage() {
                                         </button>
                                         <button
                                             onClick={handleUpdatePayment}
-                                            disabled={updating || !amount || Number(amount) < minInvestment || (paymentMethod === 'transfer' && !receiptFile)}
+                                            disabled={updating || !amount || Number(amount) < minInvestment || !receiptFile}
                                             className="btn flex-fill py-3 fw-bold text-white shadow-sm rounded-xl transition-all"
                                             style={{ backgroundColor: "#A9780F", borderColor: "#A9780F" }}
                                         >
@@ -416,9 +462,15 @@ export default function ConfirmacionPage() {
                                         <strong>{allocation.amount.toLocaleString()} {allocation.currency}</strong>
                                     </p>
                                     <hr />
-                                    <p className="mb-0 text-sm">
-                                        En breve recibirá un correo con los detalles.
-                                    </p>
+                                    <div className="mt-4">
+                                        <button
+                                            onClick={() => router.push('/welcome')}
+                                            className="btn btn-primary px-5 py-2 fw-bold"
+                                            style={{ backgroundColor: "#A9780F", borderColor: "#A9780F" }}
+                                        >
+                                            Regresar
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 

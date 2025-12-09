@@ -74,13 +74,8 @@ export default function JuridicaForm() {
     const [selectedLevel, setSelectedLevel] = useState<string>("");
     const [selectedLocale, setSelectedLocale] = useState<any>(null);
     const [uploading, setUploading] = useState(false);
-    const [userId, setUserId] = useState<string>("");
-    const [lockedLocales, setLockedLocales] = useState<string[]>([]);
 
-    // Initialize random anonymous user ID
-    useEffect(() => {
-        setUserId(crypto.randomUUID());
-    }, []);
+
 
     // Fetch Levels on Mount
     useEffect(() => {
@@ -103,11 +98,6 @@ export default function JuridicaForm() {
         const localeId = e.target.value;
         const locale = locales.find(l => l.id.toString() === localeId);
 
-        if (lockedLocales.includes(localeId)) {
-            alert("Este local está siendo visto por otro cliente en este momento.");
-            return;
-        }
-
         // Check for all unavailable statuses
         if (locale && locale.status !== 'DISPONIBLE') {
             alert(`Este local no está disponible (${locale.status}).`);
@@ -121,7 +111,7 @@ export default function JuridicaForm() {
         }
     };
 
-    // Realtime Locales Update, Fetch logic AND Presence
+    // Fetch locales when level changes
     useEffect(() => {
         const fetchLocales = async () => {
             if (!selectedLevel) {
@@ -139,84 +129,7 @@ export default function JuridicaForm() {
         };
 
         fetchLocales();
-
-        // Subscribe to changes in locales table & Presence
-        console.log("Setting up Supabase channel...");
-        const channel = supabase.channel('locales_presence', {
-            config: {
-                presence: {
-                    key: userId,
-                },
-            },
-        });
-
-        channel
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'locales',
-                },
-                (payload) => {
-                    if (payload.new.level === parseInt(selectedLevel)) {
-                        setLocales(prev => prev.map(l => l.id === payload.new.id ? payload.new : l));
-
-                        if (selectedLocale && selectedLocale.id === payload.new.id && payload.new.status !== 'DISPONIBLE') {
-                            alert("¡El local seleccionado acaba de ser reservado por otro usuario!");
-                            setSelectedLocale(null);
-                            setValue("localComercial", "");
-                        }
-                    }
-                }
-            )
-            .on('presence', { event: 'sync' }, () => {
-                const newState = channel.presenceState();
-                const locks: string[] = [];
-
-                Object.values(newState).forEach((presences: any) => {
-                    presences.forEach((p: any) => {
-                        if (p.localeId) {
-                            const lockId = String(p.localeId); // FORCE STRING
-                            // Check against current selection (also forced to string)
-                            const currentId = selectedLocale?.id ? String(selectedLocale.id) : null;
-
-                            if (lockId !== currentId) {
-                                locks.push(lockId);
-                            }
-                        }
-                    });
-                });
-                setLockedLocales(locks);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    if (selectedLocale) {
-                        await channel.track({
-                            localeId: String(selectedLocale.id), // FORCE STRING
-                            user_id: userId
-                        });
-                    }
-                }
-            });
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [selectedLevel, userId]);
-
-    // Separate effect to update tracking when selection changes
-    useEffect(() => {
-        if (!userId) return;
-
-        const channel = supabase.getChannels().find(c => c.topic === 'realtime:locales_presence');
-        if (channel) {
-            channel.track({
-                localeId: selectedLocale?.id ? String(selectedLocale.id) : null,
-                user_id: userId
-            });
-        }
-    }, [selectedLocale, userId]);
+    }, [selectedLevel]);
 
     const onSubmit = async (data: JuridicaFormData) => {
         try {
@@ -228,7 +141,7 @@ export default function JuridicaForm() {
                 company_type: data.tipoEmpresa,
                 company_name: data.razonSocial,
                 rnc: data.rnc,
-             
+
                 mercantil_registry: data.registroMercantil,
                 email: data.email,
 
@@ -606,28 +519,20 @@ export default function JuridicaForm() {
                                 >
                                     <option value="">Seleccione Local</option>
                                     {locales.map((l: Database['public']['Tables']['locales']['Row']) => {
-                                        const isLocked = lockedLocales.includes(l.id.toString());
                                         const isAvailable = l.status === 'DISPONIBLE';
                                         let label = `Local ${l.id} (${l.area_mt2} m²)`;
                                         let statusLabel = "";
 
-                                        // If my own selection is 'locked' in the array (because of race condition or slow status update), don't disable it for me
-                                        const isMySelection = selectedLocale && String(selectedLocale.id) === String(l.id);
-
                                         if (!isAvailable) {
                                             statusLabel = ` - ${l.status}`;
-                                        } else if (isLocked && !isMySelection) {
-                                            statusLabel = " - EN USO";
                                         }
-
-                                        const isDisabled = !isAvailable || (isLocked && !isMySelection);
 
                                         return (
                                             <option
                                                 key={l.id}
                                                 value={l.id}
-                                                disabled={isDisabled}
-                                                className={isDisabled ? "text-gray-400 bg-gray-100" : ""}
+                                                disabled={!isAvailable}
+                                                className={!isAvailable ? "text-gray-400 bg-gray-100" : ""}
                                             >
                                                 {label}{statusLabel}
                                             </option>
