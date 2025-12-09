@@ -8,10 +8,10 @@ export default function Home() {
       <div className="relative w-full h-full max-w-[95%] xl:max-w-[1400px] bg-[#131E29] p-3 md:p-4 rounded-3xl shadow-2xl overflow-hidden">
 
         {/* Inner Frame - Gold Border Effect */}
-        <div className="bg-white border-2 md:border-4 border-[#A9780F] rounded-2xl overflow-hidden flex flex-col shadow-inner h-full">
+        <div className="bg-white border-2 md:border-4 border-[#A9780F] rounded-2xl overflow-hidden flex flex-col justify-center shadow-inner h-full">
 
           {/* Header / Logo Area */}
-          <div className="w-full bg-white flex justify-center py-4 border-b border-gray-100 shrink-0">
+          {/* <div className="w-full bg-white flex justify-center py-4 border-b border-gray-100 shrink-0">
             <div className="relative bg-white w-[160px] h-[70px] md:w-[200px] md:h-[90px]">
               <Image
                 src="/logoDaka.png"
@@ -21,7 +21,7 @@ export default function Home() {
                 priority
               />
             </div>
-          </div>
+          </div> */}
 
           {/* Main Content Area */}
           <div className="grid grid-cols-3 overflow-hidden">

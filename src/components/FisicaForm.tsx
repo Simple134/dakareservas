@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/src/lib/supabase/client";
+import { formatCedula } from "../lib/utils";
+import { Database } from "../types/supabase";
 
 interface FisicaFormData {
   // I. Datos generales
@@ -41,9 +43,11 @@ interface FisicaFormData {
 
   // III. Pago
   montoReserva: string;
+  moneda: string;
+  payment_method: string;
   banco: string;
   numTransaccion: string;
-  modalidadPago: string;
+  producto: string;
 
   // IV. Declaraciones
   conozcoInmueble: string;
@@ -63,10 +67,13 @@ const steps = [
 ];
 
 export default function FisicaForm({ producto }: { producto: string }) {
-  const [currentStep, setCurrentStep] = useState(3);
+  const [currentStep, setCurrentStep] = useState(0);
   const { register, handleSubmit, watch, trigger, setValue, formState: { errors } } = useForm<FisicaFormData>({
+    mode: "onChange",
     defaultValues: {
-      modalidadPago: producto === "dakaplus" ? "DAKA CAPITAL PLUS" : "DAKA CAPITAL",
+      producto: producto || "DAKA CAPITAL PLUS",
+      moneda: "USD",
+      payment_method: "Transferencia",
     }
   });
 
@@ -78,7 +85,28 @@ export default function FisicaForm({ producto }: { producto: string }) {
   const [selectedLevel, setSelectedLevel] = useState<string>("");
   const [selectedLocale, setSelectedLocale] = useState<any>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [userId, setUserId] = useState<string>("");
+  const [lockedLocales, setLockedLocales] = useState<string[]>([]);
+
+  // Initialize random anonymous user ID
+  useEffect(() => {
+    setUserId(crypto.randomUUID());
+  }, []);
+
+  // Handle Preview URL
+  useEffect(() => {
+    if (!receiptFile) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(receiptFile);
+    setPreviewUrl(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [receiptFile]);
 
   // Fetch Levels on Mount
   useEffect(() => {
@@ -96,7 +124,30 @@ export default function FisicaForm({ producto }: { producto: string }) {
     fetchLevels();
   }, []);
 
-  // Realtime Locales Update and Fetch logic
+  // Handle Locale Selection
+  const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const localeId = e.target.value;
+    const locale = locales.find(l => l.id.toString() === localeId);
+
+    if (lockedLocales.includes(localeId)) {
+      alert("Este local está siendo visto por otro cliente en este momento.");
+      return;
+    }
+
+    // Check for all unavailable statuses
+    if (locale && locale.status !== 'DISPONIBLE') {
+      alert(`Este local no está disponible (${locale.status}).`);
+      return;
+    }
+
+    setSelectedLocale(locale || null);
+    setValue("localComercial", localeId);
+    if (locale) {
+      setValue("metros", locale.area_mt2.toString());
+    }
+  };
+
+  // Realtime Locales Update, Fetch logic AND Presence
   useEffect(() => {
     const fetchLocales = async () => {
       if (!selectedLevel) {
@@ -108,7 +159,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
         .from('locales')
         .select('*')
         .eq('level', parseInt(selectedLevel))
-        .in('status', ['DISPONIBLE']) // Only show available
+        // .in('status', ['DISPONIBLE']) // REMOVED: Fetch all to show status
         .order('id');
 
       if (data) setLocales(data);
@@ -116,9 +167,17 @@ export default function FisicaForm({ producto }: { producto: string }) {
 
     fetchLocales();
 
-    // Subscribe to changes in locales table
-    const channel = supabase
-      .channel('locales_changes_fisica')
+    // Subscribe to changes in locales table & Presence
+    console.log("Setting up Supabase channel...");
+    const channel = supabase.channel('locales_presence', {
+      config: {
+        presence: {
+          key: userId,
+        },
+      },
+    });
+
+    channel
       .on(
         'postgres_changes',
         {
@@ -127,39 +186,64 @@ export default function FisicaForm({ producto }: { producto: string }) {
           table: 'locales',
         },
         (payload) => {
-          console.log('Realtime update received:', payload);
+          if (payload.new.level === parseInt(selectedLevel)) {
+            setLocales(prev => prev.map(l => l.id === payload.new.id ? payload.new : l));
 
-          if (payload.new.status !== 'DISPONIBLE' && payload.new.level === parseInt(selectedLevel)) {
-            setLocales((prev) => prev.filter((l) => l.id !== payload.new.id));
-
-            if (selectedLocale && selectedLocale.id === payload.new.id) {
+            if (selectedLocale && selectedLocale.id === payload.new.id && payload.new.status !== 'DISPONIBLE') {
               alert("¡El local seleccionado acaba de ser reservado por otro usuario!");
               setSelectedLocale(null);
               setValue("localComercial", "");
             }
           }
-
-          fetchLocales();
         }
       )
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const newState = channel.presenceState();
+        const locks: string[] = [];
+
+        Object.values(newState).forEach((presences: any) => {
+          presences.forEach((p: any) => {
+            if (p.localeId) {
+              const lockId = String(p.localeId); // FORCE STRING
+              // Check against current selection (also forced to string)
+              const currentId = selectedLocale?.id ? String(selectedLocale.id) : null;
+
+              if (lockId !== currentId) {
+                locks.push(lockId);
+              }
+            }
+          });
+        });
+        setLockedLocales(locks);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          if (selectedLocale) {
+            await channel.track({
+              localeId: String(selectedLocale.id), // FORCE STRING
+              user_id: userId
+            });
+          }
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedLevel, selectedLocale, setValue]);
+  }, [selectedLevel, userId]); // Critical: Do NOT include selectedLocale here, or it will reconnect on every click
 
-  // Handle Locale Selection
-  const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const localeId = e.target.value;
-    const locale = locales.find(l => l.id.toString() === localeId);
+  // Separate effect to update tracking when selection changes
+  useEffect(() => {
+    if (!userId) return;
 
-    setSelectedLocale(locale || null);
-    setValue("localComercial", localeId);
-    if (locale) {
-      setValue("metros", locale.area_mt2.toString());
+    const channel = supabase.getChannels().find(c => c.topic === 'realtime:locales_presence');
+    if (channel) {
+      channel.track({
+        localeId: selectedLocale?.id ? String(selectedLocale.id) : null,
+        user_id: userId
+      });
     }
-  };
+  }, [selectedLocale, userId]);
 
   const onSubmit = async (data: FisicaFormData) => {
     try {
@@ -169,8 +253,8 @@ export default function FisicaForm({ producto }: { producto: string }) {
       if (receiptFile) {
         setUploading(true);
         const fileExt = receiptFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-        const filePath = `${fileName}`;
+        const fileName = `${Date.now()} -${Math.random().toString(36).substring(7)}.${fileExt} `;
+        const filePath = `${fileName} `;
 
         const { error: uploadError } = await supabase.storage
           .from('receipts')
@@ -236,9 +320,13 @@ export default function FisicaForm({ producto }: { producto: string }) {
         us_citizen: data.ciudadanoEEUU === "SI",
         us_permanence: data.permanenciaEEUU === "SI",
         us_political: data.politicoEEUU === "SI",
+        moneda: data.moneda,
+        payment_method: data.payment_method,
 
         status: 'pending'
       }
+
+      console.log(dbData);
 
       // Call the RPC function
       const { data: insertedData, error } = await supabase
@@ -251,7 +339,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
 
       // Redirect to confirmation page with reservation ID
       const reservation = insertedData as any;
-      window.location.href = `/confirmacion/${reservation.id}`
+      window.location.href = `/confirmacion/${reservation.id}`;
     } catch (error) {
       console.error('Error submitting form:', error)
       alert("Hubo un error al enviar la solicitud. Por favor intente nuevamente.")
@@ -270,6 +358,26 @@ export default function FisicaForm({ producto }: { producto: string }) {
       fieldsToValidate = ["nivel", "localComercial"];
     } else if (currentStep === 3) {
       fieldsToValidate = ["montoReserva"];
+
+      const paymentMethod = watch("payment_method");
+      if (paymentMethod === "Transferencia" && !receiptFile) {
+        alert("Para transferencia, debe subir el comprobante de pago.");
+        return;
+      }
+
+      // Validate Minimum Amount for DAKA CAPITAL PLUS
+      const product = watch("producto");
+      const currency = watch("moneda");
+      const reservationAmountStr = watch("montoReserva");
+      const reservationAmount = reservationAmountStr ? parseFloat(reservationAmountStr.replace(/[^0-9.]/g, '')) : 0;
+
+      if (product === "DAKA CAPITAL PLUS") {
+        const minAmount = currency === "USD" ? 5000 : 315000;
+        if (reservationAmount < minAmount) {
+          alert(`Para DAKA CAPITAL PLUS, el monto mínimo de reserva es de ${currency} ${minAmount.toLocaleString()}.`);
+          return;
+        }
+      }
     }
 
     const isValid = await trigger(fieldsToValidate);
@@ -294,13 +402,14 @@ export default function FisicaForm({ producto }: { producto: string }) {
     return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(val);
   };
 
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between mb-2">
           {steps.map((step, index) => (
-            <div key={step.id} className={`text-xs md:text-sm font-medium ${index <= currentStep ? "text-[#A9780F]" : "text-gray-400"} `}>
+            <div key={step.id} className={`text - xs md: text - sm font - medium ${index <= currentStep ? "text-[#A9780F]" : "text-gray-400"} `}>
               {index + 1}. <span className="hidden md:inline">{step.title}</span>
             </div>
           ))}
@@ -348,7 +457,17 @@ export default function FisicaForm({ producto }: { producto: string }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-1">Cédula *</label>
-                <input {...register("cedula", { required: "La cédula es requerida" })} placeholder=" 001-1234567-8" className="p-2 border rounded w-full" />
+                <input
+                  {...register("cedula", {
+                    required: "La cédula es requerida",
+                    onChange: (e) => {
+                      const formatted = formatCedula(e.target.value);
+                      setValue("cedula", formatted);
+                    }
+                  })}
+                  placeholder=" 000-0000000-0"
+                  className="p-2 border rounded w-full"
+                />
                 {errors.cedula && <span className="text-red-500 text-xs block mt-1">{errors.cedula.message}</span>}
               </div>
               <div>
@@ -382,7 +501,16 @@ export default function FisicaForm({ producto }: { producto: string }) {
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1">Cédula</label>
-                    <input {...register("cedulaConyuge")} placeholder=" 001-9876543-2" className="p-2 border rounded w-full" />
+                    <input
+                      {...register("cedulaConyuge", {
+                        onChange: (e) => {
+                          const formatted = formatCedula(e.target.value);
+                          setValue("cedulaConyuge", formatted);
+                        }
+                      })}
+                      placeholder=" 001-9876543-2"
+                      className="p-2 border rounded w-full"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold mb-1">Ocupación</label>
@@ -487,7 +615,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
                   value={selectedLevel}
                   {...register("nivel", {
                     required: "Seleccione un nivel",
-                    onChange: (e) => setSelectedLevel(e.target.value)
+                    onChange: (e) => (setSelectedLocale(null), setSelectedLevel(e.target.value))
                   })}
                 >
                   <option value="">Seleccione Nivel</option>
@@ -500,19 +628,39 @@ export default function FisicaForm({ producto }: { producto: string }) {
               <div>
                 <label className="block text-sm font-semibold mb-1">Local Comercial *</label>
                 <select
+                  {...register("localComercial", { required: "El local comercial es requerido", onChange: handleLocaleChange })}
                   className="p-3 border rounded w-full"
                   disabled={!selectedLevel}
-                  {...register("localComercial", {
-                    required: "Seleccione un local",
-                    onChange: handleLocaleChange
-                  })}
                 >
                   <option value="">Seleccione Local</option>
-                  {locales.map((locale: any) => (
-                    <option key={locale.id} value={locale.id}>
-                      Local {locale.id} ({locale.area_mt2} m²)
-                    </option>
-                  ))}
+                  {locales.map((l: Database['public']['Tables']['locales']['Row']) => {
+                    const isLocked = lockedLocales.includes(l.id.toString());
+                    const isAvailable = l.status === 'DISPONIBLE';
+                    let label = `Local ${l.id} (${l.area_mt2} m²)`;
+                    let statusLabel = "";
+
+                    // If my own selection is 'locked' in the array (because of race condition or slow status update), don't disable it for me
+                    const isMySelection = selectedLocale && String(selectedLocale.id) === String(l.id);
+
+                    if (!isAvailable) {
+                      statusLabel = ` - ${l.status}`;
+                    } else if (isLocked && !isMySelection) {
+                      statusLabel = " - EN USO";
+                    }
+
+                    const isDisabled = !isAvailable || (isLocked && !isMySelection);
+
+                    return (
+                      <option
+                        key={l.id}
+                        value={l.id}
+                        disabled={isDisabled}
+                        className={isDisabled ? "text-gray-400 bg-gray-100" : ""}
+                      >
+                        {label}{statusLabel}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -553,56 +701,170 @@ export default function FisicaForm({ producto }: { producto: string }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-semibold mb-1">Reserva (NO REEMBOLSABLE) *</label>
-                <input {...register("montoReserva", { required: "El monto de reserva es requerido" })} placeholder=" RD$50,000" className="p-2 border rounded w-full" />
-                {errors.montoReserva && <span className="text-red-500 text-xs block mt-1">{errors.montoReserva.message}</span>}
-              </div>
-              <div>
-                <label className="block text-sm font-semibold mb-1">Tipo de Banco</label>
-                <select
-                  {...register("banco")}
-                  className="p-2 border rounded w-full"
-                  defaultValue=""
-                >
-                  <option value="">Seleccione Banco</option>
-                  <option value="Banco Popular">Banco Popular</option>
-                </select>
-              </div>
-            </div>
+                <div className="flex items-center border rounded overflow-hidden">
+                  <select
+                    {...register("moneda", {
+                      onChange: () => trigger("montoReserva")
+                    })}
+                    className="h-full px-3 py-2 bg-gray-50 border-r text-sm font-medium outline-none"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="DOP">DOP</option>
+                  </select>
+                  <input {...register("montoReserva", {
+                    required: "El monto de reserva es requerido",
+                    validate: (value) => {
+                      const product = watch("producto");
+                      const currency = watch("moneda");
+                      const amount = value ? parseFloat(value.replace(/[^0-9.]/g, '')) : 0;
 
-            {watch("banco") === "Banco Popular" && (
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
-                <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios para Transferencia</h4>
-                <p className="text-sm text-gray-700"><strong>Banco:</strong> Banco Popular</p>
-                <p className="text-sm text-gray-700"><strong>Cuenta (Pesos):</strong> 844338509 - Daka Dominicana</p>
-                <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
-              </div>
-            )}
+                      if (product === "DAKA CAPITAL PLUS") {
+                        const minAmount = currency === "USD" ? 5000 : 315000;
+                        if (amount < minAmount) {
+                          return `Min: ${currency} ${minAmount.toLocaleString()}`;
+                        }
+                      }
+                      return true;
+                    },
+                    onChange: () => trigger("montoReserva")
+                  })}
+                    placeholder={watch("moneda") === "USD" ? "5,000" : "315,000"}
+                    className="w-full p-2 outline-none border-none" />
+                </div>
+                {errors.montoReserva && <span className="text-red-500 text-xs block mt-1">{errors.montoReserva.message}</span>}</div>
+            </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-semibold mb-2">Subir Comprobante de Pago</label>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setReceiptFile(e.target.files[0]);
-                  }
-                }}
-                className="block w-full text-sm text-gray-500
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-full file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-[#A9780F] file:text-white
-                        hover:file:bg-[#8e650c]
-                    "
-              />
-              {receiptFile && <p className="text-xs text-green-600 mt-1">Archivo seleccionado: {receiptFile.name}</p>}
+              <label className="block text-sm font-semibold mb-2">Método de Pago *</label>
+              <div className="flex justify-center flex-col gap-4">
+                <label className="flex items-center gap-2 cursor-pointer p-4 border rounded-lg w-full hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    value="Transferencia"
+                    {...register("payment_method", { required: "Seleccione un método de pago" })}
+                    className="accent-[#A9780F]"
+                  />
+                  <span className="font-medium">Transferencia Bancaria</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer p-4 border rounded-lg w-full hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    value="Tarjeta"
+                    {...register("payment_method", { required: "Seleccione un método de pago" })}
+                    className="accent-[#A9780F]"
+                  />
+                  <span className="font-medium">Tarjeta de Crédito/Débito</span>
+                </label>
+              </div>
             </div>
 
+            {watch("payment_method") === "Transferencia" && (
+              <>
+                <div className={`transition-all duration-300 ${watch("payment_method") === "Transferencia" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden"}`}>
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold mb-1">Tipo de Banco</label>
+                    <select
+                      {...register("banco")}
+                      className="p-2 border rounded w-full"
+                      defaultValue=""
+                    >
+                      <option value="">Seleccione Banco</option>
+                      <option value="Banco Popular">Banco Popular</option>
+                      <option value="Banreservas">Banreservas</option>
+                      <option value="BHD">BHD</option>
+                    </select>
+                  </div>
+                </div>
+
+                {watch("banco") === "Banco Popular" && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
+                    <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - Popular</h4>
+                    <p className="text-sm text-gray-700"><strong>Cuenta (Pesos):</strong> 844338509 - Daka Dominicana</p>
+                    <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
+                  </div>
+                )}
+
+                {watch("banco") === "Banreservas" && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
+                    <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - Banreservas</h4>
+                    <p className="text-sm text-gray-700"><strong>Cuenta Corriente:</strong> 9605943513</p>
+                    <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
+                  </div>
+                )}
+
+                {watch("banco") === "BHD" && (
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6 animate-fadeIn">
+                    <h4 className="font-bold text-[#131E29] mb-2">Datos Bancarios - BHD</h4>
+                    <p className="text-sm text-gray-700"><strong>Cuenta Corriente (Pesos):</strong> 30588390012</p>
+                    <p className="text-sm text-gray-700"><strong>RNC:</strong> 132139313</p>
+                  </div>
+                )}
+
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold mb-2">Subir Comprobante de Pago *</label>
+                  <div className="w-full">
+                    <input
+                      type="file"
+                      id="file-upload-juridica"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setReceiptFile(e.target.files[0]);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="file-upload-juridica"
+                      className={`w-full flex items-center justify-center px-4 py-3 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-300 ${receiptFile
+                        ? "border-[#A9780F] bg-[#A9780F]/10 text-[#A9780F]"
+                        : "border-gray-300 hover:border-[#A9780F] hover:bg-gray-50 text-gray-500"
+                        }`}
+                    >
+                      <div className="flex flex-col items-center space-y-2">
+                        {receiptFile ? (
+                          <div className="relative w-full flex flex-col items-center">
+                            {/* Preview Content */}
+                            {receiptFile.type.startsWith('image/') && previewUrl ? (
+                              <div className="relative w-full h-48 mb-2 rounded-lg overflow-hidden">
+                                <img
+                                  src={previewUrl}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mb-2">
+                                <span className="text-2xl">📄</span>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setReceiptFile(null);
+                              }}
+                              className="mt-3 px-4 py-1 bg-red-50 text-red-600 rounded-full text-sm font-medium hover:bg-red-100 transition-colors z-20"
+                            >
+                              Eliminar imagen
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-semibold">Click para subir imagen</span>
+                          </>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="mb-4">
-              <div className="flex gap-4">
-                <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors `}>
-                  <input type="radio" value="DAKA CAPITAL" {...register("modalidadPago")} className="mt-1 accent-[#A9780F]" />
+              <div className="flex flex-col gap-4">
+                <label className={`flex items - start gap - 3 p - 4 border rounded - lg cursor - pointer transition - colors`}>
+                  <input type="radio" value="DAKA CAPITAL" {...register("producto")} className="mt-1 accent-[#A9780F]" />
                   <div>
                     <span className="font-bold block">DAKA CAPITAL (Estándar)</span>
                     <ul className="text-sm text-gray-600 list-disc list-inside">
@@ -613,13 +875,15 @@ export default function FisicaForm({ producto }: { producto: string }) {
                   </div>
                 </label>
                 <label className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors bg-yellow-50 border-[#A9780F]`}>
-                  <input type="radio" value="DAKA CAPITAL PLUS" {...register("modalidadPago")} className="mt-1 accent-[#A9780F]" />
+                  <input type="radio" value="DAKA CAPITAL PLUS" {...register("producto")} className="mt-1 accent-[#A9780F]" />
                   <div>
                     <span className="font-bold block">DAKA CAPITAL PLUS (Premium)</span>
                     <ul className="text-sm text-gray-600 list-disc list-inside">
-                      <li>45% inicial</li>
+                      <li>Gana 35% de plusvalía más un Cash Back del 20%</li>
+                      <li>Reserva con 5,000 USD</li>
+                      <li>39,185 USD a la firma del contrato</li>
+                      <li>Completa el 45% durante la construcción</li>
                       <li>55% contra entrega</li>
-                      <li>20% de retorno del inicial al final del proyecto</li>
                     </ul>
                   </div>
                 </label>
@@ -654,12 +918,12 @@ export default function FisicaForm({ producto }: { producto: string }) {
       </AnimatePresence>
 
       {/* Navigation Buttons */}
-      <div className={`flex flex-col gap-2  ${currentStep === steps.length - 1 ? "justify-center" : "justify-between"}`}>
+      <div className={`flex flex-col gap-2 ${currentStep === steps.length - 1 ? "justify-center" : "justify-between"} `}>
         <button
           type="button"
           onClick={prevStep}
           disabled={currentStep === 0}
-          className={`p-2 rounded-lg font-semibold border ${currentStep === 0 ? "hidden" : ""}`}
+          className={`p-2 rounded-lg font-bold text-black border border-black ${currentStep === 0 ? "hidden" : ""} `}
         >
           Anterior
         </button>
@@ -668,7 +932,7 @@ export default function FisicaForm({ producto }: { producto: string }) {
           <button
             type="button"
             onClick={nextStep}
-            className={`p-2 rounded-lg font-bold text-white bg-[#A9780F]  ${currentStep < steps.length - 1 ? "w-full" : ""}`}
+            className={`p-2 rounded-lg font-bold text-white bg-[#A9780F] ${currentStep < steps.length - 1 ? "w-full" : ""} `}
           >
             Siguiente
           </button>

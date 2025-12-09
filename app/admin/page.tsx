@@ -72,12 +72,26 @@ export default function AdminPage() {
 
         setUpdatingStatus(true);
         try {
-            const { error } = await supabase
+            // 1. Update Reservation Status
+            const { error: reservationError } = await supabase
                 .from("reservations")
                 .update({ status: newStatus })
                 .eq("id", selectedReservation.id);
 
-            if (error) throw error;
+            if (reservationError) throw reservationError;
+
+            // 2. If Approving AND unit_code exists, update Locale Status to 'VENDIDO'
+            if (newStatus === "approved" && selectedReservation.unit_code) {
+                const { error: localeError } = await supabase
+                    .from("locales")
+                    .update({ status: "VENDIDO" })
+                    .eq("id", parseInt(selectedReservation.unit_code)); // unit_code is the locale ID
+
+                if (localeError) {
+                    console.error("Error updating locale status:", localeError);
+                    alert("Reserva aprobada, pero hubo un error actualizando el estado del local: " + localeError.message);
+                }
+            }
 
             // Update local state
             setReservations((prev) =>
@@ -165,6 +179,12 @@ export default function AdminPage() {
                                         scope="col"
                                         className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700"
                                     >
+                                        Método Pago
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700"
+                                    >
                                         Precio
                                     </th>
                                     <th
@@ -198,6 +218,9 @@ export default function AdminPage() {
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                                             {reservation.product || "-"}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                                            {reservation.payment_method || "-"}
                                         </td>
                                         <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#A9780F]">
                                             {reservation.reservation_amount
@@ -357,6 +380,36 @@ export default function AdminPage() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Payment Receipt */}
+                            {selectedReservation.receipt_url && (
+                                <div>
+                                    <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+                                        Comprobante de Pago
+                                    </h3>
+                                    <div className="mt-2">
+                                        <a href={selectedReservation.receipt_url} target="_blank" rel="noopener noreferrer" className="block relative group cursor-zoom-in">
+                                            <div className="relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={selectedReservation.receipt_url}
+                                                    alt="Comprobante de pago"
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                    <div className="opacity-0 group-hover:opacity-100 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-all transform translate-y-2 group-hover:translate-y-0">
+                                                        Clic para ampliar
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </a>
+                                        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                                            <Clock size={12} />
+                                            Subido el {new Date(selectedReservation.created_at).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Unit Info */}
                             {selectedReservation.unit_code && (
