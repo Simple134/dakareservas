@@ -51,17 +51,12 @@ interface JuridicaFormData {
     banco: string;
     numTransaccion: string;
     product: string;
-
-    // V. Declaraciones
-    conozcoInmueble: string;
-    origenLicito: string;
 }
 
 const steps = [
     { id: "empresa", title: "Datos de la Empresa" },
     { id: "representante", title: "Representante Legal" },
-    { id: "inmueble", title: "Datos del Inmueble" },
-    { id: "declaraciones", title: "Declaraciones" },
+    { id: "inmueble", title: "Datos del Inmueble" }
 ];
 
 export default function JuridicaForm() {
@@ -233,9 +228,7 @@ export default function JuridicaForm() {
                 company_type: data.tipoEmpresa,
                 company_name: data.razonSocial,
                 rnc: data.rnc,
-                // Note: Interface says registroMercantil, looking at lines 15 & 268 it might be inconsistently named.
-                // Line 268 in view_file (Step 137) was: mercantil_registry: data.registroMercantil
-                // Let's use what was there before but careful with property names.
+             
                 mercantil_registry: data.registroMercantil,
                 email: data.email,
 
@@ -271,10 +264,6 @@ export default function JuridicaForm() {
                 unit_meters: data.metros || null,
                 unit_parking: data.parqueo || null,
                 locale_id: data.localComercial ? parseInt(data.localComercial) : null,
-
-                // Declarations
-                knows_property: data.conozcoInmueble === "SI",
-                licit_funds: data.origenLicito === "SI",
 
                 status: 'pending'
             };
@@ -330,7 +319,6 @@ export default function JuridicaForm() {
         } else if (currentStep === 2) {
             fieldsToValidate = ["nivel", "localComercial"];
         }
-        // Step 3 (Declarations) handled by required
 
         const isValid = await trigger(fieldsToValidate);
         if (isValid) {
@@ -351,7 +339,7 @@ export default function JuridicaForm() {
     };
 
     const formatCurrency = (val: number) => {
-        return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(val);
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
     };
 
     return (
@@ -690,56 +678,6 @@ export default function JuridicaForm() {
                                 </div>
                             </div>
                         )}
-                    </motion.div>
-                )}
-
-                {currentStep === 3 && (
-                    <motion.div key="step3" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
-                        <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Declaraciones</h3>
-                        <div className="space-y-4">
-                            <div className="p-4 bg-gray-50 rounded-lg border">
-                                <p className="mb-2 font-medium">¿Conoce usted el inmueble objeto de esta operación?</p>
-                                <div className="flex gap-4">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" value="SI" {...register("conozcoInmueble", { required: "Debe seleccionar una opción" })} className="accent-[#A9780F]" />
-                                        <span>Sí</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" value="NO" {...register("conozcoInmueble", { required: "Debe seleccionar una opción" })} className="accent-[#A9780F]" />
-                                        <span>No</span>
-                                    </label>
-                                </div>
-                                {errors.conozcoInmueble && <span className="text-red-500 text-xs block mt-1">{errors.conozcoInmueble.message}</span>}
-                            </div>
-
-                            <div className="p-4 bg-gray-50 rounded-lg border">
-                                <p className="mb-2 font-medium">¿El origen de los fondos para esta operación es lícito?</p>
-                                <div className="flex gap-4">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" value="SI" {...register("origenLicito", { required: "Debe declarar el origen de los fondos" })} className="accent-[#A9780F]" />
-                                        <span>Sí, declaro que el origen es lícito</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" value="NO" {...register("origenLicito", { required: "Debe declarar el origen de los fondos" })} className="accent-[#A9780F]" />
-                                        <span>No</span>
-                                    </label>
-                                </div>
-                                {errors.origenLicito && <span className="text-red-500 text-xs block mt-1">{errors.origenLicito.message}</span>}
-                            </div>
-                        </div>
-
-                        <div className="mt-8 flex justify-center">
-                            <button
-                                type="submit"
-                                disabled={uploading}
-                                className={`
-                                    bg-[#A9780F] text-white px-8 py-3 rounded-lg font-bold hover:bg-[#8a620c] transition-colors
-                                    ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
-                                `}
-                            >
-                                {uploading ? 'Procesando...' : 'Registrar y Continuar'}
-                            </button>
-                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>

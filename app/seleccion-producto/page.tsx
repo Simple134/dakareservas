@@ -16,7 +16,6 @@ export default function ProductSelectionPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState<any[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -34,6 +33,8 @@ export default function ProductSelectionPage() {
 
             if (data) {
                 const validProducts = data.filter(p => PRODUCT_IMAGES[p.name]);
+                // Sort to put PLUS (longer name) first/left
+                validProducts.sort((a, b) => b.name.length - a.name.length);
                 setProducts(validProducts);
             }
             setLoading(false);
@@ -42,22 +43,13 @@ export default function ProductSelectionPage() {
         fetchEverything();
     }, [router]);
 
-    const handleDragEnd = (event: any, info: any) => {
-        const swipeThreshold = 50;
 
-        if (info.offset.x > swipeThreshold) {
-            setCurrentIndex((prev) => (prev - 1 + products.length) % products.length);
-        } else if (info.offset.x < -swipeThreshold) {
-            setCurrentIndex((prev) => (prev + 1) % products.length);
-        }
-    };
 
-    const handleSelectProduct = async () => {
-        if (submitting || products.length === 0) return;
+    const handleSelectProduct = async (product: any) => {
+        if (submitting) return;
 
         try {
             setSubmitting(true);
-            const product = products[currentIndex];
             const userId = localStorage.getItem('daka_user_id');
             const userType = localStorage.getItem('daka_user_type');
 
@@ -93,7 +85,7 @@ export default function ProductSelectionPage() {
         );
     }
 
-    const currentProduct = products[currentIndex];
+
 
     return (
         <div className="min-h-screen bg-white flex flex-col items-center justify-center relative overflow-hidden">
@@ -121,56 +113,42 @@ export default function ProductSelectionPage() {
                     </h2>
                 </motion.div>
 
-                <div className="relative w-full flex items-center justify-center">
-                    <div className="relative w-full h-[500px] md:h-[600px] flex items-center justify-center perspective-1000 touch-pan-y select-none">
-                        <AnimatePresence mode="wait">
-                            {currentProduct && (
-                                <motion.div
-                                    key={currentProduct.id}
-                                    initial={{ opacity: 0, x: 50, scale: 0.9 }}
-                                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                                    exit={{ opacity: 0, x: -50, scale: 0.9 }}
-                                    transition={{ duration: 0.4 }}
-                                    drag="x"
-                                    dragConstraints={{ left: 0, right: 0 }}
-                                    dragElastic={0.3}
-                                    onDragEnd={handleDragEnd}
-                                    className="relative w-full h-full flex items-center justify-center cursor-grab active:cursor-grabbing"
-                                >
-                                    <div className="relative w-full h-full  pointer-events-none">
-                                        <Image
-                                            src={PRODUCT_IMAGES[currentProduct.name] || "/dakaCapital.png"}
-                                            alt={currentProduct.name}
-                                            fill
-                                            className="object-contain drop-shadow-2xl"
-                                            priority
-                                        />
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
+                <div className="w-full flex-1 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 px-4 max-w-6xl mx-auto">
+                    {products.map((product) => (
+                        <motion.div
+                            key={product.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleSelectProduct(product)}
+                            className={`
+                                relative w-full h-[600px]
+                                rounded-3xl overflow-hidden cursor-pointer 
+                                shadow-xl hover:shadow-2xl transition-all duration-300
+                                group bg-white border border-[#081845]
+                                ${submitting ? 'pointer-events-none opacity-50' : ''}
+                            `}
+                        >
+                            <div className="absolute inset-0 p-6 flex flex-col items-center">
+                                <div className="relative flex-1 w-full flex items-center justify-center">
+                                    <Image
+                                        src={PRODUCT_IMAGES[product.name] || "/dakaCapital.png"}
+                                        alt={product.name}
+                                        fill
+                                        className="object-contain transition-all duration-300"
+                                        priority
+                                    />
+                                </div>
+                                <p className="text-sm text-gray-500 mb-6">
+                                    Disponibles: <span className="font-semibold text-[#C8A31D]">
+                                        {product.limit - product.count}
+                                    </span>
+                                </p>
+                            </div>
+                        </motion.div>
+                    ))}
                 </div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                    className="flex flex-col items-center space-y-4 pt-4 w-full"
-                >
-                    <div className="text-center">
-                        <h3 className="text-2xl font-bold text-black">{currentProduct?.name}</h3>
-                        <p className="text-gray-500 text-sm mt-1">Disponibles: <span className="font-semibold text-[#C8A31D]">{currentProduct?.limit - currentProduct?.count}</span></p>
-                    </div>
-
-                    <button
-                        onClick={handleSelectProduct}
-                        disabled={submitting}
-                        className="group w-full rounded-xl bg-[#C8A31D] text-white font-semibold p-3 "
-                    >
-                        <span>{submitting ? 'Procesando...' : 'Seleccionar'}</span>
-                    </button>
-                </motion.div>
 
             </div>
         </div>

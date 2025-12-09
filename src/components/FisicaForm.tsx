@@ -49,21 +49,12 @@ interface FisicaFormData {
   banco: string;
   numTransaccion: string;
   product: string;
-
-  // IV. Declaraciones
-  conozcoInmueble: string;
-  origenLicito: string;
-  residenciaEEUU: string;
-  ciudadanoEEUU: string;
-  permanenciaEEUU: string;
-  politicoEEUU: string;
 }
 
 const steps = [
   { id: "personal", title: "Datos Personales" },
   { id: "direccion", title: "Dirección y Nacionalidad" },
   { id: "inmueble", title: "Datos del Inmueble" },
-  { id: "declaraciones", title: "Declaraciones" },
 ];
 
 export default function FisicaForm() {
@@ -269,14 +260,6 @@ export default function FisicaForm() {
         unit_parking: data.parqueo || null,
         locale_id: data.localComercial ? parseInt(data.localComercial) : null,
 
-        // Declarations
-        knows_property: data.conozcoInmueble === "SI",
-        licit_funds: data.origenLicito === "SI",
-        us_residency: data.residenciaEEUU === "SI",
-        us_citizen: data.ciudadanoEEUU === "SI",
-        us_permanence: data.permanenciaEEUU === "SI",
-        us_political: data.politicoEEUU === "SI",
-
         status: 'pending'
       }
 
@@ -319,7 +302,6 @@ export default function FisicaForm() {
     } else if (currentStep === 2) {
       fieldsToValidate = ["nivel", "localComercial"];
     }
-    // Step 3 (Declarations) validation is handled by 'required' in register
 
     const isValid = await trigger(fieldsToValidate);
     if (isValid) {
@@ -340,7 +322,7 @@ export default function FisicaForm() {
   };
 
   const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(val);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
   };
 
 
@@ -654,41 +636,9 @@ export default function FisicaForm() {
                     <p className="text-gray-500">Valor Total</p>
                     <p className="font-bold text-lg text-[#131E29]">{formatCurrency(selectedLocale.total_value)}</p>
                   </div>
-                  <div className="col-span-2 md:col-span-2 mt-2 pt-2 border-t border-gray-200">
-                    <p className="text-gray-600 font-medium">Separación (10%)</p>
-                    <p className="font-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_10)}</p>
-                  </div>
-                  <div className="col-span-2 md:col-span-2 mt-2 pt-2 border-t border-gray-200">
-                    <p className="text-gray-600 font-medium">Separación</p>
-                    <p className="font-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_45)}</p>
-                  </div>
                 </div>
               </div>
             )}
-          </motion.div>
-        )}
-
-        {currentStep === 3 && (
-          <motion.div key="step3" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
-            <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Declaraciones</h3>
-            <div className="space-y-4 mb-8">
-              {[
-                { label: "Conozco el estado del inmueble", name: "conozcoInmueble" },
-                { label: "Los fondos tienen origen lícito (Ley 155-17)", name: "origenLicito" },
-                { label: "¿Ha residido o nació en EE. UU.?", name: "residenciaEEUU" },
-                { label: "¿Es ciudadano o ha sido ciudadano de EE. UU.?", name: "ciudadanoEEUU" },
-                { label: "¿Tiene permanencia significativa en EE. UU.?", name: "permanenciaEEUU" },
-                { label: "¿Ha ocupado un puesto político o algún familiar lo ha ocupado en los últimos 3 años?", name: "politicoEEUU" },
-              ].map((item) => (
-                <div key={item.name} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
-                  <span className="text-sm md:text-base pr-4">{item.label}</span>
-                  <div className="flex gap-4 shrink-0">
-                    <label className="cursor-pointer"><input type="radio" value="SI" {...register(item.name as keyof FisicaFormData, { required: true })} className="mr-1 accent-[#A9780F]" /> SI</label>
-                    <label className="cursor-pointer"><input type="radio" value="NO" {...register(item.name as keyof FisicaFormData, { required: true })} className="mr-1 accent-[#A9780F]" /> NO</label>
-                  </div>
-                </div>
-              ))}
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

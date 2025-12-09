@@ -22,12 +22,6 @@ export default function ConfirmacionPage() {
     const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'card'>('transfer');
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
-
-    // Property Selection State
-    const [levels, setLevels] = useState<number[]>([]);
-    const [locales, setLocales] = useState<any[]>([]);
-    const [selectedLevel, setSelectedLevel] = useState<string>("");
-    const [selectedLocale, setSelectedLocale] = useState<any>(null);
     const [userId, setUserId] = useState<string>("");
     const [lockedLocales, setLockedLocales] = useState<string[]>([]);
 
@@ -50,136 +44,6 @@ export default function ConfirmacionPage() {
         setUserId(crypto.randomUUID());
     }, []);
 
-    // Fetch Levels on Mount
-    useEffect(() => {
-        const fetchLevels = async () => {
-            const { data, error } = await supabase
-                .from('locales')
-                .select('level')
-                .order('level');
-
-            if (data) {
-                const uniqueLevels = Array.from(new Set(data.map((l: any) => l.level)));
-                setLevels(uniqueLevels);
-            }
-        };
-        fetchLevels();
-    }, []);
-
-    // Handle Locale Selection
-    const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const localeId = e.target.value;
-        const locale = locales.find(l => l.id.toString() === localeId);
-
-        if (lockedLocales.includes(localeId)) {
-            alert("Este local está siendo visto por otro cliente en este momento.");
-            return;
-        }
-
-        // Check for all unavailable statuses
-        if (locale && locale.status !== 'DISPONIBLE') {
-            alert(`Este local no está disponible (${locale.status}).`);
-            return;
-        }
-
-        setSelectedLocale(locale || null);
-    };
-
-    // Realtime Locales Update, Fetch logic AND Presence
-    useEffect(() => {
-        const fetchLocales = async () => {
-            if (!selectedLevel) {
-                setLocales([]);
-                return;
-            }
-
-            const { data, error } = await supabase
-                .from('locales')
-                .select('*')
-                .eq('level', parseInt(selectedLevel))
-                .order('id');
-
-            if (data) setLocales(data);
-        };
-
-        fetchLocales();
-
-        // Subscribe to changes in locales table & Presence
-        console.log("Setting up Supabase channel...");
-        const channel = supabase.channel('locales_presence_conf', {
-            config: {
-                presence: {
-                    key: userId,
-                },
-            },
-        });
-
-        channel
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'locales',
-                },
-                (payload) => {
-                    if (payload.new.level === parseInt(selectedLevel)) {
-                        setLocales(prev => prev.map(l => l.id === payload.new.id ? payload.new : l));
-
-                        if (selectedLocale && selectedLocale.id === payload.new.id && payload.new.status !== 'DISPONIBLE') {
-                            alert("¡El local seleccionado acaba de ser reservado por otro usuario!");
-                            setSelectedLocale(null);
-                        }
-                    }
-                }
-            )
-            .on('presence', { event: 'sync' }, () => {
-                const newState = channel.presenceState();
-                const locks: string[] = [];
-
-                Object.values(newState).forEach((presences: any) => {
-                    presences.forEach((p: any) => {
-                        if (p.localeId) {
-                            const lockId = String(p.localeId); // FORCE STRING
-                            // Check against current selection (also forced to string)
-                            const currentId = selectedLocale?.id ? String(selectedLocale.id) : null;
-
-                            if (lockId !== currentId) {
-                                locks.push(lockId);
-                            }
-                        }
-                    });
-                });
-                setLockedLocales(locks);
-            })
-            .subscribe(async (status) => {
-                if (status === 'SUBSCRIBED') {
-                    if (selectedLocale) {
-                        await channel.track({
-                            localeId: String(selectedLocale.id), // FORCE STRING
-                            user_id: userId
-                        });
-                    }
-                }
-            });
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [selectedLevel, userId]);
-
-    // Separate effect to update tracking when selection changes
-    useEffect(() => {
-        if (!userId) return;
-
-        const channel = supabase.getChannels().find(c => c.topic === 'realtime:locales_presence_conf');
-        if (channel) {
-            channel.track({
-                localeId: selectedLocale?.id ? String(selectedLocale.id) : null,
-                user_id: userId
-            });
-        }
-    }, [selectedLocale, userId]);
 
     useEffect(() => {
         async function fetchAllocation() {
@@ -233,18 +97,8 @@ export default function ConfirmacionPage() {
         return () => URL.revokeObjectURL(objectUrl);
     }, [receiptFile]);
 
-    const formatCurrency = (val: number) => {
-        return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(val);
-    };
 
     const handleUpdatePayment = async () => {
-        // Validation
-
-        // 1. Local Validation
-        if (!selectedLocale) {
-            alert("Por favor seleccione un Local Comercial.");
-            return;
-        }
 
         const numAmount = Number(amount);
         if (!amount || isNaN(numAmount) || numAmount <= 0) {
@@ -298,41 +152,7 @@ export default function ConfirmacionPage() {
 
             if (allocError) throw allocError;
 
-            // Update Linked Persona (Fisica or Juridica) with Locale Info
-            const localeData = {
-                unit_code: selectedLocale.id.toString(),
-                unit_level: selectedLevel,
-                unit_meters: selectedLocale.area_mt2.toString(),
-                unit_parking: null, // Depending on if parking logic exists, for now null
-                locale_id: selectedLocale.id
-            };
-
-            if (allocation?.persona_fisica_id) {
-                const { error: pfError } = await supabase
-                    .from('persona_fisica')
-                    .update(localeData)
-                    .eq('id', allocation.persona_fisica_id);
-                if (pfError) throw pfError;
-            } else if (allocation?.persona_juridica_id) {
-                const { error: pjError } = await supabase
-                    .from('persona_juridica')
-                    .update(localeData)
-                    .eq('id', allocation.persona_juridica_id);
-                if (pjError) throw pjError;
-            }
-
-            // Update Locale Status to RESERVADO
-            const { error: localeError } = await supabase
-                .from('locales')
-                .update({ status: 'RESERVADO' })
-                .eq('id', selectedLocale.id);
-
-            if (localeError) {
-                // Non-blocking error but should be noted
-                console.error("Error updating locale status:", localeError);
-            }
-
-            router.push('/');
+            router.push('/welcome');
 
         } catch (error: any) {
             console.error("Error updating payment:", error);
@@ -439,123 +259,17 @@ export default function ConfirmacionPage() {
                             {product && (
                                 <div className="mb-4 text-center border-b pb-4">
                                     <h4 className="fw-bold" style={{ color: "#131E29" }}>{product.name}</h4>
-                                    <p className="text-muted text-sm">ID: {allocationId.slice(0, 8)}</p>
                                 </div>
                             )}
 
                             {/* Payment Inputs */}
                             {!allocation?.amount ? (
                                 <div className="space-y-6 text-start">
-
-                                    {/* 0. Locale Selection */}
-                                    <div className="mb-6 border-b pb-6">
-                                        <h5 className="fw-bold mb-4" style={{ color: "#131E29" }}>Datos del Inmueble</h5>
-                                        <div className="row g-3">
-                                            <div className="col-md-6">
-                                                <label className="form-label fw-bold small">Nivel *</label>
-                                                <select
-                                                    className="form-select p-3 rounded-xl border-gray-200"
-                                                    value={selectedLevel}
-                                                    onChange={(e) => {
-                                                        setSelectedLocale(null);
-                                                        setSelectedLevel(e.target.value);
-                                                    }}
-                                                >
-                                                    <option value="">Seleccione Nivel</option>
-                                                    {levels.map(level => (
-                                                        <option key={level} value={level}>Nivel {level}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-                                            <div className="col-md-6">
-                                                <label className="form-label fw-bold small">Local Comercial *</label>
-                                                <select
-                                                    className="form-select p-3 rounded-xl border-gray-200"
-                                                    onChange={handleLocaleChange}
-                                                    disabled={!selectedLevel}
-                                                    value={selectedLocale?.id || ""}
-                                                >
-                                                    <option value="">Seleccione Local</option>
-                                                    {locales.map((l: Database['public']['Tables']['locales']['Row']) => {
-                                                        const isLocked = lockedLocales.includes(l.id.toString());
-                                                        const isAvailable = l.status === 'DISPONIBLE';
-                                                        let label = `Local ${l.id} (${l.area_mt2} m²)`;
-                                                        let statusLabel = "";
-
-                                                        // If my own selection is 'locked' in the array
-                                                        const isMySelection = selectedLocale && String(selectedLocale.id) === String(l.id);
-
-                                                        if (!isAvailable) {
-                                                            statusLabel = ` - ${l.status}`;
-                                                        } else if (isLocked && !isMySelection) {
-                                                            statusLabel = " - EN USO";
-                                                        }
-
-                                                        const isDisabled = !isAvailable || (isLocked && !isMySelection);
-
-                                                        return (
-                                                            <option
-                                                                key={l.id}
-                                                                value={l.id}
-                                                                disabled={isDisabled}
-                                                                className={isDisabled ? "text-gray-400 bg-gray-100" : ""}
-                                                            >
-                                                                {label}{statusLabel}
-                                                            </option>
-                                                        );
-                                                    })}
-                                                </select>
-                                            </div>
-                                        </div>
-
-                                        {selectedLevel && (
-                                            <div className="mt-4 w-full animate-fadeIn">
-                                                <p className="text-sm font-semibold mb-2 text-gray-700">Plano del Nivel {selectedLevel}</p>
-                                                <div className="w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm relative">
-                                                    <img
-                                                        src={`/piso/piso${selectedLevel}.png`}
-                                                        alt={`Plano Nivel ${selectedLevel}`}
-                                                        className="w-full h-auto object-contain block"
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {selectedLocale && (
-                                            <div className="mt-4 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-fadeIn">
-                                                <h6 className="font-bold text-[#A9780F] mb-3">Detalles del Local {selectedLocale.id}</h6>
-                                                <div className="row g-3 text-sm">
-                                                    <div className="col-6">
-                                                        <p className="text-gray-500 mb-0">Metros Cuadrados</p>
-                                                        <p className="fw-bold">{selectedLocale.area_mt2} m²</p>
-                                                    </div>
-                                                    <div className="col-6">
-                                                        <p className="text-gray-500 mb-0">Precio por m²</p>
-                                                        <p className="fw-bold">{formatCurrency(selectedLocale.price_per_mt2)}</p>
-                                                    </div>
-                                                    <div className="col-12 border-t pt-2 mt-2">
-                                                        <div className="d-flex justify-content-between items-center">
-                                                            <span className="text-gray-500">Valor Total</span>
-                                                            <span className="fw-bold fs-5 text-[#131E29]">{formatCurrency(selectedLocale.total_value)}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="col-12 border-t pt-2 mt-0">
-                                                        <div className="d-flex justify-content-between items-center">
-                                                            <span className="text-gray-600 font-medium">Separación (10%)</span>
-                                                            <span className="fw-bold text-[#A9780F]">{formatCurrency(selectedLocale.separation_10)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
                                     {/* 1. Currency & Amount */}
                                     <div className="row g-3">
                                         <div className="col-md-4">
                                             <label className="form-label fw-bold">Moneda</label>
-                                            <div className="d-flex gap-2">
+                                            <div className="flex gap-2">
                                                 {['USD', 'DOP'].map((curr) => (
                                                     <button
                                                         key={curr}
@@ -584,6 +298,11 @@ export default function ConfirmacionPage() {
                                                     onChange={(e) => setAmount(e.target.value)}
                                                 />
                                             </div>
+                                            {amount !== '' && Number(amount) < minInvestment && (
+                                                <div className="text-danger text-xs mt-1">
+                                                    El monto debe ser mínimo {minInvestment.toLocaleString()} {currency}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -668,14 +387,26 @@ export default function ConfirmacionPage() {
                                         </motion.div>
                                     )}
 
-                                    <button
-                                        onClick={handleUpdatePayment}
-                                        disabled={updating || !amount || (paymentMethod === 'transfer' && !receiptFile) || !selectedLocale}
-                                        className="btn w-100 py-3 fw-bold text-white shadow-sm mt-4 rounded-xl transition-all"
-                                        style={{ backgroundColor: "#A9780F", borderColor: "#A9780F" }}
-                                    >
-                                        {updating ? 'Procesando...' : 'Confirmar Inversión'}
-                                    </button>
+                                    <div className="d-flex gap-3 mt-4">
+                                        <button
+                                            onClick={() => router.push("/")}
+                                            className="btn flex-fill py-3 fw-bold text-white shadow-sm rounded-xl transition-all"
+                                            style={{
+                                                background: "#131E29",
+                                                border: "none"
+                                            }}
+                                        >
+                                            Volver Inicio
+                                        </button>
+                                        <button
+                                            onClick={handleUpdatePayment}
+                                            disabled={updating || !amount || Number(amount) < minInvestment || (paymentMethod === 'transfer' && !receiptFile)}
+                                            className="btn flex-fill py-3 fw-bold text-white shadow-sm rounded-xl transition-all"
+                                            style={{ backgroundColor: "#A9780F", borderColor: "#A9780F" }}
+                                        >
+                                            {updating ? 'Procesando...' : 'Confirmar Inversión'}
+                                        </button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="alert alert-success">
@@ -693,47 +424,6 @@ export default function ConfirmacionPage() {
 
                         </div>
                     </motion.div>
-
-                    {/* Action Buttons */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 1 }}
-                        className="d-flex flex-column flex-md-row gap-3 justify-content-center"
-                    >
-                        <button
-                            onClick={() => router.push("/")}
-                            className="btn btn-lg px-5 py-3 fw-bold rounded-pill"
-                            style={{
-                                background: "linear-gradient(90deg, #131E29 0%, #2C3E50 100%)",
-                                color: "white",
-                                border: "none",
-                                boxShadow: "0 4px 15px rgba(19, 30, 41, 0.2)"
-                            }}
-                        >
-                            Volver al Inicio
-                        </button>
-                        <button
-                            onClick={() => window.print()}
-                            className="btn btn-lg btn-outline-secondary px-5 py-3 fw-bold rounded-pill"
-                        >
-                            Imprimir Comprobante
-                        </button>
-                    </motion.div>
-
-                    {/* Contact Info */}
-                    <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 1.2 }}
-                        className="text-muted mt-5"
-                        style={{ fontSize: "0.9rem" }}
-                    >
-                        ¿Tiene preguntas? Contáctenos al{" "}
-                        <a href="tel:+1234567890" className="text-decoration-none fw-semibold" style={{ color: "#A9780F" }}>
-                            (809) 123-4567
-                        </a>
-                    </motion.p>
                 </motion.div>
             </Container>
         </div>
