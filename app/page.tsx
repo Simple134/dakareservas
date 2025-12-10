@@ -278,10 +278,10 @@ export default function Home() {
                 className="w-full h-full"
               >
                 {/* Main Content Area */}
-                <div className="grid grid-cols-3 overflow-hidden h-full">
+                <div className="grid grid-cols-3 overflow-hidden h-full items-center justify-center flex">
 
                   {/* Carousel Section (70%) */}
-                  <div className="col-span-2 w-full bg-white flex items-center justify-center relative overflow-hidden h-full">
+                  <div className="col-span-2 w-full bg-white flex items-center justify-center relative overflow-hidden">
                     <Carousels />
                   </div>
 
