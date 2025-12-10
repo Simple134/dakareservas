@@ -287,7 +287,7 @@ export default function Home() {
 
                   {/* QR Section (30%) */}
                   <div className="col-span-1 w-full p-6 flex flex-col items-center justify-center text-center bg-white relative h-full">
-                    <div className="relative w-full max-w-[240px] aspect-square mb-6 p-4 bg-white rounded-2xl shadow-[0_0_20px_rgba(169,120,15,0.15)] border border-gray-100 group transition-all hover:shadow-[0_0_30px_rgba(169,120,15,0.25)]">
+                    <div className="relative w-full  aspect-square mb-6 p-4 bg-white rounded-2xl shadow-[0_0_20px_rgba(169,120,15,0.15)] border border-gray-100 group transition-all hover:shadow-[0_0_30px_rgba(169,120,15,0.25)]">
                       <div className="relative w-full h-full">
                         <Image
                           src="/qr.png"
