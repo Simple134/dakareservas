@@ -52,8 +52,9 @@ export default function WelcomePage() {
                             <div className="w-full flex flex-col items-center space-y-6">
                                 <button
                                     onClick={() => setStep("explanation")}
-                                    className="group w-full bg-[#C8A31D] hover:bg-[#8e650c] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
-                                >
+                                    className="bg-[#C8A31D] w-full text-white font-semibold py-4 px-8 rounded-2xl"
+                                    style={{borderRadius: "20px"}}
+                                    >
                                     <span>Ir al Sistema</span>
                                 </button>
                             </div>
@@ -90,7 +91,7 @@ export default function WelcomePage() {
                                 width={500}
                                 height={500}
                                 className="object-contain drop-shadow-xl"
-                                />
+                            />
 
                             {/* Action */}
                             <motion.div
@@ -101,7 +102,7 @@ export default function WelcomePage() {
                             >
                                 <Link
                                     href="/formulario"
-                                    className="group w-full bg-[#C8A31D] hover:bg-[#8e650c] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
+                                    className="group w-full bg-[#C8A31D] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
                                 >
                                     <span>Continuar</span>
                                 </Link>

@@ -9,7 +9,9 @@ import { useRouter } from "next/navigation";
 // Mapping product names to images
 const PRODUCT_IMAGES: Record<string, string> = {
     "DAKA CAPITAL": "/dakaCapital.png",
-    "DAKA CAPITAL PLUS": "/dakaCapitalPlus.png"
+    "DAKA CAPITAL PLUS": "/dakaCapitalPlus.png",
+    "RESERVA": "/reserva.png", // Attempt uppercase
+    "Reserva": "/reserva.png"  // Attempt Capitalized
 };
 
 export default function ProductSelectionPage() {
@@ -17,6 +19,7 @@ export default function ProductSelectionPage() {
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState<any[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const [showSoldOutMessage, setShowSoldOutMessage] = useState(false);
 
     useEffect(() => {
         const fetchEverything = async () => {
@@ -32,8 +35,27 @@ export default function ProductSelectionPage() {
                 .order('name', { ascending: true });
 
             if (data) {
-                const validProducts = data.filter(p => PRODUCT_IMAGES[p.name]);
-                // Sort to put PLUS (longer name) first/left
+                // Check availability of main products
+                const dakaCapital = data.find(p => p.name === "DAKA CAPITAL");
+                const dakaPlus = data.find(p => p.name === "DAKA CAPITAL PLUS");
+
+                // Determine availability (limit - count > 0)
+                const capitalSoldOut = dakaCapital ? (dakaCapital.limit - dakaCapital.count) <= 0 : true;
+                const plusSoldOut = dakaPlus ? (dakaPlus.limit - dakaPlus.count) <= 0 : true;
+
+                let validProducts: any[] = [];
+
+                if (capitalSoldOut && plusSoldOut) {
+                    // Both sold out -> Show ONLY "Reserva"
+                    validProducts = data.filter(p => p.name.toUpperCase() === "RESERVA");
+                    setShowSoldOutMessage(true);
+                } else {
+                    // At least one available -> Show standard products
+                    validProducts = data.filter(p => ["DAKA CAPITAL", "DAKA CAPITAL PLUS"].includes(p.name));
+                    setShowSoldOutMessage(false);
+                }
+
+                // Sort to put PLUS (longer name) first/left if showing standard
                 validProducts.sort((a, b) => b.name.length - a.name.length);
                 setProducts(validProducts);
             }
@@ -111,6 +133,15 @@ export default function ProductSelectionPage() {
                     <h2 className="text-2xl md:text-3xl font-light">
                         Selecciona el <span className="font-bold">Producto</span>
                     </h2>
+                    {showSoldOutMessage && (
+                        <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="text-red-400 font-bold text-lg mt-2 bg-red-900/30 px-4 py-1 rounded-full border border-red-500/30"
+                        >
+                            Los productos ya han sido agotados
+                        </motion.p>
+                    )}
                 </motion.div>
 
                 <div className="w-full flex-1 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 px-4 max-w-6xl mx-auto">

@@ -12,11 +12,23 @@ interface SaleDetails {
   level: string;
   unitCode: string;
   area: string;
+  productName: string;
+  spotsRemaining: number;
 }
 
 export default function Home() {
   const [showSale, setShowSale] = useState(false);
   const [saleDetails, setSaleDetails] = useState<SaleDetails | null>(null);
+
+  useEffect(() => {
+    if (showSale) {
+      const timer = setTimeout(() => {
+        handleCloseSale();
+      }, 5000); // Close automatically after 5 seconds
+
+      return () => clearTimeout(timer);
+    }
+  }, [showSale]);
 
   useEffect(() => {
     console.log("Setting up Sales Realtime Channel...");
@@ -49,12 +61,12 @@ export default function Home() {
 
   const fetchAndShowSale = async (allocationId: string) => {
     try {
-      // Fetch full details including persona logic
-      // We need to know IF it is fisica or juridica to get the name and locale info
+      // 1. Fetch full details of the sale
       const { data, error } = await supabase
         .from('product_allocations')
         .select(`
           *,
+          product:products(*),
           persona_fisica(*, locales(*)),
           persona_juridica(*, locales(*))
         `)
@@ -66,6 +78,22 @@ export default function Home() {
         return;
       }
 
+      // 2. Fetch COUNT of APPROVED allocations for this specific product
+      // We need to know how many "positions" are taken by approved sales
+      const { count: approvedCount, error: countError } = await supabase
+        .from('product_allocations')
+        .select('id', { count: 'exact', head: true })
+        .eq('product_id', data.product_id)
+        .eq('status', 'approved');
+
+      if (countError) {
+        console.error("Error fetching approved count:", countError);
+      }
+
+      const productLimit = data.product?.limit || 0;
+      const takenSpots = approvedCount || 0;
+      const spotsRemaining = Math.max(0, productLimit - takenSpots);
+
       let clientName = "";
       let level = "";
       let unitCode = "";
@@ -76,7 +104,7 @@ export default function Home() {
         clientName = `${pf.first_name} ${pf.last_name}`;
         if (pf.locales) {
           level = pf.locales.level.toString();
-          unitCode = pf.locales.id.toString(); // Using ID as code if unit_code is null
+          unitCode = pf.locales.id.toString();
           area = pf.locales.area_mt2.toString();
         }
       } else if (data.persona_juridica) {
@@ -93,7 +121,9 @@ export default function Home() {
         clientName,
         level,
         unitCode,
-        area
+        area,
+        productName: data.product?.name || "Producto Daka",
+        spotsRemaining
       });
       setShowSale(true);
       triggerConfetti();
@@ -150,76 +180,95 @@ export default function Home() {
                 transition={{ duration: 0.8, type: "spring" }}
                 className="absolute inset-0 z-50 bg-[#131E29] flex flex-col items-center justify-center text-white p-8 text-center"
               >
-                {/* Background decorative elements */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <div className="absolute top-0 left-0 w-64 h-64 bg-[#A9780F] opacity-10 rounded-full filter blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
-                  <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#A9780F] opacity-10 rounded-full filter blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
+                <div className="flex flex-col md:flex-row items-center justify-center gap-12 w-full max-w-6xl mx-auto">
+
+                  {/* Left Side - Product Image */}
+                  <motion.div
+                    initial={{ x: -50, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex-1 flex justify-center md:justify-end"
+                  >
+                    {saleDetails.productName.includes("PLUS") ? (
+                      <Image
+                        src="/dakaCapitalPlus.png"
+                        alt="Daka Capital Plus"
+                        width={450}
+                        height={250}
+                        className="object-contain drop-shadow-2xl"
+                      />
+                    ) : (
+                      <Image
+                        src="/dakaCapital.png"
+                        alt="Daka Capital"
+                        width={450}
+                        height={250}
+                        className="object-contain drop-shadow-2xl"
+                      />
+                    )}
+                  </motion.div>
+
+                  {/* Right Side - Information */}
+                  <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left space-y-6">
+
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <span className="inline-block px-4 py-1.5 border border-[#A9780F] text-[#A9780F] font-bold tracking-[0.2em] rounded-full uppercase text-xs bg-[#A9780F]/10 mb-4">
+                        Nueva Inversión Confirmada
+                      </span>
+
+                      <h1 className="text-4xl md:text-6xl font-bold font-serif text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#F8F1D2] to-[#D4AF37] leading-tight">
+                        {saleDetails.clientName}
+                      </h1>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.7 }}
+                      className="w-full md:w-auto"
+                    >
+                      {/* Remaining Spots Card */}
+                      <div className="px-8 py-5 border-l-4 border-[#A9780F] bg-white/5 backdrop-blur-sm rounded-r-xl w-full md:min-w-[300px]">
+                        <p className="text-[#A9780F] text-xs uppercase tracking-widest mb-2 font-bold flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                          Disponibilidad Actual
+                        </p>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-bold text-white">{saleDetails.spotsRemaining}</span>
+                          <span className="text-xl text-gray-400">cupos restantes</span>
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2 border-t border-white/10 pt-2">
+                          en <span className="text-white font-medium">{saleDetails.productName}</span>
+                        </p>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.9 }}
+                      className="flex flex-row flex-wrap gap-4 items-center justify-center md:justify-start w-full"
+                    >
+                      <div className="text-center px-5 py-3 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm shadow-lg hover:bg-white/10 transition-colors">
+                        <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Nivel</p>
+                        <p className="text-xl font-bold text-white">{saleDetails.level}</p>
+                      </div>
+                      <div className="text-center px-5 py-3 border border-[#A9780F]/30 rounded-xl bg-[#A9780F]/10 backdrop-blur-sm shadow-lg">
+                        <p className="text-[#A9780F] text-xs uppercase tracking-wider mb-1">Local</p>
+                        <p className="text-xl font-bold text-white">{saleDetails.unitCode}</p>
+                      </div>
+                      <div className="text-center px-5 py-3 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm shadow-lg hover:bg-white/10 transition-colors">
+                        <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Area</p>
+                        <p className="text-xl font-bold text-white">{saleDetails.area} <span className="text-sm font-normal text-gray-400">m²</span></p>
+                      </div>
+                    </motion.div>
+
+                  </div>
                 </div>
-
-                <motion.div
-                  initial={{ y: 50, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="mb-8"
-                >
-                  <Image
-                    src="/logoDaka.png"
-                    alt="Daka Logo"
-                    width={200}
-                    height={100}
-                    className="object-contain brightness-0 invert opacity-80 mx-auto"
-                  />
-                </motion.div>
-
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.5, type: "spring", stiffness: 200 }}
-                  className="mb-8"
-                >
-                  <span className="inline-block px-6 py-2 border border-[#A9780F] text-[#A9780F] font-bold tracking-[0.2em] rounded-full uppercase text-sm md:text-base bg-[#A9780F]/10">
-                    Propiedad Vendida
-                  </span>
-                </motion.div>
-
-                <motion.h1
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.7 }}
-                  className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 font-serif text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#F8F1D2] to-[#D4AF37]"
-                >
-                  {saleDetails.clientName}
-                </motion.h1>
-
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.9 }}
-                  className="flex flex-col md:flex-row gap-8 items-center justify-center mt-8"
-                >
-                  <div className="text-center px-6 py-4 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-                    <p className="text-gray-400 text-sm uppercase tracking-wider mb-1">Nivel</p>
-                    <p className="text-3xl font-bold text-white">{saleDetails.level}</p>
-                  </div>
-                  <div className="text-center px-6 py-4 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-                    <p className="text-gray-400 text-sm uppercase tracking-wider mb-1">Local</p>
-                    <p className="text-3xl font-bold text-[#A9780F]">{saleDetails.unitCode}</p>
-                  </div>
-                  <div className="text-center px-6 py-4 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm">
-                    <p className="text-gray-400 text-sm uppercase tracking-wider mb-1">Area</p>
-                    <p className="text-3xl font-bold text-white">{saleDetails.area} <span className="text-lg font-normal text-gray-400">m²</span></p>
-                  </div>
-                </motion.div>
-
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 2 }}
-                  onClick={handleCloseSale}
-                  className="mt-12 text-gray-500 hover:text-white transition-colors text-sm underline underline-offset-4"
-                >
-                  Volver a la vista principal
-                </motion.button>
 
               </motion.div>
             ) : (

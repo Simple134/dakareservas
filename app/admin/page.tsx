@@ -543,21 +543,56 @@ export default function AdminPage() {
                                         Comprobante de Pago
                                     </h3>
                                     <div className="mt-2">
-                                        <a href={selectedReservation.receipt_url} target="_blank" rel="noopener noreferrer" className="block relative group cursor-zoom-in">
-                                            <div className="relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img
-                                                    src={selectedReservation.receipt_url}
-                                                    alt="Comprobante de pago"
-                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                                />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                    <div className="opacity-0 group-hover:opacity-100 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-all transform translate-y-2 group-hover:translate-y-0">
-                                                        Clic para ampliar
+                                        {selectedReservation.receipt_url.toLowerCase().endsWith('.pdf') ? (
+                                            // PDF Display
+                                            <a
+                                                href={selectedReservation.receipt_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block w-full"
+                                            >
+                                                <div className="relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden border-2 border-[#A9780F] hover:border-[#8e650c] transition-colors flex items-center justify-center group cursor-pointer">
+                                                    <div className="text-center px-6">
+                                                        <svg
+                                                            className="w-16 h-16 mx-auto mb-3 text-[#A9780F] group-hover:scale-110 transition-transform"
+                                                            fill="none"
+                                                            stroke="currentColor"
+                                                            viewBox="0 0 24 24"
+                                                        >
+                                                            <path
+                                                                strokeLinecap="round"
+                                                                strokeLinejoin="round"
+                                                                strokeWidth={2}
+                                                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                                            />
+                                                        </svg>
+                                                        <p className="text-sm font-bold text-gray-900 mb-1">
+                                                            Comprobante PDF
+                                                        </p>
+                                                        <p className="text-xs text-gray-600 group-hover:text-[#A9780F] transition-colors">
+                                                            Clic para ver documento
+                                                        </p>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </a>
+                                            </a>
+                                        ) : (
+                                            // Image Display
+                                            <a href={selectedReservation.receipt_url} target="_blank" rel="noopener noreferrer" className="block relative group cursor-zoom-in">
+                                                <div className="relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={selectedReservation.receipt_url}
+                                                        alt="Comprobante de pago"
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                        <div className="opacity-0 group-hover:opacity-100 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-all transform translate-y-2 group-hover:translate-y-0">
+                                                            Clic para ampliar
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        )}
                                         <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                                             <Clock size={12} />
                                             Subido el {new Date(selectedReservation.created_at).toLocaleDateString()}
