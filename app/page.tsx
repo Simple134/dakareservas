@@ -189,11 +189,11 @@ export default function Home() {
                     transition={{ delay: 0.3 }}
                     className="flex-1 flex justify-center md:justify-end"
                   >
-                    {saleDetails.productName.includes("PLUS") ? (
+                    {saleDetails?.productName.includes("PLUS") ? (
                       <Image
                         src="/dakaCapitalPlus.png"
                         alt="Daka Capital Plus"
-                        width={450}
+                        width={350}
                         height={250}
                         className="object-contain drop-shadow-2xl"
                       />
@@ -201,7 +201,7 @@ export default function Home() {
                       <Image
                         src="/dakaCapital.png"
                         alt="Daka Capital"
-                        width={450}
+                        width={350}
                         height={250}
                         className="object-contain drop-shadow-2xl"
                       />
@@ -221,32 +221,9 @@ export default function Home() {
                       </span>
 
                       <h1 className="text-4xl md:text-6xl font-bold font-serif text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#F8F1D2] to-[#D4AF37] leading-tight">
-                        {saleDetails.clientName}
+                        {saleDetails?.clientName || "Josue"}
                       </h1>
                     </motion.div>
-
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 }}
-                      className="w-full md:w-auto"
-                    >
-                      {/* Remaining Spots Card */}
-                      <div className="px-8 py-5 border-l-4 border-[#A9780F] bg-white/5 backdrop-blur-sm rounded-r-xl w-full md:min-w-[300px]">
-                        <p className="text-[#A9780F] text-xs uppercase tracking-widest mb-2 font-bold flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                          Disponibilidad Actual
-                        </p>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-5xl font-bold text-white">{saleDetails.spotsRemaining}</span>
-                          <span className="text-xl text-gray-400">cupos restantes</span>
-                        </div>
-                        <p className="text-sm text-gray-400 mt-2 border-t border-white/10 pt-2">
-                          en <span className="text-white font-medium">{saleDetails.productName}</span>
-                        </p>
-                      </div>
-                    </motion.div>
-
                     <motion.div
                       initial={{ y: 20, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
@@ -255,18 +232,38 @@ export default function Home() {
                     >
                       <div className="text-center px-5 py-3 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm shadow-lg hover:bg-white/10 transition-colors">
                         <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Nivel</p>
-                        <p className="text-xl font-bold text-white">{saleDetails.level}</p>
+                        <p className="text-2xl font-bold text-white">{saleDetails?.level || "1"}</p>
                       </div>
                       <div className="text-center px-5 py-3 border border-[#A9780F]/30 rounded-xl bg-[#A9780F]/10 backdrop-blur-sm shadow-lg">
                         <p className="text-[#A9780F] text-xs uppercase tracking-wider mb-1">Local</p>
-                        <p className="text-xl font-bold text-white">{saleDetails.unitCode}</p>
+                        <p className="text-2xl font-bold text-white">{saleDetails?.unitCode || "1"}</p>
                       </div>
                       <div className="text-center px-5 py-3 border border-white/10 rounded-xl bg-white/5 backdrop-blur-sm shadow-lg hover:bg-white/10 transition-colors">
                         <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Area</p>
-                        <p className="text-xl font-bold text-white">{saleDetails.area} <span className="text-sm font-normal text-gray-400">m²</span></p>
+                        <p className="text-2xl font-bold text-white">{saleDetails?.area || "1"} <span className="text-sm font-normal text-gray-400">m²</span></p>
                       </div>
                     </motion.div>
-
+                    <motion.div
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.7 }}
+                      className="w-full md:w-auto"
+                    >
+                      {/* Remaining Spots Card */}
+                      <div className="px-8 py-5 backdrop-blur-sm rounded-r-xl w-full md:min-w-[300px]">
+                        <p className="text-[#A9780F] text-xs uppercase tracking-widest mb-2 font-bold flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                          Disponibilidad Actual
+                        </p>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-5xl font-bold text-white">{saleDetails?.spotsRemaining || "0"}</span>
+                          <span className="text-xl text-gray-400">cupos restantes</span>
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2 border-t border-white/10 pt-2">
+                          en <span className="text-white font-medium">{saleDetails?.productName || "Producto Daka"}</span>
+                        </p>
+                      </div>
+                    </motion.div>
                   </div>
                 </div>
 
@@ -314,8 +311,8 @@ export default function Home() {
             )}
           </AnimatePresence>
 
-        </div>
       </div>
     </div>
+    </div >
   );
 }
