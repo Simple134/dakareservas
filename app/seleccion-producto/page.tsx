@@ -74,13 +74,15 @@ export default function ProductSelectionPage() {
             setSubmitting(true);
             const userId = localStorage.getItem('daka_user_id');
             const userType = localStorage.getItem('daka_user_type');
+            const localeId = localStorage.getItem('daka_selected_locale_id');
 
             if (!userId || !userType) throw new Error("Sesión no válida");
 
             const { data, error } = await supabase.rpc('allocate_product', {
                 p_user_id: userId,
                 p_user_type: userType,
-                p_product_id: product.id
+                p_product_id: product.id,
+                p_locale_id: localeId ? parseInt(localeId) : null
             });
 
             if (error) throw error;

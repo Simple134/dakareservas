@@ -176,7 +176,8 @@ export default function JuridicaForm() {
                 unit_level: data.nivel || null,
                 unit_meters: data.metros || null,
                 unit_parking: data.parqueo || null,
-                locale_id: data.localComercial ? parseInt(data.localComercial) : null,
+                // locale_id removed from person table
+
 
                 status: 'pending'
             };
@@ -210,6 +211,9 @@ export default function JuridicaForm() {
             if (insertedData) {
                 localStorage.setItem('daka_user_id', insertedData.id);
                 localStorage.setItem('daka_user_type', 'juridica');
+                if (data.localComercial) {
+                    localStorage.setItem('daka_selected_locale_id', data.localComercial);
+                }
 
                 // Redirect to Product Selection
                 window.location.href = `/seleccion-producto`;
