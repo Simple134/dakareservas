@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Clock, Save, Trash2, X } from "lucide-react";
+import { CheckCircle2, Clock, Save, Trash2, X, Mail, Edit } from "lucide-react";
 import { ReservationViewModel } from "../types/ReservationsTypes";
 import DetailRow from "../lib/DetailRow";
 import { Tables } from "../types/supabase";
@@ -530,3 +530,166 @@ export const SidebarLocales = ({ selectedLocale, closeSidebar, localeOwner, hand
     );
 };
 
+interface SidebarUserProps {
+    selectedUser: any;
+    closeSidebar: () => void;
+    handleUpdateUser: (updatedData: any) => void;
+    updatingStatus: boolean;
+    handleSendEmail: () => void;
+}
+
+export const SidebarUser = ({ selectedUser, closeSidebar, handleUpdateUser, updatingStatus, handleSendEmail }: SidebarUserProps) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState<any>({});
+
+    useEffect(() => {
+        if (selectedUser) {
+            setFormData({
+                name: selectedUser.name,
+                email: selectedUser.email,
+                phone: selectedUser.phone,
+                ...selectedUser.raw
+            });
+        }
+    }, [selectedUser]);
+
+    const handleSave = () => {
+        handleUpdateUser(formData);
+        setIsEditing(false);
+    }
+
+    return (
+        <div className="h-full flex flex-col">
+            <div className="bg-[#131E29] p-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">Detalles de Usuario</h2>
+                <button
+                    onClick={closeSidebar}
+                    className="text-white hover:text-[#A9780F] transition-colors"
+                >
+                    <X size={24} />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex gap-4 mb-6">
+                    <button
+                        onClick={handleSendEmail}
+                        className="flex-1 py-2 px-4 rounded-lg bg-[#A9780F] text-white font-bold flex items-center justify-center gap-2 hover:bg-[#8e650c] transition-colors"
+                    >
+                        <Mail size={18} />
+                        Enviar Correo
+                    </button>
+                    <button
+                        onClick={() => setIsEditing(!isEditing)}
+                        className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 border-2 transition-colors ${isEditing
+                                ? "bg-white border-red-500 text-red-500"
+                                : "bg-white border-[#A9780F] text-[#A9780F]"
+                            }`}
+                    >
+                        {isEditing ? <><X size={18} /> Cancelar</> : <><Edit size={18} /> Editar</>}
+                    </button>
+                </div>
+
+                {isEditing ? (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Email</label>
+                            <input
+                                type="email"
+                                value={formData.email || ''}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="w-full p-2 border rounded text-black"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Teléfono</label>
+                            <input
+                                type="text"
+                                value={formData.phone || ''}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                className="w-full p-2 border rounded text-black"
+                            />
+                        </div>
+                        {selectedUser.type === 'fisica' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre</label>
+                                    <input
+                                        type="text"
+                                        value={formData.first_name || ''}
+                                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                                        className="w-full p-2 border rounded text-black"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Apellido</label>
+                                    <input
+                                        type="text"
+                                        value={formData.last_name || ''}
+                                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                                        className="w-full p-2 border rounded text-black"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Identificación</label>
+                                    <input
+                                        type="text"
+                                        value={formData.identification || formData.passport || ''}
+                                        onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
+                                        className="w-full p-2 border rounded text-black"
+                                    />
+                                </div>
+                            </>
+                        )}
+                        {selectedUser.type === 'juridica' && (
+                            <>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre Empresa</label>
+                                    <input
+                                        type="text"
+                                        value={formData.company_name || ''}
+                                        onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                                        className="w-full p-2 border rounded text-black"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">RNC</label>
+                                    <input
+                                        type="text"
+                                        value={formData.rnc || ''}
+                                        onChange={(e) => setFormData({ ...formData, rnc: e.target.value })}
+                                        className="w-full p-2 border rounded text-black"
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        <button
+                            onClick={handleSave}
+                            disabled={updatingStatus}
+                            className="w-full py-3 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors disabled:opacity-50 mt-4"
+                        >
+                            {updatingStatus ? "Guardando..." : "Guardar Cambios"}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <DetailRow label="ID de Usuario" value={selectedUser.id} />
+                        <DetailRow label="Tipo" value={selectedUser.type === 'fisica' ? 'Persona Física' : 'Persona Jurídica'} />
+                        <DetailRow label="Nombre" value={selectedUser.name} />
+                        <DetailRow label={selectedUser.identification_label} value={selectedUser.identification} />
+                        <DetailRow label="Email" value={selectedUser.email} />
+                        <DetailRow label="Teléfono" value={selectedUser.phone} />
+
+                        <div className="pt-4 border-t border-gray-200">
+                            <h4 className="text-sm font-bold text-black mb-2">Dirección</h4>
+                            <p className="text-sm text-gray-600">{selectedUser.address || 'No registrada'}</p>
+                        </div>
+                    </div>
+                )}
+
+
+            </div>
+        </div>
+    );
+};

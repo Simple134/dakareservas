@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/src/lib/supabase/client";
-import { Database, Tables } from "@/src/types/supabase";
+import { Tables } from "@/src/types/supabase";
 import Login from "@/src/components/Login";
 import AlertModal, { AlertType } from "@/src/components/AlertModal";
-import { LogOut, X, CheckCircle2, Clock, Trash2, Save, Search } from "lucide-react";
+import { LogOut, X, Search, User, Building2 } from "lucide-react";
 import { ReservationViewModel } from "@/src/types/ReservationsTypes";
-import DetailRow from "@/src/lib/DetailRow";
-import { SidebarLocales, SidebarReservation } from "@/src/components/Sidebar";
+import { SidebarReservation, SidebarLocales, SidebarUser } from "@/src/components/Sidebar";
+import FisicaForm from "@/src/components/FisicaForm";
+import JuridicaForm from "@/src/components/JuridicaForm";
 
 type ProductAllocationResponse = Tables<'product_allocations'> & {
     product: { name: string } | null;
@@ -19,6 +20,19 @@ type ProductAllocationResponse = Tables<'product_allocations'> & {
     locales_id?: number | null;
 };
 
+type UserViewModel = {
+    id: string | number;
+    type: 'fisica' | 'juridica';
+    name: string;
+    identification: string;
+    identification_label: string;
+    email: string;
+    phone: string;
+    address: string;
+    status: string;
+    raw: any;
+};
+
 
 export default function AdminPage() {
     const [session, setSession] = useState<any>(null);
@@ -26,11 +40,17 @@ export default function AdminPage() {
     const [reservations, setReservations] = useState<ReservationViewModel[]>([]);
     const [locales, setLocales] = useState<Tables<'locales'>[]>([]);
     const [products, setProducts] = useState<Tables<'products'>[]>([]);
-    const [view, setView] = useState<'reservations' | 'locales'>('reservations');
+    const [view, setView] = useState<'reservations' | 'locales' | 'users'>('reservations');
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [selectedReservation, setSelectedReservation] = useState<ReservationViewModel | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+
+    // Users State
+    const [users, setUsers] = useState<UserViewModel[]>([]);
+    const [userSearchQuery, setUserSearchQuery] = useState("");
+    const [userFilterType, setUserFilterType] = useState("all");
+    const [userFilterStatus, setUserFilterStatus] = useState("all");
 
     // Payment Edit State
     const [editAmount, setEditAmount] = useState<string>('');
@@ -51,10 +71,14 @@ export default function AdminPage() {
     const [resFilterPaymentMethod, setResFilterPaymentMethod] = useState("all");
     const [resFilterStatus, setResFilterStatus] = useState("all");
 
+    // State for User Management
+    const [selectedUser, setSelectedUser] = useState<UserViewModel | null>(null);
+    const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+    const [addUserType, setAddUserType] = useState<"fisica" | "juridica">("fisica");
+
     // Locale Management State
     const [selectedLocale, setSelectedLocale] = useState<Tables<'locales'> | null>(null);
     const [localeOwner, setLocaleOwner] = useState<any | null>(null);
-    const [availableUsers, setAvailableUsers] = useState<any[]>([]);
     const [assignTab, setAssignTab] = useState<'existing' | 'new'>('existing');
     const [newUserType, setNewUserType] = useState<'fisica' | 'juridica'>('fisica');
     const [selectedProductId, setSelectedProductId] = useState<string>("");
@@ -126,8 +150,8 @@ export default function AdminPage() {
     }, [session]);
 
     useEffect(() => {
-        if (view === 'locales' && session) {
-            fetchAvailableUsers();
+        if ((view === 'locales' || view === 'users') && session) {
+            fetchAllUsers();
         }
     }, [view, session]);
 
@@ -275,40 +299,91 @@ export default function AdminPage() {
         }
     }
 
-    const fetchAvailableUsers = async () => {
+    // fetchAvailableUsers removed - superseded by fetchAllUsers
+
+    const fetchAllUsers = async () => {
         try {
-            // Need to verify schema of persona_fisica and juridica to make sure we select correct fields
-            const { data: fisica } = await supabase.from('persona_fisica').select('id, first_name, last_name, identification, passport, email');
-            const { data: juridica } = await supabase.from('persona_juridica').select('id, company_name, rnc, email');
+            const { data: fisica, error: errFisica } = await supabase
+                .from('persona_fisica')
+                .select('*')
+            if (errFisica) throw errFisica;
 
-            const uniqueUsersMap = new Map();
+            const { data: juridica, error: errJuridica } = await supabase
+                .from('persona_juridica')
+                .select('*')
+            if (errJuridica) throw errJuridica;
 
-            (fisica || []).forEach(f => {
-                const id = f.identification || f.passport;
-                if (id && !uniqueUsersMap.has(id)) {
-                    uniqueUsersMap.set(id, {
-                        ...f,
-                        type: 'fisica',
-                        label: `${f.first_name || ''} ${f.last_name || ''} (${id})`.trim()
-                    });
+            const usersFisica: UserViewModel[] = (fisica).map(pf => {
+                const addressParts = [
+                    pf.address_street,
+                    pf.address_house ? `#${pf.address_house}` : '',
+                    pf.address_sector,
+                    pf.address_province
+                ].filter(Boolean).join(", ");
+
+                return {
+                    id: pf.id,
+                    type: 'fisica',
+                    name: `${pf.first_name || ''} ${pf.last_name || ''}`.trim(),
+                    identification: pf.passport || pf.identification || 'N/A',
+                    identification_label: pf.passport ? 'Pasaporte' : 'Cédula',
+                    email: pf.email || '',
+                    phone: pf.phone || '',
+                    address: addressParts,
+                    status: pf.status || 'unknown',
+                    raw: pf
+                };
+            });
+
+            const usersJuridica: UserViewModel[] = (juridica || []).map(pj => {
+                const addressParts = [
+                    pj.company_address_street,
+                    pj.company_address_house ? `#${pj.company_address_house}` : '',
+                    pj.company_address_sector,
+                    pj.company_address_province
+                ].filter(Boolean).join(", ");
+
+                return {
+                    id: pj.id,
+                    type: 'juridica',
+                    name: pj.company_name || 'Empresa Sin Nombre',
+                    identification: pj.rnc || 'N/A',
+                    identification_label: 'RNC',
+                    email: pj.email || '',
+                    phone: pj.phone || '',
+                    address: addressParts,
+                    status: pj.status || 'unknown',
+                    raw: pj
+                };
+            });
+
+            const allUsers = [...usersFisica, ...usersJuridica];
+            const uniqueUsersMap = new Map<string, UserViewModel>();
+
+            allUsers.forEach(user => {
+                const key = (user.identification && user.identification !== 'N/A')
+                    ? String(user.identification)
+                    : String(user.id);
+
+                if (!uniqueUsersMap.has(key)) {
+                    uniqueUsersMap.set(key, user);
                 }
             });
 
-            (juridica || []).forEach(j => {
-                const id = j.rnc;
-                if (id && !uniqueUsersMap.has(id)) {
-                    uniqueUsersMap.set(id, {
-                        ...j,
-                        type: 'juridica',
-                        label: `${j.company_name} (${id})`
-                    });
-                }
-            });
+            setUsers(Array.from(uniqueUsersMap.values()).sort((a, b) => a.name.localeCompare(b.name)));
 
-            setAvailableUsers(Array.from(uniqueUsersMap.values()));
-        } catch (error) {
-            console.error("Error fetching users", error);
+        } catch (error: any) {
+            console.error("Error fetching all users:", error);
+            showAlert("Error", "Error cargando usuarios: " + error.message, 'error');
+        } finally {
+            setLoading(false);
         }
+    };
+
+    const refreshAppData = async (updatedLocale: Tables<'locales'>) => {
+        await handleLocaleClick(updatedLocale);
+        await fetchReservations();
+        await fetchLocales();
     };
 
     const handleLogout = async () => {
@@ -361,11 +436,66 @@ export default function AdminPage() {
         }
     };
 
+    // User Handlers
+    const handleUserClick = (user: UserViewModel) => {
+        setSelectedUser(user);
+        setSelectedReservation(null);
+        setSelectedLocale(null);
+        setSidebarOpen(true);
+    };
+
+    const handleUpdateUser = async (updatedData: any) => {
+        if (!selectedUser) return;
+        setUpdatingStatus(true);
+        try {
+            const table = selectedUser.type === 'fisica' ? 'persona_fisica' : 'persona_juridica';
+
+            const { error } = await supabase
+                .from(table)
+                .update(updatedData)
+                .eq('id', String(selectedUser.id));
+
+            if (error) throw error;
+
+            // Refresh users locally
+            setUsers(prev => prev.map(u =>
+                u.id === selectedUser.id
+                    ? { ...u, ...updatedData, name: updatedData.first_name ? `${updatedData.first_name} ${updatedData.last_name}` : updatedData.company_name } // naive name update
+                    : u
+            ));
+
+            // Update selected user as well to reflect changes immediately
+            setSelectedUser(prev => prev ? { ...prev, ...updatedData } : null);
+
+            showAlert("Éxito", "Usuario actualizado correctamente", 'success');
+        } catch (error: any) {
+            console.error("Error updating user:", error);
+            showAlert("Error", "Error actualizando usuario: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    const handleSendEmail = () => {
+        if (!selectedUser) return;
+        const subject = encodeURIComponent("Comunicación Dakabana");
+        const body = encodeURIComponent(`Estimado/a ${selectedUser.name},\n\n`);
+        window.open(`mailto:${selectedUser.email}?subject=${subject}&body=${body}`);
+    };
+
+
+    const handleAddUserSuccess = async () => {
+        setIsAddUserModalOpen(false);
+        await fetchAllUsers();
+        showAlert("Éxito", "Usuario creado correctamente.", "success");
+    };
+
     const closeSidebar = () => {
         setSidebarOpen(false);
         setTimeout(() => {
             setSelectedReservation(null);
             setSelectedLocale(null);
+            setSelectedUser(null);
             setLocaleOwner(null);
             // Reset forms
             setNewUserForm({
@@ -527,14 +657,14 @@ export default function AdminPage() {
 
             if (allocError) throw allocError;
 
+            let updatedStatus = selectedLocale.status;
             if (selectedLocale.status === 'DISPONIBLE') {
+                updatedStatus = 'BLOQUEADO';
                 await supabase.from('locales').update({ status: 'BLOQUEADO' }).eq('id', selectedLocale.id);
                 setLocales(prev => prev.map(l => l.id === selectedLocale.id ? { ...l, status: 'BLOQUEADO' } : l));
             }
 
-            await handleLocaleClick({ ...selectedLocale, status: selectedLocale.status === 'DISPONIBLE' ? 'BLOQUEADO' : selectedLocale.status });
-            await fetchReservations();
-            await fetchLocales();
+            await refreshAppData({ ...selectedLocale, status: updatedStatus });
             showAlert("Éxito", "Usuario asignado y reserva creada correctamente", 'success');
         } catch (e: any) {
             console.error(e);
@@ -595,15 +725,14 @@ export default function AdminPage() {
 
             if (allocError) throw allocError;
 
+            let updatedStatus = selectedLocale.status;
             if (selectedLocale.status === 'DISPONIBLE') {
+                updatedStatus = 'BLOQUEADO';
                 await supabase.from('locales').update({ status: 'BLOQUEADO' }).eq('id', selectedLocale.id);
                 setLocales(prev => prev.map(l => l.id === selectedLocale.id ? { ...l, status: 'BLOQUEADO' } : l));
             }
 
-            // Refresh logic
-            await handleLocaleClick({ ...selectedLocale, status: selectedLocale.status === 'DISPONIBLE' ? 'BLOQUEADO' : selectedLocale.status });
-            await fetchReservations();
-            await fetchLocales();
+            await refreshAppData({ ...selectedLocale, status: updatedStatus });
             showAlert("Éxito", "Usuario creado, asignado y reserva generada correctamente", 'success');
         } catch (e: any) {
             console.error(e);
@@ -646,9 +775,7 @@ export default function AdminPage() {
                 }
 
                 setLocales(prev => prev.map(l => l.id === selectedLocale.id ? { ...l, status: 'DISPONIBLE' } : l));
-                await handleLocaleClick({ ...selectedLocale, status: 'DISPONIBLE' });
-                await fetchReservations();
-                await fetchLocales();
+                await refreshAppData({ ...selectedLocale, status: 'DISPONIBLE' });
                 showAlert("Éxito", "Usuario desvinculado correctamente.", 'success');
             }
         );
@@ -731,6 +858,15 @@ export default function AdminPage() {
                                     }`}
                             >
                                 Locales <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{locales.length}</span>
+                            </button>
+                            <button
+                                onClick={() => setView('users')}
+                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'users'
+                                    ? 'bg-white text-[#A9780F] shadow-sm'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                    }`}
+                            >
+                                Usuarios <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{users.length}</span>
                             </button>
                         </div>
                         <button
@@ -890,7 +1026,7 @@ export default function AdminPage() {
                             )}
                         </div>
                     </div>
-                ) : (
+                ) : view === 'locales' ? (
                     <div className="space-y-6">
                         <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
@@ -994,80 +1130,296 @@ export default function AdminPage() {
                             )}
                         </div>
                     </div>
-                )}
-            </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Users Filters */}
+                        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
+                            <div className="flex-1 relative">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Buscar</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Nombre, ID, RNC, Email..."
+                                        value={userSearchQuery}
+                                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                                        className="block w-full pl-8 py-2 text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm border"
+                                    />
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Search className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="md:w-48">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Usuaro</label>
+                                <select
+                                    value={userFilterType}
+                                    onChange={(e) => setUserFilterType(e.target.value)}
+                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                >
+                                    <option value="all">Todos</option>
+                                    <option value="fisica">Persona Física</option>
+                                    <option value="juridica">Persona Jurídica</option>
+                                </select>
+                            </div>
+                            <div className="md:w-48">
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                                <select
+                                    value={userFilterStatus}
+                                    onChange={(e) => setUserFilterStatus(e.target.value)}
+                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                >
+                                    <option value="all">Todos</option>
+                                    <option value="active">Activo</option>
+                                    <option value="inactive">Inactivo</option>
+                                    {/* Add more statuses as discovered from DB */}
+                                    {Array.from(new Set(users.map(u => u.status)))
+                                        .filter(s => s !== 'active' && s !== 'inactive' && s !== 'unknown')
+                                        .map(s => <option key={s} value={s}>{s}</option>)
+                                    }
+                                </select>
+                            </div>
+                        </div>
 
-            {/* Sidebar */}
-            <div
-                className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? "translate-x-0" : "translate-x-full"} border-l-4 border-[#A9780F]`}
-            >
-                {/* RESERVATION DETAIL SIDEBAR */}
-                {selectedReservation && (
-                    <SidebarReservation
-                        selectedReservation={selectedReservation}
-                        closeSidebar={closeSidebar}
-                        updateStatus={updateStatus}
-                        updatingStatus={updatingStatus}
-                        deleteReservation={deleteReservation}
-                        editCurrency={editCurrency}
-                        setEditCurrency={setEditCurrency}
-                        editAmount={editAmount}
-                        setEditAmount={setEditAmount}
-                        editPaymentMethod={editPaymentMethod}
-                        setEditPaymentMethod={setEditPaymentMethod}
-                        editReceiptFile={editReceiptFile}
-                        setEditReceiptFile={setEditReceiptFile}
-                        handleUpdatePaymentInfo={handleUpdatePaymentInfo}
-                    />
+                        <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
+                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                <h3 className="font-bold text-black">Listado de Usuarios</h3>
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        onClick={() => setIsAddUserModalOpen(true)}
+                                        className="bg-[#A9780F] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#8a620c] transition-colors flex items-center gap-2"
+                                    >
+                                        <User className="w-4 h-4" />
+                                        Agregar Usuario
+                                    </button>
+                                    <span className="text-sm font-medium text-gray-500">
+                                        Total: {users.filter(u => {
+                                            const matchesSearch =
+                                                u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                                            const matchesType = userFilterType === "all" || u.type === userFilterType;
+                                            const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
+                                            return matchesSearch && matchesType && matchesStatus;
+                                        }).length}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700 text-center w-10">Tipo</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Nombre / Empresa</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Identificación</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Email</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Teléfono</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                        {users.filter(u => {
+                                            const matchesSearch =
+                                                u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                                            const matchesType = userFilterType === "all" || u.type === userFilterType;
+                                            const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
+                                            return matchesSearch && matchesType && matchesStatus;
+                                        }).map((user) => (
+                                            <tr
+                                                key={`${user.type}-${user.id}`}
+                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                onClick={() => handleUserClick(user)}
+                                            >
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 text-center">
+                                                    {user.type === 'fisica' ? (
+                                                        <div className="flex justify-center" title="Persona Física">
+                                                            <User className="h-5 w-5 text-blue-600" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex justify-center" title="Persona Jurídica">
+                                                            <Building2 className="h-5 w-5 text-purple-600" />
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 max-w-xs truncate" title={user.name}>
+                                                    {user.name}
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                                                    <div className="flex flex-col">
+                                                        <span>{user.identification}</span>
+                                                        <span className="text-xs text-gray-400">{user.identification_label}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{user.email}</td>
+                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{user.phone || '-'}</td>
+
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {users.length > 0 && users.filter(u => {
+                                const matchesSearch =
+                                    u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                    u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                    u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                                const matchesType = userFilterType === "all" || u.type === userFilterType;
+                                const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
+                                return matchesSearch && matchesType && matchesStatus;
+                            }).length === 0 && (
+                                    <div className="p-12 text-center">
+                                        <p className="text-gray-500 text-lg">No se encontraron usuarios con estos filtros.</p>
+                                    </div>
+                                )}
+                            {users.length === 0 && (
+                                <div className="p-12 text-center">
+                                    <p className="text-gray-500 text-lg">No hay usuarios registrados</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 )}
 
-                {/* LOCALE DETAIL SIDEBAR */}
+                {/* Sidebar */}
+                <div
+                    className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? "translate-x-0" : "translate-x-full"} border-l-4 border-[#A9780F]`}
+                >
+                    {/* RESERVATION DETAIL SIDEBAR */}
+                    {
+                        selectedReservation && (
+                            <SidebarReservation
+                                selectedReservation={selectedReservation}
+                                closeSidebar={closeSidebar}
+                                updateStatus={updateStatus}
+                                updatingStatus={updatingStatus}
+                                deleteReservation={deleteReservation}
+                                editCurrency={editCurrency}
+                                setEditCurrency={setEditCurrency}
+                                editAmount={editAmount}
+                                setEditAmount={setEditAmount}
+                                editPaymentMethod={editPaymentMethod}
+                                setEditPaymentMethod={setEditPaymentMethod}
+                                editReceiptFile={editReceiptFile}
+                                setEditReceiptFile={setEditReceiptFile}
+                                handleUpdatePaymentInfo={handleUpdatePaymentInfo}
+                            />
+                        )
+                    }
+
+                    {/* LOCALE DETAIL SIDEBAR */}
+                    {
+                        selectedLocale && (
+                            <SidebarLocales
+                                selectedLocale={selectedLocale}
+                                closeSidebar={closeSidebar}
+                                localeOwner={localeOwner}
+                                handleUnassignUser={handleUnassignUser}
+                                assignTab={assignTab}
+                                setAssignTab={setAssignTab}
+                                selectedProductId={selectedProductId}
+                                setSelectedProductId={setSelectedProductId}
+                                products={products}
+                                assignLocaleToUser={assignLocaleToUser}
+                                availableUsers={users.map(u => ({
+                                    id: u.id,
+                                    type: u.type,
+                                    label: `${u.name} (${u.identification})`
+                                }))}
+                                newUserType={newUserType}
+                                setNewUserType={setNewUserType}
+                                newUserForm={newUserForm}
+                                setNewUserForm={setNewUserForm}
+                                createAndAssignUser={createAndAssignUser}
+                                updatingStatus={updatingStatus}
+
+                            />
+                        )
+                    }
+                    {
+                        selectedUser && (
+                            <SidebarUser
+                                selectedUser={selectedUser}
+                                closeSidebar={closeSidebar}
+                                handleUpdateUser={handleUpdateUser}
+                                updatingStatus={updatingStatus}
+                                handleSendEmail={handleSendEmail}
+                            />
+                        )
+                    }
+                </div >
+
+                {/* Overlay */}
                 {
-                    selectedLocale && (
-                        <SidebarLocales
-                            selectedLocale={selectedLocale}
-                            closeSidebar={closeSidebar}
-                            localeOwner={localeOwner}
-                            handleUnassignUser={handleUnassignUser}
-                            assignTab={assignTab}
-                            setAssignTab={setAssignTab}
-                            selectedProductId={selectedProductId}
-                            setSelectedProductId={setSelectedProductId}
-                            products={products}
-                            assignLocaleToUser={assignLocaleToUser}
-                            availableUsers={availableUsers}
-                            newUserType={newUserType}
-                            setNewUserType={setNewUserType}
-                            newUserForm={newUserForm}
-                            setNewUserForm={setNewUserForm}
-                            createAndAssignUser={createAndAssignUser}
-                            updatingStatus={updatingStatus}
-
+                    sidebarOpen && (
+                        <div
+                            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+                            onClick={closeSidebar}
                         />
                     )
                 }
-            </div >
 
-            {/* Overlay */}
-            {
-                sidebarOpen && (
-                    <div
-                        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
-                        onClick={closeSidebar}
-                    />
-                )
-            }
+                <AlertModal
+                    isOpen={modalOpen}
+                    onClose={() => setModalOpen(false)}
+                    onConfirm={modalConfig.onConfirm}
+                    title={modalConfig.title}
+                    message={modalConfig.message}
+                    type={modalConfig.type}
+                    isConfirm={modalConfig.isConfirm}
+                />
 
-            <AlertModal
-                isOpen={modalOpen}
-                onClose={() => setModalOpen(false)}
-                onConfirm={modalConfig.onConfirm}
-                title={modalConfig.title}
-                message={modalConfig.message}
-                type={modalConfig.type}
-                isConfirm={modalConfig.isConfirm}
-            />
-        </div >
+                {/* Add User Modal */}
+                {isAddUserModalOpen && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+                            <button
+                                onClick={() => setIsAddUserModalOpen(false)}
+                                className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors z-10"
+                            >
+                                <X className="w-5 h-5 text-gray-600" />
+                            </button>
+
+                            <div className="p-8">
+                                <h2 className="text-2xl font-bold text-[#131E29] mb-6 border-b pb-4">Agregar Nuevo Usuario</h2>
+
+                                <div className="mb-6">
+                                    <label className="block text-sm font-semibold mb-2">Tipo de Usuario</label>
+                                    <div className="flex gap-4">
+                                        <button
+                                            onClick={() => setAddUserType('fisica')}
+                                            className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${addUserType === 'fisica'
+                                                ? 'border-[#A9780F] bg-[#A9780F] text-white'
+                                                : 'border-gray-200 text-gray-500 hover:border-[#A9780F]'
+                                                }`}
+                                        >
+                                            Persona Física
+                                        </button>
+                                        <button
+                                            onClick={() => setAddUserType('juridica')}
+                                            className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${addUserType === 'juridica'
+                                                ? 'border-[#A9780F] bg-[#A9780F] text-white'
+                                                : 'border-gray-200 text-gray-500 hover:border-[#A9780F]'
+                                                }`}
+                                        >
+                                            Persona Jurídica
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4">
+                                    {addUserType === 'fisica' ? (
+                                        <FisicaForm onSuccess={handleAddUserSuccess} />
+                                    ) : (
+                                        <JuridicaForm onSuccess={handleAddUserSuccess} />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     );
+
 }
 

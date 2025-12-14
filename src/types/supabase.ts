@@ -174,6 +174,7 @@ export type Database = {
           us_permanence: boolean | null
           us_political: boolean | null
           locale_id: number | null
+          phone: string | null
         }
         Insert: {
           id?: string
@@ -210,6 +211,7 @@ export type Database = {
           us_permanence?: boolean | null
           us_political?: boolean | null
           locale_id?: number | null
+          phone?: string | null
         }
         Update: {
           id?: string
@@ -246,6 +248,7 @@ export type Database = {
           us_permanence?: boolean | null
           us_political?: boolean | null
           locale_id?: number | null
+          phone?: string | null
         }
         Relationships: [
           {
@@ -293,6 +296,7 @@ export type Database = {
           knows_property: boolean | null
           licit_funds: boolean | null
           locale_id: number | null
+          phone: string | null
         }
         Insert: {
           id?: string
@@ -330,6 +334,7 @@ export type Database = {
           knows_property?: boolean | null
           licit_funds?: boolean | null
           locale_id?: number | null
+          phone?: string | null
         }
         Update: {
           id?: string
@@ -366,7 +371,8 @@ export type Database = {
           unit_parking?: string | null
           knows_property?: boolean | null
           licit_funds?: boolean | null
-          locale_id?: number | null
+          locale_id?: number | null 
+          phone?: string | null
         }
         Relationships: [
           {

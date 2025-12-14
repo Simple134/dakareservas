@@ -14,6 +14,7 @@ interface JuridicaFormData {
     rnc: string;
     registroMercantil: string;
     email: string;
+    telefono: string;
     calleEmpresa: string;
     casaEmpresa: string;
     aptoEmpresa: string;
@@ -59,7 +60,7 @@ const steps = [
     { id: "inmueble", title: "Datos del Inmueble" }
 ];
 
-export default function JuridicaForm() {
+export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) {
     const [currentStep, setCurrentStep] = useState(0);
     const { register, handleSubmit, watch, trigger, setValue, formState: { errors } } = useForm<JuridicaFormData>({
         mode: "onChange",
@@ -144,6 +145,7 @@ export default function JuridicaForm() {
 
                 mercantil_registry: data.registroMercantil,
                 email: data.email,
+                phone: data.telefono,
 
                 // Company Address
                 company_address_street: data.calleEmpresa,
@@ -209,6 +211,10 @@ export default function JuridicaForm() {
 
             // Save session to LocalStorage
             if (insertedData) {
+                if (onSuccess) {
+                    onSuccess();
+                    return;
+                }
                 localStorage.setItem('daka_user_id', insertedData.id);
                 localStorage.setItem('daka_user_type', 'juridica');
                 if (data.localComercial) {
@@ -327,6 +333,18 @@ export default function JuridicaForm() {
                                     className="p-2 border rounded w-full"
                                 />
                                 {errors.email && <span className="text-red-500 text-xs block mt-1">{errors.email.message}</span>}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-1">Teléfono *</label>
+                                <input
+                                    type="tel"
+                                    {...register("telefono", {
+                                        required: "El teléfono es requerido",
+                                    })}
+                                    placeholder=" 809-000-0000"
+                                    className="p-2 border rounded w-full"
+                                />
+                                {errors.telefono && <span className="text-red-500 text-xs block mt-1">{errors.telefono.message}</span>}
                             </div>
                         </div>
 

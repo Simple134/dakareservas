@@ -17,6 +17,7 @@ interface FisicaFormData {
   estadoCivil: string;
   ocupacion: string;
   email: string;
+  telefono: string; // NEW FIELD
 
   // Cónyuge
   nombreConyuge: string;
@@ -57,7 +58,7 @@ const steps = [
   { id: "inmueble", title: "Datos del Inmueble" },
 ];
 
-export default function FisicaForm() {
+export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
   const [currentStep, setCurrentStep] = useState(0);
   const { register, handleSubmit, watch, trigger, setValue, formState: { errors } } = useForm<FisicaFormData>({
     mode: "onChange",
@@ -147,7 +148,8 @@ export default function FisicaForm() {
         passport: data.pasaporte,
         marital_status: data.estadoCivil,
         occupation: data.ocupacion,
-        email: data.email, // NEW FIELD
+        email: data.email,
+        phone: data.telefono,
 
         // Spouse Info (if applicable)
         spouse_name: data.nombreConyuge,
@@ -188,8 +190,13 @@ export default function FisicaForm() {
         throw new Error(error.message);
       }
 
-      // Save session to LocalStorage
+      // Save session to LocalStorage (Only if not in admin mode i.e. no onSuccess)
       if (insertedData) {
+        if (onSuccess) {
+          onSuccess();
+          return;
+        }
+
         localStorage.setItem('daka_user_id', insertedData.id);
         localStorage.setItem('daka_user_type', 'fisica');
         if (data.localComercial) {
@@ -212,7 +219,7 @@ export default function FisicaForm() {
 
     // Define fields to validate per step
     if (currentStep === 0) {
-      fieldsToValidate = ["nombre", "apellido", "cedula", "sexo", "estadoCivil", "email"];
+      fieldsToValidate = ["nombre", "apellido", "cedula", "sexo", "estadoCivil", "email", "telefono"];
     } else if (currentStep === 1) {
       // Add address fields if they become required
     } else if (currentStep === 2) {
@@ -264,7 +271,7 @@ export default function FisicaForm() {
       <AnimatePresence mode="wait">
         {currentStep === 0 && (
           <motion.div key="step0" variants={stepVariants} initial="hidden" animate="visible" exit="exit">
-            <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">Datos Personales</h3>
+            <h3 className="text-xl font-bold text-black mb-6 border-b pb-2">Datos Personales</h3>
 
             {/* Nombres y Apellidos FIRST */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -295,6 +302,19 @@ export default function FisicaForm() {
                 className="p-2 border rounded w-full"
               />
               {errors.email && <span className="text-red-500 text-xs block mt-1">{errors.email.message}</span>}
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-1">Teléfono *</label>
+              <input
+                type="tel"
+                {...register("telefono", {
+                  required: "El teléfono es requerido",
+                })}
+                placeholder=" 809-000-0000"
+                className="p-2 border rounded w-full"
+              />
+              {errors.telefono && <span className="text-red-500 text-xs block mt-1">{errors.telefono.message}</span>}
             </div>
 
             <div className="mb-4">
