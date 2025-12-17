@@ -1,0 +1,50 @@
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+console.log(resend)
+
+export async function sendInvitationEmail(email: string, name: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is not set. Email not sent.");
+    return { success: false, error: "Missing API Key" };
+  }
+
+  try {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+    const cleanUrl = siteUrl.replace(/\/$/, ''); // Remove trailing slash if present
+
+    const { data, error } = await resend.emails.send({
+      from: 'Daka <noreply@reservas.dakadominicana.com>',
+      to: [email],
+      subject: 'Invitación a Daka - Crea tu cuenta',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #131E29;">¡Hola ${name}!</h1>
+          <p style="font-size: 16px; line-height: 1.6;">Has sido registrado en la plataforma de Daka.</p>
+          <p style="font-size: 16px; line-height: 1.6;">Para acceder a tu cuenta y gestionar tus inversiones, necesitas crear tu contraseña.</p>
+          <div style="margin: 30px 0; text-align: center;">
+            <a href="${cleanUrl}/login" style="background-color: #A9780F; color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Crear mi cuenta</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">
+            Tu correo de acceso es: <strong>${email}</strong><br>
+            Solo necesitas crear una contraseña para acceder.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #999; font-size: 12px;">
+            Si no solicitaste esta invitación, puedes ignorar este correo.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Error sending email:", error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Exception sending email:", error);
+    return { success: false, error };
+  }
+}

@@ -167,12 +167,10 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
         nationality: data.nacionalidad,
         other_nationality: data.otraNacionalidad,
 
-        // Property Info (Linked to this user, effectively reserving it temporarily or permanently depending on business logic)
         unit_code: data.localComercial || null,
         unit_level: data.nivel || null,
         unit_meters: data.metros || null,
         unit_parking: data.parqueo || null,
-        // locale_id removed from person table
 
 
         status: 'pending'
@@ -217,11 +215,9 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
   const nextStep = async () => {
     let fieldsToValidate: (keyof FisicaFormData)[] = [];
 
-    // Define fields to validate per step
     if (currentStep === 0) {
       fieldsToValidate = ["nombre", "apellido", "cedula", "sexo", "estadoCivil", "email", "telefono"];
     } else if (currentStep === 1) {
-      // Add address fields if they become required
     } else if (currentStep === 2) {
       fieldsToValidate = ["nivel", "localComercial"];
     }

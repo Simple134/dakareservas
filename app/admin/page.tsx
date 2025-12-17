@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/src/lib/supabase/client";
 import { Tables } from "@/src/types/supabase";
-import Login from "@/src/components/Login";
 import AlertModal, { AlertType } from "@/src/components/AlertModal";
 import { LogOut, X, Search, User, Building2 } from "lucide-react";
 import { ReservationViewModel } from "@/src/types/ReservationsTypes";
 import { SidebarReservation, SidebarLocales, SidebarUser } from "@/src/components/Sidebar";
 import FisicaForm from "@/src/components/FisicaForm";
 import JuridicaForm from "@/src/components/JuridicaForm";
+import { inviteUserAction } from "@/src/actions/invite-user";
+import { useAuth } from "@/src/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 type ProductAllocationResponse = Tables<'product_allocations'> & {
     product: { name: string } | null;
@@ -35,8 +37,14 @@ type UserViewModel = {
 
 
 export default function AdminPage() {
-    const [session, setSession] = useState<any>(null);
+    const { user: session, loading: authLoading } = useAuth();
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!authLoading) setLoading(false);
+    }, [authLoading]);
+
     const [reservations, setReservations] = useState<ReservationViewModel[]>([]);
     const [locales, setLocales] = useState<Tables<'locales'>[]>([]);
     const [products, setProducts] = useState<Tables<'products'>[]>([]);
@@ -126,20 +134,6 @@ export default function AdminPage() {
         setModalOpen(true);
     };
 
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            setLoading(false);
-        });
-
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-        });
-
-        return () => subscription.unsubscribe();
-    }, []);
 
     useEffect(() => {
         if (session) {
@@ -476,11 +470,23 @@ export default function AdminPage() {
         }
     };
 
-    const handleSendEmail = () => {
+    const handleSendEmail = async () => {
         if (!selectedUser) return;
-        const subject = encodeURIComponent("Comunicación Dakabana");
-        const body = encodeURIComponent(`Estimado/a ${selectedUser.name},\n\n`);
-        window.open(`mailto:${selectedUser.email}?subject=${subject}&body=${body}`);
+        setUpdatingStatus(true);
+        try {
+            const result = await inviteUserAction(selectedUser.email, selectedUser.name);
+
+            if (result.success) {
+                showAlert("Éxito", "Invitación enviada correctamente", 'success');
+            } else {
+                showAlert("Error", "No se pudo enviar la invitación: " + result.message, 'error');
+            }
+        } catch (error: any) {
+            console.error("Error sending email:", error);
+            showAlert("Error", "Error enviando correo: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
     };
 
 
@@ -814,16 +820,14 @@ export default function AdminPage() {
     const uniqueResStatuses = Array.from(new Set(reservations.map(r => r.status))).filter(Boolean).sort();
 
     if (loading) {
-        return (
-            <div className="flex h-screen items-center justify-center bg-[#131E29]">
-                <div className="text-xl text-white">Loading...</div>
-            </div>
-        );
+        return <div className="p-8">Cargando...</div>;
     }
 
     if (!session) {
-        return <Login />;
+        router.push("/login");
+        return null;
     }
+
 
     return (
         <div className="min-h-screen bg-white p-8 font-sans">
