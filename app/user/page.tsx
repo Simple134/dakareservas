@@ -7,6 +7,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { SidebarPayment } from "@/src/components/Sidebar";
+import { sendPaymentNotificationAction } from "@/src/actions/send-payment-notification";
 
 type DashboardData = {
     userName: string;
@@ -217,13 +218,20 @@ export default function UserPage() {
                 .from('product_allocations')
                 .update({
                     amount: updatedAmounts,
-                    receipt_url: updatedReceipts
+                    receipt_url: updatedReceipts,
+                    status: 'pending'
                 })
                 .eq('id', allocations.id);
 
             if (updateError) throw updateError;
 
-            // 5. Success
+            if (updateError) throw updateError;
+
+            // 5. Send Notification Email to Admin
+            const userName = dashboardData?.userName || user.email || "Usuario";
+            await sendPaymentNotificationAction(userName, amount, dashboardData?.paidCurrency || 'USD');
+
+            // 6. Success
             setPaymentSidebarOpen(false);
             window.location.reload(); // Simple reload to refresh data
         } catch (error: any) {

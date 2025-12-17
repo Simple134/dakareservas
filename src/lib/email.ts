@@ -91,3 +91,44 @@ export async function sendQuotationEmail(email: string, name: string, quotationU
     return { success: false, error };
   }
 }
+
+export async function sendPaymentNotificationEmail(userName: string, amount: string, currency: string) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is not set. Email not sent.");
+    return { success: false, error: "Missing API Key" };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Daka <noreply@reservas.dakadominicana.com>',
+      to: ['Daka.dominicana@gmail.com'],
+      subject: 'Nuevo Pago Recibido - Daka Reservas',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #131E29;">Nuevo Pago Registrado</h1>
+          <p style="font-size: 16px; line-height: 1.6;">El usuario <strong>${userName}</strong> ha subido un nuevo comprobante de pago.</p>
+          <div style="background-color: #f8f9fa; border-left: 4px solid #A9780F; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 18px;">Monto: <strong>${amount} ${currency}</strong></p>
+          </div>
+          <p style="font-size: 14px; color: #666;">
+            Por favor ingresa al panel administrativo para verificar el comprobante y aprobar el pago.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #999; font-size: 12px;">
+            Notificación automática del sistema de reservas.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Error sending payment notification:", error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Exception sending payment notification:", error);
+    return { success: false, error };
+  }
+}
