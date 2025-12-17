@@ -485,16 +485,19 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
                 <select
                   className="p-3 border rounded w-full"
                   value={selectedLevel}
-                  {...register("nivel", {
-                    required: "Seleccione un nivel",
-                    onChange: (e) => (setSelectedLocale(null), setSelectedLevel(e.target.value))
-                  })}
+                  onChange={(e) => {
+                    const newLevel = e.target.value;
+                    setSelectedLevel(newLevel);
+                    setValue("nivel", newLevel);
+                    setSelectedLocale(null);
+                  }}
                 >
                   <option value="">Seleccione Nivel</option>
                   {levels.map(level => (
                     <option key={level} value={level}>Nivel {level}</option>
                   ))}
                 </select>
+                {errors.nivel && <span className="text-red-500 text-xs block mt-1">{errors.nivel.message}</span>}
               </div>
 
               <div>

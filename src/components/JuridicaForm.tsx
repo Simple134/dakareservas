@@ -518,10 +518,12 @@ export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) 
                                 <select
                                     className="p-2 border rounded w-full"
                                     value={selectedLevel}
-                                    {...register("nivel", {
-                                        required: "Seleccione un nivel",
-                                        onChange: (e) => (setSelectedLocale(null), setSelectedLevel(e.target.value))
-                                    })}
+                                    onChange={(e) => {
+                                        const newLevel = e.target.value;
+                                        setSelectedLevel(newLevel);
+                                        setValue("nivel", newLevel);
+                                        setSelectedLocale(null);
+                                    }}
                                 >
                                     <option value="">Seleccione Nivel</option>
                                     {levels.map(level => (
