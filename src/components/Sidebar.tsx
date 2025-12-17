@@ -22,11 +22,12 @@ interface SidebarReservationProps {
     editQuotationFile: File | null;
     setEditQuotationFile: (file: File | null) => void;
     handleUploadQuotation: () => void;
+    handleDeleteQuotation: () => void;
 }
 
 
 
-export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation }: SidebarReservationProps) => {
+export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation }: SidebarReservationProps) => {
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
     return (
         <div className="h-full flex flex-col">
@@ -209,7 +210,7 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                             <>
                                 <DetailRow label="Moneda" value={selectedReservation.currency} />
                                 <DetailRow
-                                    label="Monto Reserva"
+                                    label="Valor Pagado"
                                     value={new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedReservation.currency || 'USD' }).format(
                                         Array.isArray(selectedReservation.amount)
                                             ? selectedReservation.amount.reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
@@ -247,6 +248,14 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                     </div>
                                 </div>
                             </a>
+                            <button
+                                onClick={handleDeleteQuotation}
+                                disabled={updatingStatus}
+                                className="absolute top-2 right-2 p-1 bg-red-600 text-white rounded-full transition-opacity hover:bg-red-700 disabled:opacity-50"
+                                title="Eliminar Cotización"
+                            >
+                                <Trash2 size={12} />
+                            </button>
                         </div>
                     ) : (
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-3">
@@ -392,7 +401,8 @@ export const SidebarLocales = ({ selectedLocale, closeSidebar, localeOwner, hand
                     <div className="col-span-2">
                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${selectedLocale.status?.toLowerCase().includes('disponible') ? "bg-green-100 text-green-800" :
                             selectedLocale.status?.toLowerCase().includes('vendido') ? "bg-red-100 text-red-800" :
-                                "bg-yellow-100 text-yellow-800"
+                                selectedLocale.status?.toLowerCase().includes('reservado') ? "bg-orange-100 text-orange-800" :
+                                    "bg-yellow-100 text-yellow-800"
                             }`}>
                             {selectedLocale.status}
                         </span>

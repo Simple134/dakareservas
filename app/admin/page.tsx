@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/src/lib/supabase/client";
 import { Tables } from "@/src/types/supabase";
 import AlertModal, { AlertType } from "@/src/components/AlertModal";
-import { LogOut, X, Search, User, Building2 } from "lucide-react";
+import { LogOut, X, Search, User, Building2, Check, RotateCw } from "lucide-react";
 import { ReservationViewModel } from "@/src/types/ReservationsTypes";
 import { SidebarReservation, SidebarLocales, SidebarUser } from "@/src/components/Sidebar";
 import FisicaForm from "@/src/components/FisicaForm";
@@ -13,6 +13,7 @@ import JuridicaForm from "@/src/components/JuridicaForm";
 import { inviteUserAction } from "@/src/actions/invite-user";
 import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { sendQuotationAction } from "@/src/actions/send-quotation";
 
 type ProductAllocationResponse = Tables<'product_allocations'> & {
     product: { name: string } | null;
@@ -53,6 +54,9 @@ export default function AdminPage() {
     const [selectedReservation, setSelectedReservation] = useState<ReservationViewModel | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+
+    // Status Update State for Locales table
+    const [pendingStatusUpdates, setPendingStatusUpdates] = useState<Record<number, string>>({});
 
     // Users State
     const [users, setUsers] = useState<UserViewModel[]>([]);
@@ -198,6 +202,7 @@ export default function AdminPage() {
                         currency: item.currency || "USD",
                         payment_method: item.payment_method || "N/A",
                         receipt_url: item.receipt_url,
+                        cotizacion_url: item.cotizacion_url,
                         transaction_number: null,
                         email: pf.email,
                         address_display: addressParts,
@@ -236,6 +241,7 @@ export default function AdminPage() {
                         currency: item.currency || "USD",
                         payment_method: item.payment_method || "N/A",
                         receipt_url: item.receipt_url,
+                        cotizacion_url: item.cotizacion_url,
                         transaction_number: null,
                         email: pj.email,
                         address_display: addressParts,
@@ -561,6 +567,47 @@ export default function AdminPage() {
         }
     };
 
+    // Locale Status Manual Update Handlers
+    const handleStatusChange = (localeId: number, newStatus: string) => {
+        setPendingStatusUpdates(prev => ({
+            ...prev,
+            [localeId]: newStatus
+        }));
+    };
+
+    const saveLocaleStatus = async (localeId: number, e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent row click
+        const newStatus = pendingStatusUpdates[localeId];
+        if (!newStatus) return;
+
+        setUpdatingStatus(true);
+        try {
+            const { error } = await supabase
+                .from('locales')
+                .update({ status: newStatus })
+                .eq('id', localeId);
+
+            if (error) throw error;
+
+            // Update local state
+            setLocales(prev => prev.map(l => l.id === localeId ? { ...l, status: newStatus } : l));
+
+            // Clear pending update
+            setPendingStatusUpdates(prev => {
+                const newState = { ...prev };
+                delete newState[localeId];
+                return newState;
+            });
+
+            showAlert("Éxito", "Estado del local actualizado correctamente.", "success");
+        } catch (error: any) {
+            console.error("Error updating locale status:", error);
+            showAlert("Error", "Error actualizando estado: " + error.message, "error");
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
     const deleteReservation = () => {
         if (!selectedReservation) return;
         setSidebarOpen(false);
@@ -617,8 +664,13 @@ export default function AdminPage() {
             // Handle array of amounts
             let currentAmounts: string[] = selectedReservation.amount || [];
 
-            // Only append if there's a value and it's not the default "0" string if avoiding duplicates?
-            // Actually, keep it simple: if editAmount has value, append it.
+            // Filter out "0" or invalid values to prevent ["0", "5000"]
+            currentAmounts = currentAmounts.filter(amt => {
+                const val = parseFloat(amt);
+                return !isNaN(val) && val > 0;
+            });
+
+            // Only append if there's a value and it's greater than 0
             if (editAmount && parseFloat(editAmount) > 0) {
                 currentAmounts = [...currentAmounts, editAmount];
             }
@@ -690,13 +742,62 @@ export default function AdminPage() {
             setSelectedReservation(updatedReservation);
             setEditQuotationFile(null);
 
-            showAlert("Éxito", "Cotización subida correctamente.", 'success');
+            setEditQuotationFile(null);
+
+            // Send email to client
+            if (selectedReservation.email) {
+                const emailResult = await sendQuotationAction(
+                    selectedReservation.email,
+                    selectedReservation.client_name,
+                    cotizacionUrl
+                );
+
+                if (emailResult.success) {
+                    showAlert("Éxito", "Cotización subida y enviada al cliente por correo.", 'success');
+                } else {
+                    console.error("Error sending email:", emailResult.message);
+                    showAlert("Atención", "Cotización subida, pero hubo un error enviando el correo: " + emailResult.message, 'warning');
+                }
+            } else {
+                showAlert("Éxito", "Cotización subida correctamente (Cliente sin correo registrado).", 'success');
+            }
         } catch (error: any) {
             console.error(error);
             showAlert("Error", "Error subiendo cotización: " + error.message, 'error');
         } finally {
             setUpdatingStatus(false);
         }
+    };
+
+    const handleDeleteQuotation = async () => {
+        if (!selectedReservation) return;
+
+        showConfirm(
+            "Eliminar Cotización",
+            "¿Estás seguro de eliminar la cotización actual?",
+            async () => {
+                setUpdatingStatus(true);
+                try {
+                    const { error } = await supabase
+                        .from('product_allocations')
+                        .update({ cotizacion_url: null })
+                        .eq('id', selectedReservation.id);
+
+                    if (error) throw error;
+
+                    const updatedReservation = { ...selectedReservation, cotizacion_url: null };
+                    setReservations(prev => prev.map(r => r.id === selectedReservation.id ? updatedReservation : r));
+                    setSelectedReservation(updatedReservation);
+
+                    showAlert("Éxito", "Cotización eliminada.", 'success');
+                } catch (error: any) {
+                    console.error(error);
+                    showAlert("Error", "Error eliminando cotización: " + error.message, 'error');
+                } finally {
+                    setUpdatingStatus(false);
+                }
+            }
+        );
     };
 
 
@@ -1176,13 +1277,34 @@ export default function AdminPage() {
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-bold text-[#A9780F]">
                                                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(locale.total_value)}
                                                 </td>
-                                                <td className="whitespace-nowrap px-6 py-4">
-                                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${locale.status?.toLowerCase().includes('disponible') ? "bg-green-100 text-green-800" :
-                                                        locale.status?.toLowerCase().includes('vendido') ? "bg-red-100 text-red-800" :
-                                                            "bg-yellow-100 text-yellow-800"
-                                                        }`}>
-                                                        {locale.status}
-                                                    </span>
+                                                <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center gap-2">
+                                                        <select
+                                                            value={pendingStatusUpdates[locale.id] || locale.status}
+                                                            onChange={(e) => handleStatusChange(locale.id, e.target.value)}
+                                                            className={`block w-full text-xs font-bold rounded-full px-2 py-1 border-0 ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 ${(pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('disponible') ? "bg-green-50 text-green-700 ring-green-600/20 focus:ring-green-600" :
+                                                                (pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('vendido') ? "bg-red-50 text-red-700 ring-red-600/20 focus:ring-red-600" :
+                                                                    (pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('reservado') ? "bg-orange-50 text-orange-700 ring-orange-600/20 focus:ring-orange-600" :
+                                                                        "bg-yellow-50 text-yellow-700 ring-yellow-600/20 focus:ring-yellow-600"
+                                                                }`}
+                                                        >
+                                                            <option value="DISPONIBLE">DISPONIBLE</option>
+                                                            <option value="VENDIDO">VENDIDO</option>
+                                                            <option value="RESERVADO">RESERVADO</option>
+                                                            <option value="BLOQUEADO">BLOQUEADO</option>
+                                                        </select>
+
+                                                        {pendingStatusUpdates[locale.id] && pendingStatusUpdates[locale.id] !== locale.status && (
+                                                            <button
+                                                                onClick={(e) => saveLocaleStatus(locale.id, e)}
+                                                                disabled={updatingStatus}
+                                                                className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                                                                title="Confirmar cambio"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -1371,6 +1493,7 @@ export default function AdminPage() {
                                 editQuotationFile={editQuotationFile}
                                 setEditQuotationFile={setEditQuotationFile}
                                 handleUploadQuotation={handleUploadQuotation}
+                                handleDeleteQuotation={handleDeleteQuotation}
                             />
                         )
                     }
