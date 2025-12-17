@@ -205,7 +205,6 @@ export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) 
 
                 if (updateError) {
                     console.error("Error updating locale status:", updateError);
-                    // Decide if this should prevent form submission or just log
                 }
             }
 

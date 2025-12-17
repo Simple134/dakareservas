@@ -11,9 +11,7 @@ function DetailRow({
         <div className="flex justify-between py-2 border-b border-gray-100">
             <span className="text-sm text-gray-600 font-medium">{label}:</span>
             <span
-                className={`text-sm font-semibold ${highlight ? "text-[#A9780F]" : "text-gray-900"
-                    }`}
-            >
+                className={`text-sm font-semibold ${highlight ? "text-[#A9780F]" : "text-gray-900"}`}>
                 {value}
             </span>
         </div>
