@@ -19,11 +19,15 @@ interface SidebarReservationProps {
     editReceiptFile: File | null;
     setEditReceiptFile: (receiptFile: File | null) => void;
     handleUpdatePaymentInfo: () => void;
+    editQuotationFile: File | null;
+    setEditQuotationFile: (file: File | null) => void;
+    handleUploadQuotation: () => void;
 }
 
 
 
-export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo }: SidebarReservationProps) => {
+export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation }: SidebarReservationProps) => {
+    const [expandedImage, setExpandedImage] = useState<string | null>(null);
     return (
         <div className="h-full flex flex-col">
             <div className="bg-[#131E29] p-6 flex items-center justify-between">
@@ -206,77 +210,128 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                 <DetailRow label="Moneda" value={selectedReservation.currency} />
                                 <DetailRow
                                     label="Monto Reserva"
-                                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedReservation.currency || 'USD' }).format(selectedReservation.amount)}
+                                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedReservation.currency || 'USD' }).format(
+                                        Array.isArray(selectedReservation.amount)
+                                            ? selectedReservation.amount.reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
+                                            : 0
+                                    )}
                                     highlight
                                 />
                                 <DetailRow label="Método de Pago" value={selectedReservation.payment_method} />
-                                {selectedReservation.bank_name && (
-                                    <DetailRow label="Banco" value={selectedReservation.bank_name} />
-                                )}
                             </>
                         )}
                     </div>
                 </div>
 
-                {selectedReservation.receipt_url && (
-                    <div className="mt-2">
-                        {selectedReservation.receipt_url.toLowerCase().endsWith('.pdf') ? (
-                            // PDF Display
+                {/* Quotation Section */}
+                <div className="mt-6">
+                    <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+                        Cotización del Cliente
+                    </h3>
+
+                    {selectedReservation.cotizacion_url ? (
+                        <div className="relative group">
                             <a
-                                href={selectedReservation.receipt_url}
+                                href={selectedReservation.cotizacion_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block w-full"
                             >
-                                <div className="relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden border-2 border-[#A9780F] hover:border-[#8e650c] transition-colors flex items-center justify-center group cursor-pointer">
-                                    <div className="text-center px-6">
-                                        <svg
-                                            className="w-16 h-16 mx-auto mb-3 text-[#A9780F] group-hover:scale-110 transition-transform"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                            />
+                                <div className="relative h-24 w-full bg-gray-100 rounded-lg border-2 border-[#A9780F] hover:border-[#8e650c] transition-colors flex items-center justify-center cursor-pointer">
+                                    <div className="text-center">
+                                        <svg className="w-8 h-8 mx-auto mb-1 text-[#A9780F]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                         </svg>
-                                        <p className="text-sm font-bold text-gray-900 mb-1">
-                                            Comprobante PDF
-                                        </p>
-                                        <p className="text-xs text-gray-600 group-hover:text-[#A9780F] transition-colors">
-                                            Clic para ver documento
-                                        </p>
+                                        <p className="text-xs font-bold text-[#A9780F]">PDF Cotización</p>
+                                        <p className="text-[10px] text-gray-500">Clic para ver</p>
                                     </div>
                                 </div>
                             </a>
-                        ) : (
-                            // Image Display
-                            <a href={selectedReservation.receipt_url} target="_blank" rel="noopener noreferrer" className="block relative group cursor-zoom-in">
-                                <div className="relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={selectedReservation.receipt_url}
-                                        alt="Comprobante de pago"
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                    />
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                        <div className="opacity-0 group-hover:opacity-100 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-all transform translate-y-2 group-hover:translate-y-0">
-                                            Clic para ampliar
+                        </div>
+                    ) : (
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-3">
+                            <label className="block text-xs font-semibold text-gray-700 mb-1">Subir Cotización (PDF)</label>
+                            <input
+                                type="file"
+                                accept=".pdf"
+                                onChange={(e) => setEditQuotationFile(e.target.files?.[0] || null)}
+                                className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-gray-700"
+                            />
+                            <button
+                                onClick={handleUploadQuotation}
+                                disabled={!editQuotationFile || updatingStatus}
+                                className="w-full bg-[#131E29] hover:bg-[#2a425a] text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                                <Save size={14} />
+                                Subir Cotización
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Receipt Gallery Section */}
+                {selectedReservation.receipt_url && Array.isArray(selectedReservation.receipt_url) && selectedReservation.receipt_url.length > 0 && (
+                    <div className="mt-4">
+                        <h4 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+                            Comprobantes ({selectedReservation.receipt_url.length})
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            {selectedReservation.receipt_url.map((url, index) => (
+                                <div key={index} className="relative group">
+                                    {url.toLowerCase().endsWith('.pdf') ? (
+                                        <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="block w-full h-24"
+                                        >
+                                            <div className="h-full w-full bg-gray-100 rounded-lg border-2 border-[#A9780F] flex flex-col items-center justify-center hover:bg-gray-200 transition-colors">
+                                                <span className="text-xs font-bold text-[#A9780F]">PDF</span>
+                                                <span className="text-[10px] text-gray-500">Ver documento</span>
+                                            </div>
+                                        </a>
+                                    ) : (
+                                        <div
+                                            onClick={() => setExpandedImage(url)}
+                                            className="h-24 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 cursor-zoom-in relative"
+                                        >
+                                            <img
+                                                src={url}
+                                                alt={`Comprobante ${index + 1}`}
+                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                                                <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-bold bg-black/50 px-2 py-1 rounded">Ver</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
-                            </a>
-                        )}
-                        <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                            <Clock size={12} />
-                            Subido el {new Date(selectedReservation.created_at).toLocaleDateString()}
-                        </p>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
+
+            {/* Expanded Image Modal */}
+            {expandedImage && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setExpandedImage(null)}
+                >
+                    <button
+                        onClick={() => setExpandedImage(null)}
+                        className="absolute top-4 right-4 text-white hover:text-red-400 p-2 bg-black/50 rounded-full transition-colors"
+                    >
+                        <X size={32} />
+                    </button>
+                    <img
+                        src={expandedImage}
+                        alt="Vista ampliada"
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
         </div>
     );
 };
@@ -582,8 +637,8 @@ export const SidebarUser = ({ selectedUser, closeSidebar, handleUpdateUser, upda
                     <button
                         onClick={() => setIsEditing(!isEditing)}
                         className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 border-2 transition-colors ${isEditing
-                                ? "bg-white border-red-500 text-red-500"
-                                : "bg-white border-[#A9780F] text-[#A9780F]"
+                            ? "bg-white border-red-500 text-red-500"
+                            : "bg-white border-[#A9780F] text-[#A9780F]"
                             }`}
                     >
                         {isEditing ? <><X size={18} /> Cancelar</> : <><Edit size={18} /> Editar</>}
@@ -689,6 +744,106 @@ export const SidebarUser = ({ selectedUser, closeSidebar, handleUpdateUser, upda
                 )}
 
 
+            </div>
+        </div>
+    );
+};
+
+interface SidebarPaymentProps {
+    closeSidebar: () => void;
+    onSubmit: (amount: string, file: File) => Promise<void>;
+    isSubmitting: boolean;
+    currency: string;
+}
+
+export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency }: SidebarPaymentProps) => {
+    const [amount, setAmount] = useState("");
+    const [file, setFile] = useState<File | null>(null);
+
+    const handleSubmit = async () => {
+        if (!amount || !file) return;
+        await onSubmit(amount, file);
+    };
+
+    return (
+        <div className="h-full flex flex-col">
+            <div className="bg-[#131E29] p-6 flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-white">Abonar a Capital</h2>
+                <button
+                    onClick={closeSidebar}
+                    className="text-white hover:text-[#A9780F] transition-colors"
+                >
+                    <X size={24} />
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+                    <p className="text-sm text-gray-600 mb-4">
+                        Ingrese el monto que desea abonar y suba el comprobante de la transacción.
+                    </p>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Monto a Abonar ({currency})</label>
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder="Ej: 5000.00"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#A9780F] focus:border-[#A9780F] text-black"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Comprobante de Pago</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-white hover:bg-gray-50 transition-colors">
+                            <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                className="hidden"
+                                id="receipt-upload"
+                            />
+                            <label htmlFor="receipt-upload" className="cursor-pointer flex flex-col items-center">
+                                {file ? (
+                                    <>
+                                        <CheckCircle2 className="w-10 h-10 text-green-500 mb-2" />
+                                        <span className="text-sm font-medium text-gray-900 text-center break-all">{file.name}</span>
+                                        <span className="text-xs text-blue-500 mt-1">Clic para cambiar</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                            </svg>
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-900">Subir Comprobante</span>
+                                        <span className="text-xs text-gray-500 mt-1">PDF o Imagen</span>
+                                    </>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleSubmit}
+                        disabled={!amount || !file || isSubmitting}
+                        className="w-full py-3 bg-[#A9780F] hover:bg-[#8e650c] text-white font-bold rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                Procesando...
+                            </>
+                        ) : (
+                            <>
+                                <Save size={18} />
+                                Confirmar Abono
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
         </div>
     );

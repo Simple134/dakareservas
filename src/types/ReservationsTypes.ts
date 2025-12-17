@@ -11,11 +11,11 @@ export interface ReservationViewModel {
     identification_value: string;
 
     product_name: string;
-    amount: number;
+    amount: string[];
     currency: string;
     payment_method: string;
-    receipt_url: string | null;
-    bank_name: string | null;
+    receipt_url: string[] | null;
+    cotizacion_url?: string | null;
     transaction_number: string | null;
 
     email: string | null;

@@ -146,27 +146,21 @@ export default function ConfirmacionPage() {
                 receiptUrl = publicUrlData.publicUrl;
             }
 
-            // Fetch user's locale_id from their user table
-            const userTable = userType === 'fisica' ? 'persona_fisica' : 'persona_juridica';
-            const { data: userData, error: userError } = await supabase
-                .from(userTable)
-                .select('locale_id')
-                .eq('id', userId)
-                .single();
-
-            if (userError) throw new Error("Error al obtener datos del usuario: " + userError.message);
-            if (!userData?.locale_id) {
-                throw new Error("No se encontró un local asignado al usuario.");
+            // Verify locale_id is present on the allocation
+            // Casting allocation to any because Typescript definitions might be outdated
+            const allocationData = allocation as any;
+            if (!allocationData?.locales_id) {
+                throw new Error("No se encontró un local asignado a esta reserva.");
             }
 
             // Update Allocation
             const { error: allocError } = await supabase
                 .from('product_allocations')
                 .update({
-                    amount: numAmount,
+                    amount: [numAmount.toString()],
                     currency: currency,
                     payment_method: paymentMethod,
-                    receipt_url: receiptUrl,
+                    receipt_url: receiptUrl ? [receiptUrl] : null,
                     status: 'pending',
                 })
                 .eq('id', allocationId);
@@ -179,17 +173,17 @@ export default function ConfirmacionPage() {
                 .update({
                     status: 'BLOQUEADO',
                 })
-                .eq('id', userData.locale_id);
+                .eq('id', allocationData.locales_id);
 
             if (localesError) throw localesError;
 
             // Update local allocation state to show confirmation
             setAllocation({
                 ...allocation!,
-                amount: numAmount,
+                amount: [numAmount.toString()],
                 currency: currency,
                 payment_method: paymentMethod,
-                receipt_url: receiptUrl,
+                receipt_url: receiptUrl ? [receiptUrl] : null,
                 status: 'pending'
             });
         } catch (error: any) {
@@ -197,6 +191,9 @@ export default function ConfirmacionPage() {
             alert(error.message || "Error actualizando el pago.");
         } finally {
             setUpdating(false);
+            localStorage.removeItem('daka_user_id');
+            localStorage.removeItem('daka_user_type');
+            localStorage.removeItem('daka_selected_locale_id');
         }
     };
 
@@ -459,7 +456,11 @@ export default function ConfirmacionPage() {
                                     <h5 className="alert-heading fw-bold">¡Inversión Confirmada!</h5>
                                     <p>
                                         Usted ha confirmado una inversión de: <br />
-                                        <strong>{allocation.amount.toLocaleString()} {allocation.currency}</strong>
+                                        <strong>
+                                            {Array.isArray(allocation.amount)
+                                                ? parseFloat(allocation.amount[0]).toLocaleString()
+                                                : parseFloat(allocation.amount as unknown as string).toLocaleString()} {allocation.currency}
+                                        </strong>
                                     </p>
                                     <hr />
                                     <div className="mt-4">

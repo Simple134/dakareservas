@@ -80,42 +80,45 @@ export type Database = {
           created_at: string
           product_id: string
           user_type: string
-          amount: number | null
+          amount: string[] | null
           currency: string | null
           persona_fisica_id: string | null
           persona_juridica_id: string | null
           payment_method: string | null
-          receipt_url: string | null
-          bank_name: string | null
+          receipt_url: string[] | null
           status: string | null
+          locales_id: number | null
+          cotizacion_url: string | null
         }
         Insert: {
           id?: string
           created_at?: string
           product_id: string
           user_type: string
-          amount?: number | null
+          amount?: string[] | null
           currency?: string | null
           persona_fisica_id?: string | null
           persona_juridica_id?: string | null
           payment_method?: string | null
-          receipt_url?: string | null
-          bank_name?: string | null
+          receipt_url?: string[] | null
           status?: string | null
+          locales_id?: number | null
+          cotizacion_url?: string | null
         }
         Update: {
           id?: string
           created_at?: string
           product_id?: string
           user_type?: string
-          amount?: number | null
+          amount?: string[] | null
           currency?: string | null
           persona_fisica_id?: string | null
           persona_juridica_id?: string | null
           payment_method?: string | null
-          receipt_url?: string | null
-          bank_name?: string | null
+          receipt_url?: string[] | null
           status?: string | null
+          locales_id?: number | null
+          cotizacion_url?: string | null
         }
         Relationships: [
           {
@@ -390,6 +393,8 @@ export type Database = {
           email: string | null
           full_name: string | null
           role: string | null
+          id_fisica: string | null
+          id_juridica: string | null
         }
         Insert: {
           id: string
@@ -397,6 +402,8 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           role?: string | null
+          id_fisica?: string | null
+          id_juridica?: string | null
         }
         Update: {
           id?: string
@@ -404,6 +411,8 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           role?: string | null
+          id_fisica?: string | null
+          id_juridica?: string | null
         }
         Relationships: [
           {

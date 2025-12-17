@@ -10,6 +10,8 @@ type AuthContextType = {
     user: User | null;
     role: 'admin' | 'user' | null;
     loading: boolean;
+    signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+    signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
     signOut: () => Promise<void>;
 };
 
@@ -21,81 +23,199 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
+    const fetchAndSetRole = async (userId: string) => {
+        try {
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', userId)
+                .single();
+
+            if (error) {
+                setRole('user');
+                return;
+            }
+
+            if (profile) {
+                if (profile.role === 'admin') {
+                    setRole('admin');
+                } else {
+                    setRole('user');
+                }
+            } else {
+                setRole('user');
+            }
+        } catch (error) {
+            console.error("💥 Unexpected error fetching role:", error);
+            setRole('user');
+        }
+    };
+
+    const signIn = async (email: string, password: string) => {
+        // Start loading for the sign‑in process
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                console.error("Sign in error:", error.message);
+                setLoading(false);
+                return { error };
+            }
+
+            if (data.user) {
+                // Set user and fetch role
+                setUser(data.user);
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', data.user.id)
+                    .single();
+
+                if (profile) {
+                    if (profile.role === 'admin') {
+                        setRole('admin');
+                        router.push('/admin');
+                    } else {
+                        setRole('user');
+                        router.push('/user');
+                    }
+                } else {
+                    // Fallback when no profile is found
+                    setRole('user');
+                    router.push('/user');
+                }
+            }
+
+            // Ensure loading is cleared after navigation completes
+            setLoading(false);
+            return { error: null };
+        } catch (err: any) {
+            setLoading(false);
+            return { error: err };
+        }
+    };
+
+    const signUp = async (email: string, password: string, fullName: string) => {
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        full_name: fullName,
+                    },
+                },
+            });
+
+            if (error) {
+                setLoading(false);
+                return { error };
+            }
+            // Optionally, you could auto-login or redirect to login page here
+            setLoading(false);
+            return { error: null };
+        } catch (err: any) {
+            setLoading(false);
+            return { error: err };
+        }
+    };
+
+    const signOut = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setRole(null);
+        router.push('/login');
+    };
+
+    // Initialize auth state on mount - this reads from localStorage automatically
     useEffect(() => {
-        const checkUser = async () => {
+        let mounted = true;
+
+        const initializeAuth = async () => {
             try {
-                const { data: { user } } = await supabase.auth.getUser();
+                // getUser() automatically reads the token from localStorage
+                const { data: { user }, error } = await supabase.auth.getUser();
+                console.log("🔍 Initializing auth, user from localStorage:", user?.email, error);
 
-                if (user) {
+                if (!mounted) return;
+
+                if (user && !error) {
                     setUser(user);
-                    // Fetch profile to get role
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('role')
-                        .eq('id', user.id)
-                        .single();
-
-                    if (profile) {
-                        // Map database role 'client' to app role 'user'
-                        if (profile.role === 'client') {
-                            setRole('user');
-                        } else if (profile.role === 'admin') {
-                            setRole('admin');
-                        } else {
-                            // Default fallback or other roles
-                            setRole('user');
-                        }
+                    // Fetch role with timeout to prevent hanging
+                    try {
+                        await Promise.race([
+                            fetchAndSetRole(user.id),
+                            new Promise((_, reject) =>
+                                setTimeout(() => reject(new Error('Timeout')), 5000)
+                            )
+                        ]);
+                    } catch (roleError) {
+                        console.error("⚠️ Role fetch timeout or error, defaulting to user:", roleError);
+                        setRole('user');
                     }
                 } else {
                     setUser(null);
                     setRole(null);
                 }
             } catch (error) {
-                console.error("Error checking auth:", error);
+                console.error("❌ Error initializing auth:", error);
+                if (mounted) {
+                    setUser(null);
+                    setRole(null);
+                }
             } finally {
-                setLoading(false);
+                // CRITICAL: Always set loading to false
+                if (mounted) {
+                    console.log("✅ Auth initialization complete, setting loading to false");
+                    setLoading(false);
+                }
             }
         };
 
-        checkUser();
+        initializeAuth();
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
+            if (!mounted) return;
+
+            if (event === 'SIGNED_IN' && session?.user) {
                 setUser(session.user);
-                // We might want to re-fetch role here if it wasn't set, but usually session persistence is enough
-                // reusing the checkUser logic or just setting user is fine for basic auth state
-                // For stricter role checks, re-fetching profile is safer
-                if (event === 'SIGNED_IN') { // Only re-fetch on explicit sign-in to avoid redundant calls
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('role')
-                        .eq('id', session.user.id)
-                        .single();
-                    if (profile) {
-                        if (profile.role === 'client') setRole('user');
-                        else if (profile.role === 'admin') setRole('admin');
-                        else setRole('user');
-                    }
+                try {
+                    await Promise.race([
+                        fetchAndSetRole(session.user.id),
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Timeout')), 5000)
+                        )
+                    ]);
+                } catch (roleError) {
+                    console.error("⚠️ Role fetch timeout on SIGNED_IN, defaulting to user:", roleError);
+                    setRole('user');
                 }
-            } else {
+                setLoading(false);
+            } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setRole(null);
+                setLoading(false);
+            } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+                setUser(session.user);
+            } else if (event === 'INITIAL_SESSION') {
+                console.log("🔄 Initial session event");
             }
-            setLoading(false);
         });
 
         return () => {
+            mounted = false;
             authListener.subscription.unsubscribe();
         };
     }, []);
 
-    const signOut = async () => {
-        await supabase.auth.signOut();
-        router.push('/');
-    };
+    console.log("📊 Auth state:", { user: user?.email, role, loading });
 
     return (
-        <AuthContext.Provider value={{ user, role, loading, signOut }}>
+        <AuthContext.Provider value={{ user, role, loading, signIn, signUp, signOut }}>
             {children}
         </AuthContext.Provider>
     );

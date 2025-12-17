@@ -1,10 +1,9 @@
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useRouter } from "next/navigation";
-import { SubmitHandler } from "react-hook-form";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { supabase } from "../lib/supabase/client";
+import { useAuth } from "../context/AuthContext";
+import { useRouter } from "next/navigation";
 
 type AuthInputs = {
     email: string;
@@ -13,12 +12,27 @@ type AuthInputs = {
 };
 
 export const Login = () => {
+    const { signIn, signUp, role, user, loading: authLoading } = useAuth();
+    const router = useRouter();
 
     const [view, setView] = useState<'login' | 'register'>('login');
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+
+    console.log(role, "desde el login");
+
+    useEffect(() => {
+        console.log(role, "desde el useEffect");
+        if (user && !authLoading) {
+            console.log(role, "desde el login - redirecting");
+            if (role === 'admin') {
+                router.push('/admin');
+            } else if (role === 'user') {
+                router.push('/user');
+            }
+        }
+    }, [user, role, authLoading, router]);
 
     const {
         register,
@@ -27,7 +41,6 @@ export const Login = () => {
         reset
     } = useForm<AuthInputs>();
 
-    // Reset state when switching views
     const toggleView = (newView: 'login' | 'register') => {
         setView(newView);
         setError(null);
@@ -35,60 +48,41 @@ export const Login = () => {
         reset();
     };
 
-    const onSubmit: SubmitHandler<AuthInputs> = async (data) => {
+    const onSubmit = async (data: AuthInputs) => {
         setLoading(true);
         setError(null);
         setSuccessMessage(null);
-
         try {
             if (view === 'login') {
-                const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
-                    email: data.email,
-                    password: data.password,
-                });
-
-                if (authError) throw authError;
-
-                // Check profile role
-                if (user) {
-                    const { data: profile } = await supabase
-                        .from('profiles')
-                        .select('role')
-                        .eq('id', user.id)
-                        .single();
-
-                    if (profile?.role === 'admin') {
-                        router.push("/admin");
-                    } else {
-                        router.push("/user");
-                    }
-                    router.refresh();
+                const { error } = await signIn(data.email, data.password);
+                if (error) {
+                    setError("Credenciales inválidas. Por favor intenta de nuevo.");
                 }
             } else {
-                // Registration
-                const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
-                    email: data.email,
-                    password: data.password,
-                    options: {
-                        data: {
-                            full_name: data.fullName,
-                            // Role assignment is handled by DB trigger
-                        },
-                    },
-                });
-
-                if (signUpError) throw signUpError;
-
-                if (signUpData.user) {
-                    router.push("/user");
+                const { error } = await signUp(data.email, data.password, data.fullName || '');
+                if (error) {
+                    setError("Error al crear la cuenta. Intenta de nuevo.");
+                } else {
+                    setSuccessMessage("Cuenta creada exitosamente. Por favor verifica tu correo.");
+                    // Optional: Switch to login view or auto-login logic if Supabase allows
                 }
             }
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err) {
+            setError("Ocurrió un error inesperado.");
         } finally {
             setLoading(false);
         }
     };
+
+    // Show loading spinner while checking auth state
+    if (authLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#131E29]">
+                <Loader2 size={48} className="animate-spin text-[#A9780F]" />
+            </div>
+        );
+    }
+
     return (
         <div className="flex min-h-screen items-center justify-center bg-[#131E29] p-4 font-sans">
             <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl border-2 border-[#A9780F]">
@@ -194,7 +188,7 @@ export const Login = () => {
                 </form>
 
                 <div className="mt-6 text-center text-xs text-gray-500">
-                    &copy; {new Date().getFullYear()} Dakabana. Todos los derechos reservados.
+                    &copy; {new Date().getFullYear()} Daka. Todos los derechos reservados.
                 </div>
             </div>
         </div>

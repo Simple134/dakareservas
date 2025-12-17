@@ -65,6 +65,7 @@ export default function AdminPage() {
     const [editCurrency, setEditCurrency] = useState<string>('USD');
     const [editPaymentMethod, setEditPaymentMethod] = useState<string>('');
     const [editReceiptFile, setEditReceiptFile] = useState<File | null>(null);
+    const [editQuotationFile, setEditQuotationFile] = useState<File | null>(null);
 
     // Filters for Locales
     const [levelFilter, setLevelFilter] = useState<string>("all");
@@ -193,11 +194,10 @@ export default function AdminPage() {
                         identification_label: pf.passport ? "Pasaporte" : "Cédula",
                         identification_value: pf.passport || pf.identification || "N/A",
                         product_name: item.product?.name || "Desconocido",
-                        amount: item.amount || 0,
+                        amount: item.amount || ["0"],
                         currency: item.currency || "USD",
                         payment_method: item.payment_method || "N/A",
                         receipt_url: item.receipt_url,
-                        bank_name: item.bank_name,
                         transaction_number: null,
                         email: pf.email,
                         address_display: addressParts,
@@ -232,11 +232,10 @@ export default function AdminPage() {
                         identification_label: "RNC",
                         identification_value: pj.rnc || "N/A",
                         product_name: item.product?.name || "Desconocido",
-                        amount: item.amount || 0,
+                        amount: item.amount || ["0"],
                         currency: item.currency || "USD",
                         payment_method: item.payment_method || "N/A",
                         receipt_url: item.receipt_url,
-                        bank_name: item.bank_name,
                         transaction_number: null,
                         email: pj.email,
                         address_display: addressParts,
@@ -389,10 +388,12 @@ export default function AdminPage() {
         setSelectedReservation(reservation);
 
         // Init edit state
-        setEditAmount(reservation.amount?.toString() || '');
+        setEditAmount(''); // Reset to empty to allow adding new payment
         setEditCurrency(reservation.currency || 'USD');
         setEditPaymentMethod(reservation.payment_method || '');
+
         setEditReceiptFile(null);
+        setEditQuotationFile(null);
 
         setSelectedLocale(null);
         setSidebarOpen(true);
@@ -516,6 +517,7 @@ export default function AdminPage() {
             setEditCurrency('USD');
             setEditPaymentMethod('');
             setEditReceiptFile(null);
+            setEditQuotationFile(null);
             setSelectedProductId("");
         }, 300);
     };
@@ -592,7 +594,8 @@ export default function AdminPage() {
         if (!selectedReservation) return;
         setUpdatingStatus(true);
         try {
-            let receiptUrl = selectedReservation.receipt_url;
+            // Handle array of receipt URLs
+            let receiptUrls: string[] = selectedReservation.receipt_url || [];
 
             if (editReceiptFile) {
                 const fileExt = editReceiptFile.name.split('.').pop();
@@ -607,14 +610,24 @@ export default function AdminPage() {
                     .from('receipts')
                     .getPublicUrl(fileName);
 
-                receiptUrl = publicUrlData.publicUrl;
+                // Append new receipt URL to array
+                receiptUrls = [...receiptUrls, publicUrlData.publicUrl];
+            }
+
+            // Handle array of amounts
+            let currentAmounts: string[] = selectedReservation.amount || [];
+
+            // Only append if there's a value and it's not the default "0" string if avoiding duplicates?
+            // Actually, keep it simple: if editAmount has value, append it.
+            if (editAmount && parseFloat(editAmount) > 0) {
+                currentAmounts = [...currentAmounts, editAmount];
             }
 
             const updates: any = {
-                amount: parseFloat(editAmount) || 0,
+                amount: currentAmounts,
                 currency: editCurrency,
                 payment_method: editPaymentMethod,
-                receipt_url: receiptUrl
+                receipt_url: receiptUrls
             };
 
             const { error } = await supabase
@@ -640,6 +653,53 @@ export default function AdminPage() {
         }
     };
 
+    const handleUploadQuotation = async () => {
+        if (!selectedReservation) return;
+        if (!editQuotationFile) {
+            showAlert("Atención", "Por favor seleccione un archivo PDF para la cotización.", 'warning');
+            return;
+        }
+
+        setUpdatingStatus(true);
+        try {
+            const fileExt = editQuotationFile.name.split('.').pop();
+            const fileName = `cotizacion-${selectedReservation.id}-${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('cotizacionperclient')
+                .upload(fileName, editQuotationFile);
+
+            if (uploadError) throw uploadError;
+
+            const { data: publicUrlData } = supabase.storage
+                .from('cotizacionperclient')
+                .getPublicUrl(fileName);
+
+            const cotizacionUrl = publicUrlData.publicUrl;
+
+            const { error } = await supabase
+                .from('product_allocations')
+                .update({ cotizacion_url: cotizacionUrl })
+                .eq('id', selectedReservation.id);
+
+            if (error) throw error;
+
+            // Update local reservation
+            const updatedReservation = { ...selectedReservation, cotizacion_url: cotizacionUrl } as any;
+            setReservations(prev => prev.map(r => r.id === selectedReservation.id ? updatedReservation : r));
+            setSelectedReservation(updatedReservation);
+            setEditQuotationFile(null);
+
+            showAlert("Éxito", "Cotización subida correctamente.", 'success');
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error", "Error subiendo cotización: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+
     const assignLocaleToUser = async (userId: string, type: 'fisica' | 'juridica') => {
         if (!selectedLocale) return;
         if (!selectedProductId) {
@@ -656,7 +716,7 @@ export default function AdminPage() {
                 status: 'pending', // Admin manual assignment assumed approved
                 persona_fisica_id: type === 'fisica' ? userId : null,
                 persona_juridica_id: type === 'juridica' ? userId : null,
-                amount: 0, // Should probably be input, but creating with 0 for now as manual assignment
+                amount: ["0"], // Should probably be input, but creating with 0 for now as manual assignment
                 currency: 'USD',
                 locales_id: selectedLocale.id
             });
@@ -724,7 +784,7 @@ export default function AdminPage() {
                 status: 'pending', // Admin manual creation
                 persona_fisica_id: newUserType === 'fisica' ? newUserId : null,
                 persona_juridica_id: newUserType === 'juridica' ? newUserId : null,
-                amount: 0,
+                amount: ["0"],
                 currency: 'USD',
                 locales_id: selectedLocale.id
             });
@@ -997,7 +1057,7 @@ export default function AdminPage() {
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                                                     <div className="flex flex-col">
                                                         <span>{reservation.identification_value}</span>
-                                                        <span className="text-xs text-gray-500">{reservation.identification_label}</span>
+                                                        <span className="text-xs text-gray-400">{reservation.identification_label}</span>
                                                     </div>
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.product_name || "-"}</td>
@@ -1005,7 +1065,9 @@ export default function AdminPage() {
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.payment_method || "-"}</td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#A9780F]">
                                                     {reservation.amount
-                                                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency: reservation.currency || 'USD' }).format(reservation.amount)
+                                                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency: reservation.currency || 'USD' }).format(
+                                                            reservation.amount.reduce((acc, val) => acc + (parseFloat(val) || 0), 0)
+                                                        )
                                                         : "-"}
                                                 </td>
                                                 <td className="whitespace-nowrap px-6 py-4">
@@ -1306,6 +1368,9 @@ export default function AdminPage() {
                                 editReceiptFile={editReceiptFile}
                                 setEditReceiptFile={setEditReceiptFile}
                                 handleUpdatePaymentInfo={handleUpdatePaymentInfo}
+                                editQuotationFile={editQuotationFile}
+                                setEditQuotationFile={setEditQuotationFile}
+                                handleUploadQuotation={handleUploadQuotation}
                             />
                         )
                     }

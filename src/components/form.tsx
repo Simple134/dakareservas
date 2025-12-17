@@ -65,9 +65,9 @@ export default function ClientForm() {
         className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-100"
       >
         {personType === "juridica" ? (
-          <JuridicaForm/>
+          <JuridicaForm />
         ) : (
-          <FisicaForm/>
+          <FisicaForm />
         )}
       </motion.div>
     </div>

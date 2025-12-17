@@ -1,5 +1,5 @@
 "use client";
-import { Loader2, CreditCard, LogOut } from "lucide-react";
+import { Loader2, CreditCard, LogOut, FileText } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 
 // Define types based on DB schema
@@ -8,19 +8,23 @@ type DashboardData = {
     localeCode?: string;
     totalAmount: number;
     paidAmount: number;
+    paidCurrency: string; // 'USD' or 'DOP'
     pendingAmount: number;
     progress: number;
     installments: any[]; // Placeholder for now
+    cotizacion_url?: string | null;
 };
 
 export const UserDashboard = ({
     data,
     loading,
-    error
+    error,
+    onOpenPaymentSidebar
 }: {
     data: DashboardData | null;
     loading: boolean;
     error: string | null;
+    onOpenPaymentSidebar: () => void;
 }) => {
     const { signOut } = useAuth();
 
@@ -46,9 +50,14 @@ export const UserDashboard = ({
 
     if (!data) return null;
 
-    // Currency formatter
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP', minimumFractionDigits: 2 }).format(amount);
+    // Currency formatters
+    const formatUSD = (amount: number) => {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(amount);
+    };
+
+    const formatDynamic = (amount: number, currency: string) => {
+        const locale = currency === 'DOP' ? 'es-DO' : 'en-US';
+        return new Intl.NumberFormat(locale, { style: 'currency', currency: currency, minimumFractionDigits: 2 }).format(amount);
     };
 
     return (
@@ -75,19 +84,19 @@ export const UserDashboard = ({
                     {/* Monto Total */}
                     <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-[#131E29]">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Monto Total</p>
-                        <h2 className="text-3xl font-bold text-[#131E29]">{formatCurrency(data.totalAmount)}</h2>
+                        <h2 className="text-3xl font-bold text-[#131E29]">{formatUSD(data.totalAmount)}</h2>
                     </div>
 
                     {/* Balance Pendiente */}
                     <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Balance Pendiente</p>
-                        <h2 className="text-3xl font-bold text-red-600">{formatCurrency(data.pendingAmount)}</h2>
+                        <h2 className="text-3xl font-bold text-red-600">{formatUSD(data.pendingAmount)}</h2>
                     </div>
 
                     {/* Pagado */}
                     <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-[#A9780F]">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Pagado</p>
-                        <h2 className="text-3xl font-bold text-[#A9780F]">{formatCurrency(data.paidAmount)}</h2>
+                        <h2 className="text-3xl font-bold text-[#A9780F]">{formatDynamic(data.paidAmount, data.paidCurrency)}</h2>
                     </div>
                 </div>
 
@@ -106,47 +115,107 @@ export const UserDashboard = ({
                 </div>
 
                 {/* Action Button */}
-                <div className="flex justify-end mb-8">
-                    <button className="flex items-center gap-2 bg-white border border-[#A9780F] text-[#A9780F] hover:bg-[#A9780F] hover:text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-all">
+                <div className="flex justify-end mb-8 gap-4">
+                    {data.cotizacion_url && (
+                        <a
+                            href={data.cotizacion_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 bg-[#131E29] text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-all hover:bg-[#2a425a]"
+                        >
+                            <FileText size={18} />
+                            <span>Ver Cotización</span>
+                        </a>
+                    )}
+                    <button
+                        onClick={onOpenPaymentSidebar}
+                        className="flex items-center gap-2 bg-white border border-[#A9780F] text-[#A9780F]  font-bold py-2 px-6 rounded-lg shadow-sm transition-all hover:bg-[#A9780F] hover:text-white"
+                    >
                         <CreditCard size={18} />
                         <span>Abonar a Capital</span>
                     </button>
                 </div>
 
-                {/* Installments Table */}
+                {/* Payments Table */}
                 <div className="bg-white rounded-xl shadow-md overflow-hidden">
                     <div className="p-6 border-b border-gray-100">
-                        <h3 className="text-xl font-bold text-[#131E29]">Cuotas</h3>
+                        <h3 className="text-xl font-bold text-[#131E29]">Historial de Pagos</h3>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
                             <thead className="bg-[#131E29] text-white">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">#</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Monto</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Pagado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Pendiente</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Vencimiento</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Fecha</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Monto Pagado</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Método</th>
                                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Estado</th>
-                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Acciones</th>
+                                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Recibo</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {/* Empty state or placeholder rows */}
                                 {data.installments.length === 0 ? (
                                     <tr>
-                                        <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                                            No hay cuotas programadas.
+                                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                                            No hay pagos registrados.
                                         </td>
                                     </tr>
                                 ) : (
-                                    // Placeholder for future mapping
-                                    data.installments.map((inst, idx) => (
-                                        <tr key={idx}>
-                                            <td className="px-6 py-4">{idx + 1}</td>
-                                            {/* ... */}
-                                        </tr>
-                                    ))
+                                    data.installments.map((payment: any) => {
+                                        const formattedDate = new Date(payment.date).toLocaleDateString('es-DO', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric'
+                                        });
+
+                                        const statusColors: Record<string, string> = {
+                                            'approved': 'bg-green-100 text-green-800',
+                                            'pending': 'bg-yellow-100 text-yellow-800',
+                                            'rejected': 'bg-red-100 text-red-800'
+                                        };
+
+                                        const statusClass = statusColors[payment.status] || 'bg-gray-100 text-gray-800';
+
+                                        const methodLabels: Record<string, string> = {
+                                            'transfer': 'Transferencia',
+                                            'card': 'Tarjeta',
+                                            'cash': 'Efectivo',
+                                            'N/A': 'N/A'
+                                        };
+
+                                        return (
+                                            <tr key={payment.number} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 text-sm font-medium text-gray-900">{payment.number}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-600">{formattedDate}</td>
+                                                <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                                                    {formatDynamic(payment.amount, payment.currency)}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-gray-700">
+                                                    {methodLabels[payment.paymentMethod] || payment.paymentMethod}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}`}>
+                                                        {payment.status === 'approved' ? 'Aprobado' : payment.status === 'pending' ? 'Pendiente' : 'Rechazado'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-sm">
+                                                    {payment.receiptUrl ? (
+                                                        <a
+                                                            href={payment.receiptUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[#A9780F] hover:text-[#8b6609] font-medium"
+                                                        >
+                                                            Ver Recibo
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-gray-400">N/A</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

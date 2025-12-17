@@ -78,11 +78,13 @@ export default function ProductSelectionPage() {
 
             if (!userId || !userType) throw new Error("Sesión no válida");
 
-            const { data, error } = await supabase.rpc('allocate_product', {
+            // @ts-ignore
+            const { data, error } = await supabase.rpc('allocate_product_v2', {
                 p_user_id: userId,
                 p_user_type: userType,
                 p_product_id: product.id,
-                p_locale_id: localeId ? parseInt(localeId) : null
+                p_currency: product.currency || 'USD',
+                p_locales_id: localeId ? parseInt(localeId) : null
             });
 
             if (error) throw error;
