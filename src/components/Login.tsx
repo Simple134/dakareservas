@@ -60,7 +60,7 @@ export const Login = () => {
                     if (profile?.role === 'admin') {
                         router.push("/admin");
                     } else {
-                                    router.push("/user");
+                        router.push("/user");
                     }
                     router.refresh();
                 }
@@ -80,7 +80,7 @@ export const Login = () => {
                 if (signUpError) throw signUpError;
 
                 if (signUpData.user) {
-                    setSuccessMessage("Registro exitoso. Revisa tu correo para confirmar tu cuenta.");
+                    router.push("/user");
                 }
             }
         } catch (err: any) {
