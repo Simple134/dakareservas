@@ -206,7 +206,7 @@ export default function AdminPage() {
                         transaction_number: null,
                         email: pf.email,
                         address_display: addressParts,
-                        unit_code: pf.unit_code,
+                        unit_code: locale?.id?.toString() || "",
                         locale_id: item.locales_id ?? null,
                         locale_details: locale ? {
                             level: locale.level,
@@ -245,7 +245,7 @@ export default function AdminPage() {
                         transaction_number: null,
                         email: pj.email,
                         address_display: addressParts,
-                        unit_code: pj.unit_code,
+                        unit_code: locale?.id?.toString() || "",
                         locale_id: item.locales_id ?? null,
                         locale_details: locale ? {
                             level: locale.level,

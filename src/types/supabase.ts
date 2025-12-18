@@ -166,17 +166,6 @@ export type Database = {
           address_province: string | null
           nationality: string | null
           other_nationality: string | null
-          unit_code: string | null
-          unit_level: string | null
-          unit_meters: string | null
-          unit_parking: string | null
-          knows_property: boolean | null
-          licit_funds: boolean | null
-          us_residency: boolean | null
-          us_citizen: boolean | null
-          us_permanence: boolean | null
-          us_political: boolean | null
-          locale_id: number | null
           phone: string | null
         }
         Insert: {
@@ -203,17 +192,6 @@ export type Database = {
           address_province?: string | null
           nationality?: string | null
           other_nationality?: string | null
-          unit_code?: string | null
-          unit_level?: string | null
-          unit_meters?: string | null
-          unit_parking?: string | null
-          knows_property?: boolean | null
-          licit_funds?: boolean | null
-          us_residency?: boolean | null
-          us_citizen?: boolean | null
-          us_permanence?: boolean | null
-          us_political?: boolean | null
-          locale_id?: number | null
           phone?: string | null
         }
         Update: {
@@ -240,17 +218,6 @@ export type Database = {
           address_province?: string | null
           nationality?: string | null
           other_nationality?: string | null
-          unit_code?: string | null
-          unit_level?: string | null
-          unit_meters?: string | null
-          unit_parking?: string | null
-          knows_property?: boolean | null
-          licit_funds?: boolean | null
-          us_residency?: boolean | null
-          us_citizen?: boolean | null
-          us_permanence?: boolean | null
-          us_political?: boolean | null
-          locale_id?: number | null
           phone?: string | null
         }
         Relationships: [
@@ -292,13 +259,6 @@ export type Database = {
           address_sector: string | null
           address_municipality: string | null
           address_province: string | null
-          unit_code: string | null
-          unit_level: string | null
-          unit_meters: string | null
-          unit_parking: string | null
-          knows_property: boolean | null
-          licit_funds: boolean | null
-          locale_id: number | null
           phone: string | null
         }
         Insert: {
@@ -330,13 +290,6 @@ export type Database = {
           address_sector?: string | null
           address_municipality?: string | null
           address_province?: string | null
-          unit_code?: string | null
-          unit_level?: string | null
-          unit_meters?: string | null
-          unit_parking?: string | null
-          knows_property?: boolean | null
-          licit_funds?: boolean | null
-          locale_id?: number | null
           phone?: string | null
         }
         Update: {
@@ -368,13 +321,6 @@ export type Database = {
           address_sector?: string | null
           address_municipality?: string | null
           address_province?: string | null
-          unit_code?: string | null
-          unit_level?: string | null
-          unit_meters?: string | null
-          unit_parking?: string | null
-          knows_property?: boolean | null
-          licit_funds?: boolean | null
-          locale_id?: number | null
           phone?: string | null
         }
         Relationships: [
