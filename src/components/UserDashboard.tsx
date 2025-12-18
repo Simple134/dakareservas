@@ -1,18 +1,25 @@
 "use client";
-import { Loader2, CreditCard, LogOut, FileText } from "lucide-react";
+import { Loader2, CreditCard, LogOut, FileText, Building2 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
+import { useState, useEffect } from "react";
 
 // Define types based on DB schema
-type DashboardData = {
-    userName: string | null;
-    localeCode?: string;
+export type InvestmentData = {
+    id: string; // allocation ID
+    localeId: number;
+    localeCode: string; // e.g., "Local 109"
     totalAmount: number;
     paidAmount: number;
     paidCurrency: string; // 'USD' or 'DOP'
     pendingAmount: number;
     progress: number;
-    installments: any[]; // Placeholder for now
+    installments: any[];
     cotizacion_url?: string | null;
+}
+
+type DashboardData = {
+    userName: string | null;
+    investments: InvestmentData[];
 };
 
 export const UserDashboard = ({
@@ -24,9 +31,19 @@ export const UserDashboard = ({
     data: DashboardData | null;
     loading: boolean;
     error: string | null;
-    onOpenPaymentSidebar: () => void;
+    onOpenPaymentSidebar: (investmentId: string) => void;
 }) => {
     const { signOut } = useAuth();
+    const [selectedInvestmentId, setSelectedInvestmentId] = useState<string | null>(null);
+
+    // Set initial selected investment when data loads
+    useEffect(() => {
+        if (data?.investments && data.investments.length > 0 && !selectedInvestmentId) {
+            setSelectedInvestmentId(data.investments[0].id);
+        }
+    }, [data, selectedInvestmentId]);
+
+    const selectedInvestment = data?.investments.find(inv => inv.id === selectedInvestmentId) || data?.investments[0];
 
     if (loading) {
         return (
@@ -48,7 +65,25 @@ export const UserDashboard = ({
         );
     }
 
-    if (!data) return null;
+    if (!data || !selectedInvestment) return (
+        <div className="min-h-screen bg-gray-50 font-sans p-8">
+            <div className="container mx-auto">
+                <div className="mb-8 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-[#131E29]">Bienvenido, {data?.userName || 'Usuario'}</h1>
+                        <p className="text-gray-500">No hay inversiones activas.</p>
+                    </div>
+                    <button
+                        onClick={() => signOut()}
+                        className="flex items-center gap-2 bg-white text-gray-700 hover:text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg border border-gray-200 shadow-sm transition-all"
+                    >
+                        <LogOut size={18} />
+                        <span>Cerrar Sesión</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 
     // Currency formatters
     const formatUSD = (amount: number) => {
@@ -65,38 +100,67 @@ export const UserDashboard = ({
 
             <main className="container mx-auto px-4 py-8">
                 {/* Introduction / Title */}
-                <div className="mb-8 flex items-center justify-between">
+                <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-[#131E29]">Bienvenido, {data.userName}</h1>
                         <p className="text-gray-500">Resumen de su inversión</p>
                     </div>
                     <button
                         onClick={() => signOut()}
-                        className="flex items-center gap-2 bg-white text-gray-700 hover:text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg border border-gray-200 shadow-sm transition-all"
+                        className="flex items-center gap-2 bg-white text-gray-700 hover:text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg border border-gray-200 shadow-sm transition-all self-start md:self-auto"
                     >
                         <LogOut size={18} />
                         <span>Cerrar Sesión</span>
                     </button>
                 </div>
 
+                {/* Local Selection Tabs */}
+                {data.investments.length > 1 && (
+                    <div className="mb-8 overflow-x-auto pb-2">
+                        <div className="flex gap-3">
+                            {data.investments.map((inv) => (
+                                <button
+                                    key={inv.id}
+                                    onClick={() => setSelectedInvestmentId(inv.id)}
+                                    className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${selectedInvestmentId === inv.id
+                                            ? 'bg-[#131E29] text-white border-[#131E29] shadow-md'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]'
+                                        }`}
+                                >
+                                    <Building2 size={18} className={selectedInvestmentId === inv.id ? "text-[#A9780F]" : ""} />
+                                    <span>{inv.localeCode}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Single Local Title if only one */}
+                {data.investments.length === 1 && (
+                    <div className="mb-6 flex items-center gap-2 text-[#131E29]">
+                        <Building2 size={24} className="text-[#A9780F]" />
+                        <h2 className="text-xl font-bold">{selectedInvestment.localeCode}</h2>
+                    </div>
+                )}
+
                 {/* Cards Row */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     {/* Monto Total */}
                     <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-[#131E29]">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Monto Total</p>
-                        <h2 className="text-3xl font-bold text-[#131E29]">{formatUSD(data.totalAmount)}</h2>
+                        <h2 className="text-3xl font-bold text-[#131E29]">{formatUSD(selectedInvestment.totalAmount)}</h2>
                     </div>
 
                     {/* Balance Pendiente */}
                     <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Balance Pendiente</p>
-                        <h2 className="text-3xl font-bold text-red-600">{formatUSD(data.pendingAmount)}</h2>
+                        <h2 className="text-3xl font-bold text-red-600">{formatUSD(selectedInvestment.pendingAmount)}</h2>
                     </div>
 
                     {/* Pagado */}
                     <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-[#A9780F]">
                         <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Pagado</p>
-                        <h2 className="text-3xl font-bold text-[#A9780F]">{formatDynamic(data.paidAmount, data.paidCurrency)}</h2>
+                        <h2 className="text-3xl font-bold text-[#A9780F]">{formatDynamic(selectedInvestment.paidAmount, selectedInvestment.paidCurrency)}</h2>
                     </div>
                 </div>
 
@@ -104,21 +168,21 @@ export const UserDashboard = ({
                 <div className="bg-white rounded-xl shadow-md p-6 mb-8">
                     <div className="flex justify-between items-end mb-2">
                         <span className="text-sm font-bold text-gray-700">Progreso del Plan</span>
-                        <span className="text-sm font-bold text-[#A9780F]">{data.progress.toFixed(1)}%</span>
+                        <span className="text-sm font-bold text-[#A9780F]">{selectedInvestment.progress.toFixed(1)}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
                         <div
                             className="bg-[#A9780F] h-4 rounded-full transition-all duration-1000 ease-out"
-                            style={{ width: `${data.progress}%` }}
+                            style={{ width: `${selectedInvestment.progress}%` }}
                         ></div>
                     </div>
                 </div>
 
                 {/* Action Button */}
                 <div className="flex justify-end mb-8 gap-4">
-                    {data.cotizacion_url && (
+                    {selectedInvestment.cotizacion_url && (
                         <a
-                            href={data.cotizacion_url}
+                            href={selectedInvestment.cotizacion_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 bg-[#131E29] text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-all hover:bg-[#2a425a]"
@@ -128,18 +192,19 @@ export const UserDashboard = ({
                         </a>
                     )}
                     <button
-                        onClick={onOpenPaymentSidebar}
-                        className="flex items-center gap-2 bg-white border border-[#A9780F] text-[#A9780F]  font-bold py-2 px-6 rounded-lg shadow-sm transition-all hover:bg-[#A9780F] hover:text-white"
+                        onClick={() => onOpenPaymentSidebar(selectedInvestment.id)}
+                        className="flex items-center gap-2 bg-white border border-[#A9780F] text-[#A9780F]  font-bold py-2 px-6 rounded-lg shadow-sm transition-all"
                     >
                         <CreditCard size={18} />
-                        <span>Abonar a Capital</span>
+                        <span>Abonar al {selectedInvestment.localeCode}</span>
                     </button>
                 </div>
 
                 {/* Payments Table */}
                 <div className="bg-white rounded-xl shadow-md overflow-hidden">
-                    <div className="p-6 border-b border-gray-100">
+                    <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                         <h3 className="text-xl font-bold text-[#131E29]">Historial de Pagos</h3>
+                        <span className="text-sm text-gray-500 font-medium">{selectedInvestment.localeCode}</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full">
@@ -155,14 +220,14 @@ export const UserDashboard = ({
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {/* Empty state or placeholder rows */}
-                                {data.installments.length === 0 ? (
+                                {selectedInvestment.installments.length === 0 ? (
                                     <tr>
                                         <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                                            No hay pagos registrados.
+                                            No hay pagos registrados para este local.
                                         </td>
                                     </tr>
                                 ) : (
-                                    data.installments.map((payment: any) => {
+                                    selectedInvestment.installments.map((payment: any) => {
                                         const formattedDate = new Date(payment.date).toLocaleDateString('es-DO', {
                                             year: 'numeric',
                                             month: 'short',

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/src/lib/supabase/client";
-import { UserDashboard } from "@/src/components/UserDashboard";
+import { UserDashboard, InvestmentData } from "@/src/components/UserDashboard";
 import { useAuth } from "@/src/context/AuthContext";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -11,14 +11,7 @@ import { sendPaymentNotificationAction } from "@/src/actions/send-payment-notifi
 
 type DashboardData = {
     userName: string;
-    localeCode?: string;
-    totalAmount: number;
-    paidAmount: number;
-    paidCurrency: string; // 'USD' or 'DOP'
-    pendingAmount: number;
-    progress: number;
-    installments: any[];
-    cotizacion_url?: string | null;
+    investments: InvestmentData[];
 };
 
 export default function UserPage() {
@@ -31,6 +24,7 @@ export default function UserPage() {
     // Payment Sidebar State
     const [isPaymentSidebarOpen, setPaymentSidebarOpen] = useState(false);
     const [isSubmittingPayment, setSubmittingPayment] = useState(false);
+    const [selectedInvestmentForPayment, setSelectedInvestmentForPayment] = useState<string | null>(null);
 
 
     useEffect(() => {
@@ -56,12 +50,7 @@ export default function UserPage() {
                     console.error("Profile fetch error:", profileError);
                     setDashboardData({
                         userName: user.email || 'Usuario',
-                        totalAmount: 0,
-                        paidAmount: 0,
-                        paidCurrency: 'USD',
-                        pendingAmount: 0,
-                        progress: 0,
-                        installments: []
+                        investments: []
                     });
                     setDataLoading(false);
                     return;
@@ -69,93 +58,93 @@ export default function UserPage() {
 
                 const userName = profile.full_name || user.email || 'Usuario';
                 const personaId = profile.id_fisica || profile.id_juridica;
-                const personaType = profile.id_fisica ? 'fisica' : 'juridica';
-
-                console.log(personaType)
 
                 if (!personaId) {
                     console.log("No linked persona ID found in profile.");
                     setDashboardData({
                         userName: userName,
-                        totalAmount: 0,
-                        paidAmount: 0,
-                        paidCurrency: 'USD',
-                        pendingAmount: 0,
-                        progress: 0,
-                        installments: []
+                        investments: []
                     });
                     setDataLoading(false);
                     return;
                 }
 
-                // 2. Get Product Allocation
-                console.log(personaId)
+                // 2. Get Product Allocations (All of them)
+                console.log("Fetching allocations for personaId:", personaId);
                 const { data: allocations, error: allocationError } = await supabase
                     .from('product_allocations')
                     .select('*')
-                    .eq('persona_fisica_id', personaId)
+                    .eq('persona_fisica_id', personaId);
 
                 console.log("📦 product_allocations:", allocations, "Error:", allocationError);
 
                 if (allocationError) throw allocationError;
 
-                const allocation = allocations && allocations.length > 0 ? allocations[0] : null;
-
-                if (allocation && allocation.locales_id) {
-                    // 3. Manually fetch Locale details since we are decoupling the join
-                    const { data: localeData, error: localeError } = await supabase
-                        .from('locales')
-                        .select('total_value, id')
-                        .eq('id', allocation.locales_id)
-                        .single();
-
-                    if (localeError) {
-                        console.error("Error fetching locale:", localeError);
-                    }
-
-                    const total = localeData?.total_value || 0;
-                    // Handle amount as string[]
-                    const paid = (allocation.amount || []).reduce((acc: number, val: string) => acc + parseFloat(val), 0);
-                    const pending = Math.max(0, total - paid);
-                    const progress = total > 0 ? (paid / total) * 100 : 0;
-                    const localeCode = `Local ${allocation.locales_id}`;
-
-                    // Build installments array from allocation
-                    const amounts = allocation.amount || [];
-                    const receipts = allocation.receipt_url || [];
-
-                    const installments = amounts.map((amt: string, index: number) => ({
-                        number: index + 1,
-                        amount: parseFloat(amt),
-                        currency: allocation.currency || 'USD',
-                        date: allocation.created_at, // Using created_at as base, ideally we'd have dates per payment
-                        status: allocation.status || 'pending',
-                        paymentMethod: allocation.payment_method || 'N/A',
-                        receiptUrl: receipts[index] || ''
-                    }));
-
+                if (!allocations || allocations.length === 0) {
                     setDashboardData({
                         userName: userName,
-                        localeCode: localeCode,
-                        totalAmount: total,
-                        paidAmount: paid,
-                        paidCurrency: allocation.currency || 'USD',
-                        pendingAmount: pending,
-                        progress: progress,
-                        installments: installments,
-                        cotizacion_url: allocation.cotizacion_url
+                        investments: []
                     });
-                } else {
-                    setDashboardData({
-                        userName: userName,
-                        totalAmount: 0,
-                        paidAmount: 0,
-                        paidCurrency: 'USD',
-                        pendingAmount: 0,
-                        progress: 0,
-                        installments: []
-                    });
+                    setDataLoading(false);
+                    return;
                 }
+
+                const investments: InvestmentData[] = [];
+
+                for (const allocation of allocations) {
+                    if (allocation.locales_id) {
+                        // 3. Manually fetch Locale details for each allocation
+                        const { data: localeData, error: localeError } = await supabase
+                            .from('locales')
+                            .select('total_value, id')
+                            .eq('id', allocation.locales_id)
+                            .single();
+
+                        if (localeError) {
+                            console.error(`Error fetching locale ${allocation.locales_id}:`, localeError);
+                            continue;
+                        }
+
+                        const total = localeData?.total_value || 0;
+                        // Handle amount as string[]
+                        const paid = (allocation.amount || []).reduce((acc: number, val: string) => acc + parseFloat(val), 0);
+                        const pending = Math.max(0, total - paid);
+                        const progress = total > 0 ? (paid / total) * 100 : 0;
+                        const localeCode = `Local ${allocation.locales_id}`;
+
+                        // Build installments array from allocation
+                        const amounts = allocation.amount || [];
+                        const receipts = allocation.receipt_url || [];
+
+                        const installments = amounts.map((amt: string, index: number) => ({
+                            number: index + 1,
+                            amount: parseFloat(amt),
+                            currency: allocation.currency || 'USD',
+                            date: allocation.created_at, // Using created_at as base, ideally we'd have dates per payment
+                            status: allocation.status || 'pending',
+                            paymentMethod: allocation.payment_method || 'N/A',
+                            receiptUrl: receipts[index] || ''
+                        }));
+
+                        investments.push({
+                            id: allocation.id,
+                            localeId: allocation.locales_id,
+                            localeCode: localeCode,
+                            totalAmount: total,
+                            paidAmount: paid,
+                            paidCurrency: allocation.currency || 'USD',
+                            pendingAmount: pending,
+                            progress: progress,
+                            installments: installments,
+                            cotizacion_url: allocation.cotizacion_url
+                        });
+                    }
+                }
+
+                setDashboardData({
+                    userName: userName,
+                    investments: investments
+                });
 
             } catch (err: any) {
                 console.error("Dashboard fetch error:", err);
@@ -170,33 +159,24 @@ export default function UserPage() {
     }, [user]);
 
     const handlePaymentSubmit = async (amount: string, file: File) => {
-        if (!user) return;
+        if (!user || !selectedInvestmentForPayment) return;
         setSubmittingPayment(true);
         try {
-            // 1. Fetch current allocation to get latest arrays
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('id_fisica, id_juridica')
-                .eq('id', user.id)
-                .single();
-
-            const personaId = profile?.id_fisica || profile?.id_juridica;
-            if (!personaId) throw new Error("No user profile found");
-
-            const { data: allocations } = await supabase
+            // 1. Get the specific allocation
+            const { data: allocation, error: fetchError } = await supabase
                 .from('product_allocations')
                 .select('*')
-                .eq('persona_fisica_id', personaId)
-                .maybeSingle(); // Assuming 1 active allocation per user for now
+                .eq('id', selectedInvestmentForPayment)
+                .single();
 
-            if (!allocations) throw new Error("No allocation found");
+            if (fetchError || !allocation) throw new Error("Allocation not found");
 
-            const currentAmounts = allocations.amount || [];
-            const currentReceipts = allocations.receipt_url || [];
+            const currentAmounts = allocation.amount || [];
+            const currentReceipts = allocation.receipt_url || [];
 
             // 2. Upload Receipt
             const fileExt = file.name.split('.').pop();
-            const fileName = `payment-${allocations.id}-${Date.now()}.${fileExt}`;
+            const fileName = `payment-${allocation.id}-${Date.now()}.${fileExt}`;
             const { error: uploadError } = await supabase.storage
                 .from('receipts')
                 .upload(fileName, file);
@@ -221,15 +201,14 @@ export default function UserPage() {
                     receipt_url: updatedReceipts,
                     status: 'pending'
                 })
-                .eq('id', allocations.id);
-
-            if (updateError) throw updateError;
+                .eq('id', allocation.id);
 
             if (updateError) throw updateError;
 
             // 5. Send Notification Email to Admin
             const userName = dashboardData?.userName || user.email || "Usuario";
-            await sendPaymentNotificationAction(userName, amount, dashboardData?.paidCurrency || 'USD');
+            // Use currency from the allocation
+            await sendPaymentNotificationAction(userName, amount, allocation.currency || 'USD');
 
             // 6. Success
             setPaymentSidebarOpen(false);
@@ -242,16 +221,24 @@ export default function UserPage() {
         }
     };
 
+    const handleOpenPaymentSidebar = (investmentId: string) => {
+        setSelectedInvestmentForPayment(investmentId);
+        setPaymentSidebarOpen(true);
+    }
+
+    useEffect(() => {
+        if (!dataLoading && !user) {
+            router.push("/login");
+        }
+    }, [dataLoading, user, router]);
+
     if (dataLoading) return (
         <div className="flex h-screen items-center justify-center bg-[#131E29]">
             <Loader2 size={48} className="animate-spin text-[#A9780F]" />
         </div>
     );
 
-    if (!user) {
-        router.push("/login");
-        return null;
-    }
+    if (!user) return null;
 
     return (
         <div>
@@ -259,7 +246,7 @@ export default function UserPage() {
                 data={dashboardData}
                 loading={dataLoading}
                 error={error}
-                onOpenPaymentSidebar={() => setPaymentSidebarOpen(true)}
+                onOpenPaymentSidebar={handleOpenPaymentSidebar}
             />
 
             {/* Payment Sidebar */}
@@ -271,7 +258,7 @@ export default function UserPage() {
                         closeSidebar={() => setPaymentSidebarOpen(false)}
                         onSubmit={handlePaymentSubmit}
                         isSubmitting={isSubmittingPayment}
-                        currency={dashboardData?.paidCurrency || 'USD'}
+                        currency={dashboardData?.investments.find(inv => inv.id === selectedInvestmentForPayment)?.paidCurrency || 'USD'}
                     />
                 )}
             </div>
