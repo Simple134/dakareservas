@@ -1061,7 +1061,12 @@ export default function AdminPage() {
                     <div className="flex items-center gap-4">
                         <div className="flex bg-gray-100 rounded-lg p-1">
                             <button
-                                onClick={() => setView('reservations')}
+                                onClick={() => {
+                                    setView('reservations');
+                                    setSidebarOpen(false);
+                                    setSelectedLocale(null);
+                                    setSelectedUser(null);
+                                }}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'reservations'
                                     ? 'bg-white text-[#A9780F] shadow-sm'
                                     : 'text-gray-600 hover:text-gray-900'
@@ -1070,7 +1075,12 @@ export default function AdminPage() {
                                 Reservas <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{reservations.length}</span>
                             </button>
                             <button
-                                onClick={() => setView('locales')}
+                                onClick={() => {
+                                    setView('locales');
+                                    setSidebarOpen(false);
+                                    setSelectedReservation(null);
+                                    setSelectedUser(null);
+                                }}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'locales'
                                     ? 'bg-white text-[#A9780F] shadow-sm'
                                     : 'text-gray-600 hover:text-gray-900'
@@ -1079,7 +1089,12 @@ export default function AdminPage() {
                                 Locales <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{locales.length}</span>
                             </button>
                             <button
-                                onClick={() => setView('users')}
+                                onClick={() => {
+                                    setView('users');
+                                    setSidebarOpen(false);
+                                    setSelectedReservation(null);
+                                    setSelectedLocale(null);
+                                }}
                                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'users'
                                     ? 'bg-white text-[#A9780F] shadow-sm'
                                     : 'text-gray-600 hover:text-gray-900'
@@ -1104,7 +1119,7 @@ export default function AdminPage() {
                 )}
 
                 {view === 'reservations' ? (
-                    <div className="space-y-6">
+                    <div key="reservations" className="space-y-6">
                         {/* Reservation Filters */}
                         <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
                             <div className="flex-1 relative">
@@ -1248,7 +1263,7 @@ export default function AdminPage() {
                         </div>
                     </div>
                 ) : view === 'locales' ? (
-                    <div className="space-y-6">
+                    <div key="locales" className="space-y-6">
                         <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-xs font-medium text-gray-700 mb-1">Nivel</label>
@@ -1373,7 +1388,7 @@ export default function AdminPage() {
                         </div>
                     </div>
                 ) : (
-                    <div className="space-y-6">
+                    <div key="users" className="space-y-6">
                         {/* Users Filters */}
                         <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
                             <div className="flex-1 relative">
