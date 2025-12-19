@@ -23,12 +23,23 @@ interface SidebarReservationProps {
     setEditQuotationFile: (file: File | null) => void;
     handleUploadQuotation: () => void;
     handleDeleteQuotation: () => void;
+    products: Tables<'products'>[];
+    handleUpdateProduct: (productId: string) => void;
 }
 
 
 
-export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation }: SidebarReservationProps) => {
+export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct }: SidebarReservationProps) => {
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
+    const [selectedProductId, setSelectedProductId] = useState<string>("");
+
+    useEffect(() => {
+        // Find the product ID based on the reservation's product name
+        const matchingProduct = products.find(p => p.name === selectedReservation.product_name);
+        if (matchingProduct) {
+            setSelectedProductId(matchingProduct.id);
+        }
+    }, [selectedReservation, products]);
     return (
         <div className="h-full flex flex-col">
             <div className="bg-[#131E29] p-6 flex items-center justify-between">
@@ -144,7 +155,28 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                         Producto & Pago
                     </h3>
                     <div className="space-y-2">
-                        <DetailRow label="Producto" value={selectedReservation.product_name} />
+                        {/* Product Update Section */}
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                            <span className="text-sm font-medium text-gray-500">Producto</span>
+                            <select
+                                value={selectedProductId}
+                                onChange={(e) => {
+                                    const newId = e.target.value;
+                                    setSelectedProductId(newId);
+                                    if (newId) handleUpdateProduct(newId);
+                                }}
+                                disabled={updatingStatus}
+                                className="text-sm font-medium text-right text-gray-900 border-none focus:ring-0 cursor-pointer bg-transparent pr-8 py-0"
+                                style={{ width: 'auto', maxWidth: '200px' }}
+                            >
+                                <option value="" disabled>Seleccionar...</option>
+                                {products.map(p => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
 
                         {/* Edit Payment Info Section if not approved */}
                         {selectedReservation.status !== 'approved' ? (

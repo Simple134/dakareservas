@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/src/lib/supabase/client";
 import { Tables } from "@/src/types/supabase";
 import AlertModal, { AlertType } from "@/src/components/AlertModal";
-import { LogOut, X, Search, User, Building2, Check, RotateCw } from "lucide-react";
+import { LogOut, X, Search, User, Building2, Check, RotateCw, Loader2 } from "lucide-react";
 import { ReservationViewModel } from "@/src/types/ReservationsTypes";
 import { SidebarReservation, SidebarLocales, SidebarUser } from "@/src/components/Sidebar";
 import FisicaForm from "@/src/components/FisicaForm";
@@ -387,6 +387,7 @@ export default function AdminPage() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
+        router.push('/login');
     };
 
     // Reservation Handlers
@@ -448,25 +449,39 @@ export default function AdminPage() {
     const handleUpdateUser = async (updatedData: any) => {
         if (!selectedUser) return;
         setUpdatingStatus(true);
+        setSidebarOpen(false);
         try {
             const table = selectedUser.type === 'fisica' ? 'persona_fisica' : 'persona_juridica';
 
+            // Remove fields that are not updatable or don't exist in the schema
+            const { name, id, created_at, type, identification_label, address, raw, ...payload } = updatedData;
+
+            console.log("📝 Updating user with payload:", payload);
+
             const { error } = await supabase
                 .from(table)
-                .update(updatedData)
+                .update(payload)
                 .eq('id', String(selectedUser.id));
 
             if (error) throw error;
 
-            // Refresh users locally
-            setUsers(prev => prev.map(u =>
-                u.id === selectedUser.id
-                    ? { ...u, ...updatedData, name: updatedData.first_name ? `${updatedData.first_name} ${updatedData.last_name}` : updatedData.company_name } // naive name update
-                    : u
-            ));
+            // Fetch fresh users to ensure UI is in sync
+            await fetchAllUsers();
 
-            // Update selected user as well to reflect changes immediately
-            setSelectedUser(prev => prev ? { ...prev, ...updatedData } : null);
+            // Update selected user to reflect changes immediately in the open sidebar
+            setSelectedUser((prev: any) => {
+                if (!prev) return null;
+                const newName = payload.first_name || payload.last_name
+                    ? `${payload.first_name || prev.raw.first_name} ${payload.last_name || prev.raw.last_name}`.trim()
+                    : payload.company_name || prev.name;
+
+                return {
+                    ...prev,
+                    ...payload,
+                    name: newName,
+                    raw: { ...prev.raw, ...payload }
+                };
+            });
 
             showAlert("Éxito", "Usuario actualizado correctamente", 'success');
         } catch (error: any) {
@@ -800,6 +815,36 @@ export default function AdminPage() {
         );
     };
 
+    const handleUpdateProduct = async (productId: string) => {
+        if (!selectedReservation || !productId) return;
+        setUpdatingStatus(true);
+        try {
+            const { error } = await supabase
+                .from('product_allocations')
+                .update({ product_id: productId })
+                .eq('id', selectedReservation.id);
+
+            if (error) throw error;
+
+            // Get the product name for the updated reservation
+            const product = products.find(p => p.id === productId);
+            const updatedReservation = {
+                ...selectedReservation,
+                product_name: product?.name || selectedReservation.product_name
+            };
+
+            setReservations(prev => prev.map(r => r.id === selectedReservation.id ? updatedReservation : r));
+            setSelectedReservation(updatedReservation);
+
+            showAlert("Éxito", "Producto actualizado correctamente.", 'success');
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error", "Error actualizando producto: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
 
     const assignLocaleToUser = async (userId: string, type: 'fisica' | 'juridica') => {
         if (!selectedLocale) return;
@@ -981,7 +1026,11 @@ export default function AdminPage() {
     const uniqueResStatuses = Array.from(new Set(reservations.map(r => r.status))).filter(Boolean).sort();
 
     if (loading) {
-        return <div className="p-8">Cargando...</div>;
+        return (
+            <div className="flex h-screen items-center justify-center bg-gray-50">
+                <Loader2 size={48} className="animate-spin text-[#A9780F]" />
+            </div>
+        );
     }
 
     if (!session) {
@@ -1494,6 +1543,8 @@ export default function AdminPage() {
                                 setEditQuotationFile={setEditQuotationFile}
                                 handleUploadQuotation={handleUploadQuotation}
                                 handleDeleteQuotation={handleDeleteQuotation}
+                                products={products}
+                                handleUpdateProduct={handleUpdateProduct}
                             />
                         )
                     }
