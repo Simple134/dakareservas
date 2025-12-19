@@ -145,14 +145,9 @@ export default function AdminPage() {
             fetchReservations();
             fetchLocales();
             fetchProducts();
-        }
-    }, [session]);
-
-    useEffect(() => {
-        if ((view === 'locales' || view === 'users') && session) {
             fetchAllUsers();
         }
-    }, [view, session]);
+    }, [session]);
 
     const fetchReservations = async () => {
         try {
@@ -386,8 +381,13 @@ export default function AdminPage() {
     };
 
     const handleLogout = async () => {
-        await supabase.auth.signOut();
-        router.push('/login');
+        try {
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Error during sign out:", error);
+        } finally {
+            router.push('/login');
+        }
     };
 
     // Reservation Handlers
@@ -1025,7 +1025,13 @@ export default function AdminPage() {
     const uniqueResPaymentMethods = Array.from(new Set(reservations.map(r => r.payment_method))).filter(Boolean).sort();
     const uniqueResStatuses = Array.from(new Set(reservations.map(r => r.status))).filter(Boolean).sort();
 
-    if (loading) {
+    useEffect(() => {
+        if (!authLoading && !session) {
+            router.push("/login");
+        }
+    }, [authLoading, session, router]);
+
+    if (loading || authLoading) {
         return (
             <div className="flex h-screen items-center justify-center bg-gray-50">
                 <Loader2 size={48} className="animate-spin text-[#A9780F]" />
@@ -1034,7 +1040,6 @@ export default function AdminPage() {
     }
 
     if (!session) {
-        router.push("/login");
         return null;
     }
 

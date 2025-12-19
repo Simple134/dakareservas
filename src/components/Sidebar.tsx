@@ -476,22 +476,6 @@ export const SidebarLocales = ({ selectedLocale, closeSidebar, localeOwner, hand
                         <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
                             Asignar Cliente
                         </h3>
-
-                        <div className="flex border-b border-gray-200 mb-4">
-                            <button
-                                className={`flex-1 py-2 text-sm font-medium ${assignTab === 'existing' ? 'text-[#A9780F] border-b-2 border-[#A9780F]' : 'text-gray-500'}`}
-                                onClick={() => setAssignTab('existing')}
-                            >
-                                Existente
-                            </button>
-                            <button
-                                className={`flex-1 py-2 text-sm font-medium ${assignTab === 'new' ? 'text-[#A9780F] border-b-2 border-[#A9780F]' : 'text-gray-500'}`}
-                                onClick={() => setAssignTab('new')}
-                            >
-                                Nuevo
-                            </button>
-                        </div>
-
                         {/* Product Selection for ALL tabs */}
                         <div className="mb-4">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Seleccionar Producto *</label>
@@ -506,120 +490,33 @@ export const SidebarLocales = ({ selectedLocale, closeSidebar, localeOwner, hand
                                 ))}
                             </select>
                         </div>
-
-                        {assignTab === 'existing' ? (
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Buscar Cliente</label>
-                                    <select
-                                        className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                        onChange={(e) => setSelectedUserValue(e.target.value)}
-                                        value={selectedUserValue}
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        {availableUsers.map(u => (
-                                            <option key={u.id} value={`${u.id}:${u.type}`}>
-                                                {u.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        const [id, type] = selectedUserValue.split(':');
-                                        if (id) assignLocaleToUser(id, type as 'fisica' | 'juridica');
-                                    }}
-                                    disabled={!selectedUserValue || updatingStatus}
-                                    className="w-full bg-[#A9780F] text-white rounded-md py-2 font-bold hover:bg-[#8e650c] transition-colors disabled:opacity-50"
-                                >
-                                    {updatingStatus ? "Asignando..." : "Asignar Usuario"}
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="flex gap-4 mb-2">
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="userType"
-                                            checked={newUserType === 'fisica'}
-                                            onChange={() => setNewUserType('fisica')}
-                                            className="mr-2 text-[#A9780F] focus:ring-[#A9780F]"
-                                        />
-                                        <span className="text-sm text-black">Persona</span>
-                                    </label>
-                                    <label className="flex items-center">
-                                        <input
-                                            type="radio"
-                                            name="userType"
-                                            checked={newUserType === 'juridica'}
-                                            onChange={() => setNewUserType('juridica')}
-                                            className="mr-2 text-[#A9780F] focus:ring-[#A9780F]"
-                                        />
-                                        <span className="text-sm text-black">Empresa</span>
-                                    </label>
-                                </div>
-
-                                {newUserType === 'fisica' ? (
-                                    <>
-                                        <input
-                                            type="text"
-                                            placeholder="Nombre"
-                                            value={newUserForm.firstName}
-                                            onChange={e => setNewUserForm({ ...newUserForm, firstName: e.target.value })}
-                                            className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Apellido"
-                                            value={newUserForm.lastName}
-                                            onChange={e => setNewUserForm({ ...newUserForm, lastName: e.target.value })}
-                                            className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="Cédula / Pasaporte"
-                                            value={newUserForm.identification}
-                                            onChange={e => setNewUserForm({ ...newUserForm, identification: e.target.value })}
-                                            className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                        />
-                                    </>
-                                ) : (
-                                    <>
-                                        <input
-                                            type="text"
-                                            placeholder="Nombre Empresa"
-                                            value={newUserForm.companyName}
-                                            onChange={e => setNewUserForm({ ...newUserForm, companyName: e.target.value })}
-                                            className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                        />
-                                        <input
-                                            type="text"
-                                            placeholder="RNC"
-                                            value={newUserForm.rnc}
-                                            onChange={e => setNewUserForm({ ...newUserForm, rnc: e.target.value })}
-                                            className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                        />
-                                    </>
-                                )}
-
-                                <input
-                                    type="email"
-                                    placeholder="Email"
-                                    value={newUserForm.email}
-                                    onChange={e => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Buscar Cliente</label>
+                                <select
                                     className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                />
-
-                                <button
-                                    onClick={createAndAssignUser}
-                                    disabled={updatingStatus}
-                                    className="w-full bg-[#A9780F] text-white rounded-md py-2 font-bold hover:bg-[#8e650c] transition-colors disabled:opacity-50"
+                                    onChange={(e) => setSelectedUserValue(e.target.value)}
+                                    value={selectedUserValue}
                                 >
-                                    {updatingStatus ? "Creando..." : "Guardar y Asignar"}
-                                </button>
+                                    <option value="">Seleccionar...</option>
+                                    {availableUsers.map(u => (
+                                        <option key={u.id} value={`${u.id}:${u.type}`}>
+                                            {u.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
-                        )}
+                            <button
+                                onClick={() => {
+                                    const [id, type] = selectedUserValue.split(':');
+                                    if (id) assignLocaleToUser(id, type as 'fisica' | 'juridica');
+                                }}
+                                disabled={!selectedUserValue || updatingStatus}
+                                className="w-full bg-[#A9780F] text-white rounded-md py-2 font-bold hover:bg-[#8e650c] transition-colors disabled:opacity-50"
+                            >
+                                {updatingStatus ? "Asignando..." : "Asignar Usuario"}
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>

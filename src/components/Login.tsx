@@ -20,16 +20,16 @@ export const Login = () => {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    console.log(role, "desde el login");
-
     useEffect(() => {
-        console.log(role, "desde el useEffect");
         if (user && !authLoading) {
-            console.log(role, "desde el login - redirecting");
-            if (role === 'admin') {
-                router.push('/admin');
-            } else if (role === 'user') {
-                router.push('/user');
+            try {
+                if (role === 'admin') {
+                    router.push('/admin');
+                } else if (role === 'user') {
+                    router.push('/user');
+                }
+            } catch (err) {
+                console.error("Error redirecting:", err);
             }
         }
     }, [user, role, authLoading, router]);

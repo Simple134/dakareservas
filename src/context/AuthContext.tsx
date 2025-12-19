@@ -139,7 +139,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             try {
                 // getUser() automatically reads the token from localStorage
                 const { data: { user }, error } = await supabase.auth.getUser();
-                console.log("🔍 Initializing auth, user from localStorage:", user?.email, error);
 
                 if (!mounted) return;
 
@@ -170,7 +169,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             } finally {
                 // CRITICAL: Always set loading to false
                 if (mounted) {
-                    console.log("✅ Auth initialization complete, setting loading to false");
                     setLoading(false);
                 }
             }
@@ -179,30 +177,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         initializeAuth();
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (!mounted) return;
+            try {
+                if (!mounted) return;
 
-            if (event === 'SIGNED_IN' && session?.user) {
-                setUser(session.user);
-                try {
-                    await Promise.race([
-                        fetchAndSetRole(session.user.id),
-                        new Promise((_, reject) =>
-                            setTimeout(() => reject(new Error('Timeout')), 5000)
-                        )
-                    ]);
-                } catch (roleError) {
-                    console.error("⚠️ Role fetch timeout on SIGNED_IN, defaulting to user:", roleError);
-                    setRole('user');
+                if (event === 'SIGNED_IN' && session?.user) {
+                    setUser(session.user);
+                    try {
+                        await Promise.race([
+                            fetchAndSetRole(session.user.id),
+                            new Promise((_, reject) =>
+                                setTimeout(() => reject(new Error('Timeout')), 5000)
+                            )
+                        ]);
+                    } catch (roleError) {
+                        setRole('user');
+                    }
+                    setLoading(false);
+                } else if (event === 'SIGNED_OUT') {
+                    setUser(null);
+                    setRole(null);
+                    setLoading(false);
+                } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+                    setUser(session.user);
+                } else if (event === 'INITIAL_SESSION') {
                 }
-                setLoading(false);
-            } else if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setRole(null);
-                setLoading(false);
-            } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-                setUser(session.user);
-            } else if (event === 'INITIAL_SESSION') {
-                console.log("🔄 Initial session event");
+            } catch (error) {
+                console.error("Error in onAuthStateChange listener:", error);
             }
         });
 
@@ -212,7 +212,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
     }, []);
 
-    console.log("📊 Auth state:", { user: user?.email, role, loading });
 
     return (
         <AuthContext.Provider value={{ user, role, loading, signIn, signUp, signOut }}>
