@@ -69,12 +69,27 @@ export default function UserPage() {
                     return;
                 }
 
-                // 2. Get Product Allocations (All of them)
-                console.log("Fetching allocations for personaId:", personaId);
-                const { data: allocations, error: allocationError } = await supabase
-                    .from('product_allocations')
-                    .select('*')
-                    .eq('persona_fisica_id', personaId);
+                // 2. Get Product Allocations based on Persona Type
+                let query = supabase.from('product_allocations').select('*');
+
+                if (profile.id_fisica) {
+                    console.log("Fetching allocations for persona_fisica_id:", profile.id_fisica);
+                    query = query.eq('persona_fisica_id', profile.id_fisica);
+                } else if (profile.id_juridica) {
+                    console.log("Fetching allocations for persona_juridica_id:", profile.id_juridica);
+                    query = query.eq('persona_juridica_id', profile.id_juridica);
+                } else {
+                    // Fallback/Error case if neither exists (though checked above)
+                    setDashboardData({
+                        userName: userName,
+                        investments: []
+                    });
+                    setDataLoading(false);
+                    return;
+                }
+
+                const { data: allocations, error: allocationError } = await query;
+
 
                 console.log("📦 product_allocations:", allocations, "Error:", allocationError);
 
