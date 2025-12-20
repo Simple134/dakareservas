@@ -173,30 +173,24 @@ export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) 
                 address_municipality: data.municipioRepresentante,
                 address_province: data.provinciaRepresentante,
 
-                // Property Info
-                unit_code: data.localComercial || null,
-                unit_level: data.nivel || null,
-                unit_meters: data.metros || null,
-                unit_parking: data.parqueo || null,
-                // locale_id removed from person table
-
-
                 status: 'pending'
             };
 
-            // Insert into persona_juridica
-            const { data: insertedData, error } = await supabase
+            // 1. Insert into persona_juridica
+            const { data: insertedPerson, error: personError } = await supabase
                 .from('persona_juridica')
                 .insert(dbData)
                 .select()
                 .single();
 
-            if (error) {
-                console.error("Supabase Error:", error);
-                throw new Error(error.message);
+            if (personError) {
+                console.error("Supabase Error (Persona Juridica):", personError);
+                throw new Error(personError.message);
             }
 
-            // Update locale status to 'RESERVADO'
+            if (!insertedPerson) throw new Error("No se pudo crear el usuario");
+
+            // 2. Insert into product_allocations (Reservation)
             if (data.localComercial) {
                 const { error: updateError } = await supabase
                     .from('locales')
@@ -208,13 +202,14 @@ export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) 
                 }
             }
 
+
             // Save session to LocalStorage
-            if (insertedData) {
+            if (insertedPerson) {
                 if (onSuccess) {
                     onSuccess();
                     return;
                 }
-                localStorage.setItem('daka_user_id', insertedData.id);
+                localStorage.setItem('daka_user_id', insertedPerson.id);
                 localStorage.setItem('daka_user_type', 'juridica');
                 if (data.localComercial) {
                     localStorage.setItem('daka_selected_locale_id', data.localComercial);
@@ -304,7 +299,7 @@ export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) 
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-semibold mb-1">Razón Social *</label>
+                                <label className="block text-sm font-semibold mb-1">Nombre de la empresa *</label>
                                 <input {...register("razonSocial", { required: "La razón social es requerida" })} placeholder=" Comercial XYZ SRL" className="p-2 border rounded w-full" />
                                 {errors.razonSocial && <span className="text-red-500 text-xs block mt-1">{errors.razonSocial.message}</span>}
                             </div>
@@ -610,41 +605,34 @@ export default function JuridicaForm({ onSuccess }: { onSuccess?: () => void }) 
                 )}
             </AnimatePresence>
 
-            {/* Navigation Buttons for previous steps */}
-            {currentStep < 3 && (
-                <div className="flex justify-between mt-6">
-                    <button
-                        type="button"
-                        onClick={prevStep}
-                        disabled={currentStep === 0}
-                        className={`p-2 rounded-lg font-semibold border px-4 hover:bg-gray-50 ${currentStep === 0 ? "invisible" : ""}`}
-                    >
-                        Anterior
-                    </button>
+            {/* Navigation Buttons */}
+            <div className={`flex flex-col gap-2 ${currentStep === steps.length - 1 ? "justify-center" : "justify-between"} `}>
+                <button
+                    type="button"
+                    onClick={prevStep}
+                    disabled={currentStep === 0}
+                    className={`p-2 rounded-lg font-bold text-black border border-black ${currentStep === 0 ? "hidden" : ""} `}
+                >
+                    Anterior
+                </button>
 
+                {currentStep < steps.length - 1 ? (
                     <button
                         type="button"
                         onClick={nextStep}
-                        className="p-2 rounded-lg font-bold text-white bg-[#A9780F] px-6 hover:bg-[#8a620c]"
+                        className={`p-2 rounded-lg font-bold text-white bg-[#A9780F] ${currentStep < steps.length - 1 ? "w-full" : ""} `}
                     >
                         Siguiente
                     </button>
-                </div>
-            )}
-
-            {/* Back button for Step 3 is handled differently or unnecessary if we just have the submit button. 
-                But let's add a "Anterior" button for Step 3 just in case they want to review. */}
-            {currentStep === 3 && (
-                <div className="flex justify-start mt-4">
+                ) : (
                     <button
-                        type="button"
-                        onClick={prevStep}
-                        className="p-2 rounded-lg font-semibold border px-4 hover:bg-gray-50 text-sm text-gray-500"
+                        type="submit"
+                        className="p-2 rounded-lg font-bold text-white bg-gradient-to-r from-[#A9780F] to-[#131E29] hover:shadow-xl transition-all"
                     >
-                        ← Volver a revisar
+                        Registrar y Continuar {uploading && "(Guardando...)"}
                     </button>
-                </div>
-            )}
+                )}
+            </div>
         </form>
     );
 }
