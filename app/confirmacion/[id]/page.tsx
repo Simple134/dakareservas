@@ -19,7 +19,7 @@ export default function ConfirmacionPage() {
     // Payment inputs
     const [currency, setCurrency] = useState('USD');
     const [amount, setAmount] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'card'>('transfer');
+    const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'card' | 'check' | 'cash'>('transfer');
     const [receiptFile, setReceiptFile] = useState<File | null>(null);
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
     const [userId, setUserId] = useState<string>("");

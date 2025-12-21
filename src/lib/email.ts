@@ -1,7 +1,6 @@
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-console.log(resend)
 
 export async function sendInvitationEmail(email: string, name: string) {
   if (!process.env.RESEND_API_KEY) {

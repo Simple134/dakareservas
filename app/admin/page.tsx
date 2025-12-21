@@ -5,7 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/src/lib/supabase/client";
 import { Tables } from "@/src/types/supabase";
 import AlertModal, { AlertType } from "@/src/components/AlertModal";
-import { LogOut, X, Search, User, Building2, Check, RotateCw, Loader2 } from "lucide-react";
+import { LogOut, X, Search, User, Building2, Check, Loader2, ExternalLinkIcon } from "lucide-react";
 import { ReservationViewModel } from "@/src/types/ReservationsTypes";
 import { SidebarReservation, SidebarLocales, SidebarUser } from "@/src/components/Sidebar";
 import FisicaForm from "@/src/components/FisicaForm";
@@ -14,6 +14,7 @@ import { inviteUserAction } from "@/src/actions/invite-user";
 import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { sendQuotationAction } from "@/src/actions/send-quotation";
+import { profile } from "console";
 
 type ProductAllocationResponse = Tables<'product_allocations'> & {
     product: { name: string } | null;
@@ -33,6 +34,8 @@ type UserViewModel = {
     phone: string;
     address: string;
     status: string;
+    hasProfile?: boolean;
+    profileId?: string | null;
     raw: any;
 };
 
@@ -165,6 +168,26 @@ export default function AdminPage() {
 
             if (error) throw error;
 
+            // Fetch all profiles to match with reservations
+            const { data: profiles, error: errProfiles } = await supabase
+                .from('profiles')
+                .select('id, id_fisica, id_juridica');
+
+            if (errProfiles) {
+                console.error("Error fetching profiles for reservations:", errProfiles);
+            }
+
+            // Create a map for quick profile lookup
+            const profileMap = new Map<string, string>(); // persona_id -> profile_id
+            (profiles || []).forEach(profile => {
+                if (profile.id_fisica) {
+                    profileMap.set(profile.id_fisica, profile.id);
+                }
+                if (profile.id_juridica) {
+                    profileMap.set(profile.id_juridica, profile.id);
+                }
+            });
+
             const transformed: ReservationViewModel[] = (data || []).map((item) => {
                 const isFisica = !!item.persona_fisica;
                 const isJuridica = !!item.persona_juridica;
@@ -183,6 +206,7 @@ export default function AdminPage() {
                     ].filter(Boolean).join(", ");
 
                     const locale = item.locales;
+                    const profileId = profileMap.get(pf.id);
 
                     viewModel = {
                         id: item.id,
@@ -210,7 +234,8 @@ export default function AdminPage() {
                             total_value: locale.total_value,
                             status: locale.status
                         } : undefined,
-                        raw_fisica: pf
+                        raw_fisica: pf,
+                        profileId: profileId || null
                     };
                 } else if (isJuridica && item.persona_juridica) {
                     const pj = item.persona_juridica;
@@ -222,6 +247,7 @@ export default function AdminPage() {
                     ].filter(Boolean).join(", ");
 
                     const locale = item.locales;
+                    const profileId = profileMap.get(pj.id);
 
                     viewModel = {
                         id: item.id,
@@ -249,7 +275,8 @@ export default function AdminPage() {
                             total_value: locale.total_value,
                             status: locale.status
                         } : undefined,
-                        raw_juridica: pj
+                        raw_juridica: pj,
+                        profileId: profileId || null
                     };
                 } else {
                     return null;
@@ -456,7 +483,6 @@ export default function AdminPage() {
             // Remove fields that are not updatable or don't exist in the schema
             const { name, id, created_at, type, identification_label, address, raw, ...payload } = updatedData;
 
-            console.log("📝 Updating user with payload:", payload);
 
             const { error } = await supabase
                 .from(table)
@@ -845,6 +871,34 @@ export default function AdminPage() {
         }
     };
 
+    const handleUpdatePaymentMethod = async (paymentMethod: string) => {
+        if (!selectedReservation || !paymentMethod) return;
+        setUpdatingStatus(true);
+        try {
+            const { error } = await supabase
+                .from('product_allocations')
+                .update({ payment_method: paymentMethod })
+                .eq('id', selectedReservation.id);
+
+            if (error) throw error;
+
+            const updatedReservation = {
+                ...selectedReservation,
+                payment_method: paymentMethod
+            };
+
+            setReservations(prev => prev.map(r => r.id === selectedReservation.id ? updatedReservation : r));
+            setSelectedReservation(updatedReservation);
+
+            showAlert("Éxito", "Método de pago actualizado correctamente.", 'success');
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error", "Error actualizando método de pago: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
 
     const assignLocaleToUser = async (userId: string, type: 'fisica' | 'juridica') => {
         if (!selectedLocale) return;
@@ -1044,9 +1098,10 @@ export default function AdminPage() {
     }
 
 
+
     return (
         <div className="min-h-screen bg-white p-8 font-sans">
-            <div className="mx-auto max-w-7xl">
+            <div className="mx-auto ">
                 <div className="flex flex-col md:flex-row items-center justify-between p-4 mb-6">
                     <div className="flex items-end justify-center">
                         <Image
@@ -1208,6 +1263,7 @@ export default function AdminPage() {
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Método Pago</th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Precio</th>
                                             <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Status</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Vista</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 bg-white">
@@ -1249,6 +1305,21 @@ export default function AdminPage() {
                                                         }`}>
                                                         {reservation.status}
                                                     </span>
+                                                </td>
+                                                <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                    {reservation.profileId ? (
+                                                        <a
+                                                            href={`/user/${reservation.profileId}`}
+                                                            className="text-[#A9780F] hover:text-[#A9780F] hover:underline inline-flex items-center"
+                                                            title="Ver dashboard del usuario"
+                                                        >
+                                                            <ExternalLinkIcon className="w-4 h-4" />
+                                                        </a>
+                                                    ) : (
+                                                        <div className="inline-flex items-center opacity-30 cursor-not-allowed" title="Sin perfil registrado - no puede acceder al dashboard">
+                                                            <ExternalLinkIcon className="w-4 h-4 text-gray-400" />
+                                                        </div>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))}
@@ -1565,6 +1636,7 @@ export default function AdminPage() {
                                 handleDeleteQuotation={handleDeleteQuotation}
                                 products={products}
                                 handleUpdateProduct={handleUpdateProduct}
+                                handleUpdatePaymentMethod={handleUpdatePaymentMethod}
                             />
                         )
                     }

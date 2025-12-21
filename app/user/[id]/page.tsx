@@ -5,9 +5,9 @@ import { supabase } from "@/src/lib/supabase/client";
 import { UserDashboard, InvestmentData } from "@/src/components/UserDashboard";
 import { useAuth } from "@/src/context/AuthContext";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { SidebarPayment } from "@/src/components/Sidebar";
 import { sendPaymentNotificationAction } from "@/src/actions/send-payment-notification";
+import { useParams } from "next/navigation";
 
 type DashboardData = {
     userName: string;
@@ -15,8 +15,9 @@ type DashboardData = {
 };
 
 export default function UserPage() {
+    const params = useParams();
+    const profileId = params.id as string;
     const { user } = useAuth();
-    const router = useRouter();
     const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
     const [dataLoading, setDataLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -28,12 +29,10 @@ export default function UserPage() {
 
 
     useEffect(() => {
-        if (!user) {
+        if (!user || !profileId) {
             setDataLoading(false);
             return;
         }
-
-        console.log(user, "desde el user page");
 
         const fetchDashboardData = async () => {
             setDataLoading(true);
@@ -42,9 +41,8 @@ export default function UserPage() {
                 const { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('full_name, id_fisica, id_juridica')
-                    .eq('id', user.id)
+                    .eq('id', profileId || user.id)
                     .single();
-                console.log(profile, "profile");
 
                 if (profileError || !profile) {
                     console.error("Profile fetch error:", profileError);
@@ -60,7 +58,6 @@ export default function UserPage() {
                 const personaId = profile.id_fisica || profile.id_juridica;
 
                 if (!personaId) {
-                    console.log("No linked persona ID found in profile.");
                     setDashboardData({
                         userName: userName,
                         investments: []
@@ -73,10 +70,8 @@ export default function UserPage() {
                 let query = supabase.from('product_allocations').select('*');
 
                 if (profile.id_fisica) {
-                    console.log("Fetching allocations for persona_fisica_id:", profile.id_fisica);
                     query = query.eq('persona_fisica_id', profile.id_fisica);
                 } else if (profile.id_juridica) {
-                    console.log("Fetching allocations for persona_juridica_id:", profile.id_juridica);
                     query = query.eq('persona_juridica_id', profile.id_juridica);
                 } else {
                     // Fallback/Error case if neither exists (though checked above)
@@ -91,7 +86,6 @@ export default function UserPage() {
                 const { data: allocations, error: allocationError } = await query;
 
 
-                console.log("📦 product_allocations:", allocations, "Error:", allocationError);
 
                 if (allocationError) throw allocationError;
 
@@ -116,7 +110,7 @@ export default function UserPage() {
                             .single();
 
                         if (localeError) {
-                            console.error(`Error fetching locale ${allocation.locales_id}:`, localeError);
+                            console.error(`Error fetching locale ${allocation.locales_id}: `, localeError);
                             continue;
                         }
 
@@ -125,7 +119,7 @@ export default function UserPage() {
                         const paid = (allocation.amount || []).reduce((acc: number, val: string) => acc + parseFloat(val), 0);
                         const pending = Math.max(0, total - paid);
                         const progress = total > 0 ? (paid / total) * 100 : 0;
-                        const localeCode = `Local ${allocation.locales_id}`;
+                        const localeCode = `Local ${allocation.locales_id} `;
 
                         // Build installments array from allocation
                         const amounts = allocation.amount || [];
@@ -191,7 +185,7 @@ export default function UserPage() {
 
             // 2. Upload Receipt
             const fileExt = file.name.split('.').pop();
-            const fileName = `payment-${allocation.id}-${Date.now()}.${fileExt}`;
+            const fileName = `payment - ${allocation.id} -${Date.now()}.${fileExt} `;
             const { error: uploadError } = await supabase.storage
                 .from('receipts')
                 .upload(fileName, file);
@@ -241,11 +235,6 @@ export default function UserPage() {
         setPaymentSidebarOpen(true);
     }
 
-    useEffect(() => {
-        if (!dataLoading && !user) {
-            router.push("/login");
-        }
-    }, [dataLoading, user, router]);
 
     if (dataLoading) return (
         <div className="flex h-screen items-center justify-center bg-[#131E29]">

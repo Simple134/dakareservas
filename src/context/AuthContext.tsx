@@ -67,7 +67,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             if (data.user) {
-                // Set user and fetch role
                 setUser(data.user);
                 const { data: profile } = await supabase
                     .from('profiles')
@@ -78,19 +77,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 if (profile) {
                     if (profile.role === 'admin') {
                         setRole('admin');
-                        router.push('/admin');
                     } else {
                         setRole('user');
-                        router.push('/user');
                     }
                 } else {
-                    // Fallback when no profile is found
                     setRole('user');
-                    router.push('/user');
                 }
             }
 
-            // Ensure loading is cleared after navigation completes
             setLoading(false);
             return { error: null };
         } catch (err: any) {

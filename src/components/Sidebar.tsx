@@ -25,13 +25,18 @@ interface SidebarReservationProps {
     handleDeleteQuotation: () => void;
     products: Tables<'products'>[];
     handleUpdateProduct: (productId: string) => void;
+    handleUpdatePaymentMethod: (paymentMethod: string) => void;
 }
 
 
 
-export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct }: SidebarReservationProps) => {
+export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct, handleUpdatePaymentMethod }: SidebarReservationProps) => {
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
     const [selectedProductId, setSelectedProductId] = useState<string>("");
+
+    const totalPaid = Array.isArray(selectedReservation.amount)
+        ? selectedReservation.amount.reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
+        : 0;
 
     useEffect(() => {
         // Find the product ID based on the reservation's product name
@@ -179,7 +184,7 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                         </div>
 
                         {/* Edit Payment Info Section if not approved */}
-                        {selectedReservation.status !== 'approved' ? (
+                        {selectedReservation.status !== 'approved' && totalPaid === 0 ? (
                             <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mt-2 space-y-3">
                                 <h4 className="text-xs font-bold text-black uppercase">Actualizar Pago</h4>
 
@@ -214,6 +219,8 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                         <option value="">Seleccione...</option>
                                         <option value="transfer">Transferencia</option>
                                         <option value="card">Tarjeta Crédito/Débito</option>
+                                        <option value="check">Cheque</option>
+                                        <option value="cash">Efectivo</option>
                                     </select>
                                 </div>
 
@@ -250,7 +257,27 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                     )}
                                     highlight
                                 />
-                                <DetailRow label="Método de Pago" value={selectedReservation.payment_method} />
+
+                                {/* Payment Method Update Section */}
+                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                    <span className="text-sm font-medium text-gray-500">Método de Pago</span>
+                                    <select
+                                        value={selectedReservation.payment_method || ""}
+                                        onChange={(e) => {
+                                            const newMethod = e.target.value;
+                                            if (newMethod) handleUpdatePaymentMethod(newMethod);
+                                        }}
+                                        disabled={updatingStatus}
+                                        className="text-sm font-medium text-right text-gray-900 border-none focus:ring-0 cursor-pointer bg-transparent pr-8 py-0"
+                                        style={{ width: 'auto', maxWidth: '200px' }}
+                                    >
+                                        <option value="">Seleccionar...</option>
+                                        <option value="transfer">Transferencia</option>
+                                        <option value="card">Tarjeta Crédito/Débito</option>
+                                        <option value="check">Cheque</option>
+                                        <option value="cash">Efectivo</option>
+                                    </select>
+                                </div>
                             </>
                         )}
                     </div>
@@ -698,10 +725,47 @@ interface SidebarPaymentProps {
 export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency }: SidebarPaymentProps) => {
     const [amount, setAmount] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'DOP'>('USD');
+    const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+    const [loadingRate, setLoadingRate] = useState(false);
+
+    // Fetch exchange rate when DOP is selected
+    useEffect(() => {
+        if (selectedCurrency === 'DOP') {
+            setLoadingRate(true);
+            fetch('https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.result === 'success' && data.conversion_rates?.DOP) {
+                        setExchangeRate(data.conversion_rates.DOP);
+                    }
+                })
+                .catch(err => {
+                    console.error('Error fetching exchange rate:', err);
+                })
+                .finally(() => setLoadingRate(false));
+        } else {
+            setExchangeRate(null);
+        }
+    }, [selectedCurrency]);
+
+    // Calculate USD equivalent
+    const calculateUSDAmount = (): number => {
+        if (selectedCurrency === 'USD') {
+            return parseFloat(amount) || 0;
+        } else if (selectedCurrency === 'DOP' && exchangeRate && amount) {
+            return parseFloat(amount) / exchangeRate;
+        }
+        return 0;
+    };
+
+    const usdAmount = calculateUSDAmount();
 
     const handleSubmit = async () => {
         if (!amount || !file) return;
-        await onSubmit(amount, file);
+        // Always submit in USD
+        const amountToSubmit = usdAmount.toFixed(2);
+        await onSubmit(amountToSubmit, file);
     };
 
     return (
@@ -722,17 +786,94 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
                         Ingrese el monto que desea abonar y suba el comprobante de la transacción.
                     </p>
 
+                    {/* Currency Selector */}
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Monto a Abonar ({currency})</label>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Moneda de Pago</label>
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedCurrency('USD')}
+                                className={`py-3 px-4 rounded-lg font-bold text-sm transition-all border-2 ${selectedCurrency === 'USD'
+                                    ? 'bg-[#A9780F] text-white border-[#A9780F]'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]'
+                                    }`}
+                            >
+                                USD (Dólares)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedCurrency('DOP')}
+                                className={`py-3 px-4 rounded-lg font-bold text-sm transition-all border-2 ${selectedCurrency === 'DOP'
+                                    ? 'bg-[#A9780F] text-white border-[#A9780F]'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]'
+                                    }`}
+                            >
+                                DOP (Pesos)
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Amount Input */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">
+                            Monto a Abonar ({selectedCurrency})
+                        </label>
                         <input
-                            type="number"
+                            type="text"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            placeholder="Ej: 5000.00"
+                            placeholder={selectedCurrency === 'USD' ? "USD 5000.00" : "DOP 325000.00"}
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#A9780F] focus:border-[#A9780F] text-black"
                         />
                     </div>
 
+                    {/* Exchange Rate Display for DOP */}
+                    {selectedCurrency === 'DOP' && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                            {loadingRate ? (
+                                <div className="flex items-center gap-2 text-blue-700">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+                                    <span className="text-sm">Obteniendo tasa de cambio...</span>
+                                </div>
+                            ) : exchangeRate ? (
+                                <>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-sm font-medium text-gray-700">Tasa de Cambio:</span>
+                                        <span className="text-sm font-bold text-gray-900">1 USD = {exchangeRate.toFixed(4)} DOP</span>
+                                    </div>
+                                    {amount && parseFloat(amount) > 0 && (
+                                        <div className="pt-2 border-t border-blue-300">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-gray-700">Equivalente en USD:</span>
+                                                <span className="text-lg font-bold text-[#A9780F]">
+                                                    ${usdAmount.toFixed(2)} USD
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-600 mt-1">
+                                                {parseFloat(amount).toLocaleString('es-DO')} DOP = ${usdAmount.toFixed(2)} USD
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="text-sm text-red-600">Error al obtener la tasa de cambio. Intente nuevamente.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* USD Summary for USD selection */}
+                    {selectedCurrency === 'USD' && amount && parseFloat(amount) > 0 && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium text-gray-700">Monto a Abonar:</span>
+                                <span className="text-lg font-bold text-[#A9780F]">
+                                    ${parseFloat(amount).toFixed(2)} USD
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* File Upload */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Comprobante de Pago</label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-white hover:bg-gray-50 transition-colors">
@@ -767,7 +908,7 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
 
                     <button
                         onClick={handleSubmit}
-                        disabled={!amount || !file || isSubmitting}
+                        disabled={!amount || !file || isSubmitting || (selectedCurrency === 'DOP' && !exchangeRate)}
                         className="w-full py-3 bg-[#A9780F] hover:bg-[#8e650c] text-white font-bold rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
                     >
                         {isSubmitting ? (
@@ -778,7 +919,7 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
                         ) : (
                             <>
                                 <Save size={18} />
-                                Confirmar Abono
+                                Confirmar Abono {selectedCurrency === 'DOP' && usdAmount > 0 && `($${usdAmount.toFixed(2)} USD)`}
                             </>
                         )}
                     </button>

@@ -34,4 +34,5 @@ export interface ReservationViewModel {
 
     raw_fisica?: Tables<'persona_fisica'>;
     raw_juridica?: Tables<'persona_juridica'>;
+    profileId?: string | null;
 }

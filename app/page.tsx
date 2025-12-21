@@ -31,7 +31,6 @@ export default function Home() {
   }, [showSale]);
 
   useEffect(() => {
-    console.log("Setting up Sales Realtime Channel...");
     const channel = supabase.channel('sales_home_updates')
       .on(
         'postgres_changes',
@@ -42,7 +41,6 @@ export default function Home() {
           filter: 'status=eq.approved'
         },
         async (payload) => {
-          console.log("Realtime Sale Event Received:", payload);
           const newStatus = payload.new.status;
           const oldStatus = payload.old.status;
 
@@ -60,7 +58,6 @@ export default function Home() {
   }, []);
 
   const playNotificationSound = () => {
-    console.log("Attempting to play notification sound...");
     const audio = new Audio("/notification.mp3");
     audio.play()
       .then(() => console.log("Notification sound playing successfully"))

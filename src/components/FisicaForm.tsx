@@ -166,13 +166,6 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
         address_province: data.provincia,
         nationality: data.nacionalidad,
         other_nationality: data.otraNacionalidad,
-
-        unit_code: data.localComercial || null,
-        unit_level: data.nivel || null,
-        unit_meters: data.metros || null,
-        unit_parking: data.parqueo || null,
-
-
         status: 'pending'
       }
 

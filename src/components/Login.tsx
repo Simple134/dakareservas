@@ -26,7 +26,7 @@ export const Login = () => {
                 if (role === 'admin') {
                     router.push('/admin');
                 } else if (role === 'user') {
-                    router.push('/user');
+                    router.push(`/user/${user.id}`);
                 }
             } catch (err) {
                 console.error("Error redirecting:", err);
