@@ -729,25 +729,21 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
     const [loadingRate, setLoadingRate] = useState(false);
 
-    // Fetch exchange rate when DOP is selected
+    // Fetch exchange rate on mount
     useEffect(() => {
-        if (selectedCurrency === 'DOP') {
-            setLoadingRate(true);
-            fetch('https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.result === 'success' && data.conversion_rates?.DOP) {
-                        setExchangeRate(data.conversion_rates.DOP);
-                    }
-                })
-                .catch(err => {
-                    console.error('Error fetching exchange rate:', err);
-                })
-                .finally(() => setLoadingRate(false));
-        } else {
-            setExchangeRate(null);
-        }
-    }, [selectedCurrency]);
+        setLoadingRate(true);
+        fetch('https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD')
+            .then(res => res.json())
+            .then(data => {
+                if (data.result === 'success' && data.conversion_rates?.DOP) {
+                    setExchangeRate(data.conversion_rates.DOP);
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching exchange rate:', err);
+            })
+            .finally(() => setLoadingRate(false));
+    }, []);
 
     // Calculate USD equivalent
     const calculateUSDAmount = (): number => {
@@ -791,6 +787,7 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
                         <label className="block text-sm font-bold text-gray-700 mb-2">Moneda de Pago</label>
                         <div className="grid grid-cols-2 gap-3">
                             <button
+                                key={'USD'}
                                 type="button"
                                 onClick={() => setSelectedCurrency('USD')}
                                 className={`py-3 px-4 rounded-lg font-bold text-sm transition-all border-2 ${selectedCurrency === 'USD'
@@ -801,6 +798,7 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
                                 USD (Dólares)
                             </button>
                             <button
+                                key={'DOP'}
                                 type="button"
                                 onClick={() => setSelectedCurrency('DOP')}
                                 className={`py-3 px-4 rounded-lg font-bold text-sm transition-all border-2 ${selectedCurrency === 'DOP'
@@ -860,19 +858,6 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
                             )}
                         </div>
                     )}
-
-                    {/* USD Summary for USD selection */}
-                    {selectedCurrency === 'USD' && amount && parseFloat(amount) > 0 && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-700">Monto a Abonar:</span>
-                                <span className="text-lg font-bold text-[#A9780F]">
-                                    ${parseFloat(amount).toFixed(2)} USD
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
                     {/* File Upload */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">Comprobante de Pago</label>
