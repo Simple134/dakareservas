@@ -682,7 +682,7 @@ export default function AdminPage() {
         );
     };
 
-    const handleUpdatePaymentInfo = async () => {
+    const handleUpdatePaymentInfo = async (customAmount?: number, customCurrency?: string) => {
         if (!selectedReservation) return;
         setUpdatingStatus(true);
         try {
@@ -704,13 +704,16 @@ export default function AdminPage() {
             }
 
             // Insert into payments table
-            if (editAmount && parseFloat(editAmount) > 0) {
+            const finalAmount = customAmount !== undefined ? customAmount : (editAmount ? parseFloat(editAmount) : 0);
+            const finalCurrency = customCurrency || editCurrency;
+
+            if (finalAmount > 0) {
                 const { error } = await supabase
                     .from('payments')
                     .insert({
                         allocation_id: selectedReservation.id,
-                        amount: parseFloat(editAmount),
-                        currency: editCurrency,
+                        amount: finalAmount,
+                        currency: finalCurrency,
                         payment_method: editPaymentMethod,
                         receipt_url: receiptUrl,
                         status: 'approved' // Admin added payments are approved by default

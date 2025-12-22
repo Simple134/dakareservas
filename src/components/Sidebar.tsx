@@ -18,7 +18,7 @@ interface SidebarReservationProps {
     setEditPaymentMethod: (paymentMethod: string) => void;
     editReceiptFile: File | null;
     setEditReceiptFile: (receiptFile: File | null) => void;
-    handleUpdatePaymentInfo: () => void;
+    handleUpdatePaymentInfo: (amount?: number, currency?: string) => void;
     editQuotationFile: File | null;
     setEditQuotationFile: (file: File | null) => void;
     handleUploadQuotation: () => void;
@@ -34,6 +34,39 @@ interface SidebarReservationProps {
 export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct, handleUpdatePaymentMethod, handleUpdatePaymentStatus }: SidebarReservationProps) => {
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
     const [selectedProductId, setSelectedProductId] = useState<string>("");
+    const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+    const [loadingRate, setLoadingRate] = useState(false);
+
+    useEffect(() => {
+        setLoadingRate(true);
+        fetch('https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD')
+            .then(res => res.json())
+            .then(data => {
+                if (data.result === 'success' && data.conversion_rates?.DOP) {
+                    setExchangeRate(data.conversion_rates.DOP);
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching exchange rate:', err);
+            })
+            .finally(() => setLoadingRate(false));
+    }, []);
+
+    const calculateUSDAmount = (): number => {
+        if (editCurrency === 'USD') {
+            return parseFloat(editAmount) || 0;
+        } else if (editCurrency === 'DOP' && exchangeRate && editAmount) {
+            return parseFloat(editAmount) / exchangeRate;
+        }
+        return 0;
+    };
+
+    const usdAmount = calculateUSDAmount();
+
+    const handleManualPaymentSubmit = () => {
+        const amountToSubmit = parseFloat(usdAmount.toFixed(2));
+        handleUpdatePaymentInfo(amountToSubmit, 'USD');
+    };
 
     const payments = selectedReservation.payments || [];
     const totalPaid = payments
@@ -187,8 +220,7 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
 
                         {/* Add Payment Manual Section */}
                         <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mt-2 space-y-3">
-                            <h4 className="text-xs font-bold text-black uppercase">Agarar Pago Manual</h4>
-
+                            <h4 className="text-xs font-bold text-black uppercase">Agregar Pago Manual</h4>
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 mb-1">Monto de Reserva</label>
                                 <div className="flex gap-2">
@@ -209,6 +241,37 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                     />
                                 </div>
                             </div>
+
+                            {/* Exchange Rate Display for DOP */}
+                            {editCurrency === 'DOP' && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                                    {loadingRate ? (
+                                        <div className="flex items-center gap-2 text-blue-700">
+                                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
+                                            <span className="text-xs">Obteniendo tasa...</span>
+                                        </div>
+                                    ) : exchangeRate ? (
+                                        <>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs font-medium text-gray-700">Tasa:</span>
+                                                <span className="text-xs font-bold text-gray-900">1 USD = {exchangeRate.toFixed(4)} DOP</span>
+                                            </div>
+                                            {editAmount && parseFloat(editAmount) > 0 && (
+                                                <div className="pt-2 border-t border-blue-300">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-medium text-gray-700">Equivalente USD:</span>
+                                                        <span className="text-sm font-bold text-[#A9780F]">
+                                                            ${usdAmount.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <p className="text-[10px] text-red-600">Error tasa de cambio.</p>
+                                    )}
+                                </div>
+                            )}
 
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 mb-1">Método de Pago</label>
@@ -238,12 +301,12 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                             </div>
 
                             <button
-                                onClick={handleUpdatePaymentInfo}
-                                disabled={updatingStatus}
+                                onClick={handleManualPaymentSubmit}
+                                disabled={updatingStatus || !editAmount || (editCurrency === 'DOP' && !exchangeRate)}
                                 className="w-full flex items-center justify-center gap-2 bg-[#A9780F] hover:bg-[#966b0d] text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50"
                             >
                                 <Save size={14} />
-                                Agregar Pago
+                                Agregar Pago {editCurrency === 'DOP' && usdAmount > 0 && `(USD ${usdAmount.toFixed(2)})`}
                             </button>
                         </div>
 
