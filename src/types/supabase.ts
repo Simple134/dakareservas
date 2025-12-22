@@ -46,6 +46,49 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      },
+      payments: {
+        Row: {
+          id: string
+          allocation_id: string | null
+          amount: number
+          currency: string | null
+          status: string | null
+          payment_method: string | null
+          receipt_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          allocation_id?: string | null
+          amount: number
+          currency?: string | null
+          status?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          allocation_id?: string | null
+          amount?: number
+          currency?: string | null
+          status?: string | null
+          payment_method?: string | null
+          receipt_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_allocation_id_fkey"
+            columns: ["allocation_id"]
+            referencedRelation: "product_allocations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       products: {
         Row: {

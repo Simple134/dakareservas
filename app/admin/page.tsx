@@ -22,6 +22,7 @@ type ProductAllocationResponse = Tables<'product_allocations'> & {
     persona_fisica: Tables<'persona_fisica'> | null;
     persona_juridica: Tables<'persona_juridica'> | null;
     locales_id?: number | null;
+    payments?: Tables<'payments'>[];
 };
 
 type UserViewModel = {
@@ -161,7 +162,8 @@ export default function AdminPage() {
                     product:products(name),
                     locales(*),
                     persona_fisica(*),
-                    persona_juridica(*)
+                    persona_juridica(*),
+                    payments(*)
                 `)
                 .order("created_at", { ascending: false })
                 .returns<ProductAllocationResponse[]>();
@@ -235,7 +237,8 @@ export default function AdminPage() {
                             status: locale.status
                         } : undefined,
                         raw_fisica: pf,
-                        profileId: profileId || null
+                        profileId: profileId || null,
+                        payments: item.payments || []
                     };
                 } else if (isJuridica && item.persona_juridica) {
                     const pj = item.persona_juridica;
@@ -276,7 +279,8 @@ export default function AdminPage() {
                             status: locale.status
                         } : undefined,
                         raw_juridica: pj,
-                        profileId: profileId || null
+                        profileId: profileId || null,
+                        payments: item.payments || []
                     };
                 } else {
                     return null;
@@ -682,12 +686,10 @@ export default function AdminPage() {
         if (!selectedReservation) return;
         setUpdatingStatus(true);
         try {
-            // Handle array of receipt URLs
-            let receiptUrls: string[] = selectedReservation.receipt_url || [];
-
+            let receiptUrl: string | null = null;
             if (editReceiptFile) {
                 const fileExt = editReceiptFile.name.split('.').pop();
-                const fileName = `${selectedReservation.id}-${Math.random()}.${fileExt}`;
+                const fileName = `payment-${selectedReservation.id}-${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage
                     .from('receipts')
                     .upload(fileName, editReceiptFile);
@@ -698,49 +700,90 @@ export default function AdminPage() {
                     .from('receipts')
                     .getPublicUrl(fileName);
 
-                // Append new receipt URL to array
-                receiptUrls = [...receiptUrls, publicUrlData.publicUrl];
+                receiptUrl = publicUrlData.publicUrl;
             }
 
-            // Handle array of amounts
-            let currentAmounts: string[] = selectedReservation.amount || [];
-
-            // Filter out "0" or invalid values to prevent ["0", "5000"]
-            currentAmounts = currentAmounts.filter(amt => {
-                const val = parseFloat(amt);
-                return !isNaN(val) && val > 0;
-            });
-
-            // Only append if there's a value and it's greater than 0
+            // Insert into payments table
             if (editAmount && parseFloat(editAmount) > 0) {
-                currentAmounts = [...currentAmounts, editAmount];
+                const { error } = await supabase
+                    .from('payments')
+                    .insert({
+                        allocation_id: selectedReservation.id,
+                        amount: parseFloat(editAmount),
+                        currency: editCurrency,
+                        payment_method: editPaymentMethod,
+                        receipt_url: receiptUrl,
+                        status: 'approved' // Admin added payments are approved by default
+                    });
+
+                if (error) throw error;
             }
 
-            const updates: any = {
-                amount: currentAmounts,
-                currency: editCurrency,
-                payment_method: editPaymentMethod,
-                receipt_url: receiptUrls
-            };
+            // Refresh data
+            await fetchReservations();
 
+            showAlert("Éxito", "Pago registrado correctamente.", 'success');
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error", "Error registrando pago: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+            setSidebarOpen(false);
+        }
+    };
+
+    const handleUpdatePaymentStatus = async (paymentId: string, newStatus: string) => {
+        setUpdatingStatus(true);
+        try {
             const { error } = await supabase
-                .from('product_allocations')
-                .update(updates)
-                .eq('id', selectedReservation.id);
+                .from('payments')
+                .update({ status: newStatus })
+                .eq('id', paymentId);
 
             if (error) throw error;
 
-            // Updates local
-            const updatedReservation = { ...selectedReservation, ...updates };
+            showAlert("Éxito", "Estado de pago actualizado.", 'success');
+            await fetchReservations();
 
-            setReservations(prev => prev.map(r => r.id === selectedReservation.id ? updatedReservation : r));
-            setSelectedReservation(updatedReservation);
-            setEditReceiptFile(null);
+            setSelectedReservation(prev => {
+                if (!prev || !prev.payments) return prev;
+                return {
+                    ...prev,
+                    payments: prev.payments.map(p => p.id === paymentId ? { ...p, status: newStatus } : p)
+                }
+            });
 
-            showAlert("Éxito", "Información de pago actualizada correctamente.", 'success');
+        } catch (error: any) {
+            showAlert("Error", "Error actualizando estado de pago: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
+    const handleUpdatePaymentMethod = async (paymentId: string, newMethod: string) => {
+        setUpdatingStatus(true);
+        try {
+            const { error } = await supabase
+                .from('payments')
+                .update({ payment_method: newMethod })
+                .eq('id', paymentId);
+
+            if (error) throw error;
+
+            showAlert("Éxito", "Método de pago actualizado.", 'success');
+            await fetchReservations();
+
+            setSelectedReservation(prev => {
+                if (!prev || !prev.payments) return prev;
+                return {
+                    ...prev,
+                    payments: prev.payments.map(p => p.id === paymentId ? { ...p, payment_method: newMethod } : p)
+                }
+            });
+
         } catch (error: any) {
             console.error(error);
-            showAlert("Error", "Error actualizando pago: " + error.message, 'error');
+            showAlert("Error", "Error actualizando método de pago: " + error.message, 'error');
         } finally {
             setUpdatingStatus(false);
         }
@@ -871,33 +914,7 @@ export default function AdminPage() {
         }
     };
 
-    const handleUpdatePaymentMethod = async (paymentMethod: string) => {
-        if (!selectedReservation || !paymentMethod) return;
-        setUpdatingStatus(true);
-        try {
-            const { error } = await supabase
-                .from('product_allocations')
-                .update({ payment_method: paymentMethod })
-                .eq('id', selectedReservation.id);
 
-            if (error) throw error;
-
-            const updatedReservation = {
-                ...selectedReservation,
-                payment_method: paymentMethod
-            };
-
-            setReservations(prev => prev.map(r => r.id === selectedReservation.id ? updatedReservation : r));
-            setSelectedReservation(updatedReservation);
-
-            showAlert("Éxito", "Método de pago actualizado correctamente.", 'success');
-        } catch (error: any) {
-            console.error(error);
-            showAlert("Error", "Error actualizando método de pago: " + error.message, 'error');
-        } finally {
-            setUpdatingStatus(false);
-        }
-    };
 
 
     const assignLocaleToUser = async (userId: string, type: 'fisica' | 'juridica') => {
@@ -1290,9 +1307,11 @@ export default function AdminPage() {
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.currency || "USD"}</td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.payment_method || "-"}</td>
                                                 <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#A9780F]">
-                                                    {reservation.amount
+                                                    {reservation.payments
                                                         ? new Intl.NumberFormat('en-US', { style: 'currency', currency: reservation.currency || 'USD' }).format(
-                                                            reservation.amount.reduce((acc, val) => acc + (parseFloat(val) || 0), 0)
+                                                            reservation.payments
+                                                                .filter(p => p.status === 'approved')
+                                                                .reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
                                                         )
                                                         : "-"}
                                                 </td>
@@ -1637,6 +1656,7 @@ export default function AdminPage() {
                                 products={products}
                                 handleUpdateProduct={handleUpdateProduct}
                                 handleUpdatePaymentMethod={handleUpdatePaymentMethod}
+                                handleUpdatePaymentStatus={handleUpdatePaymentStatus}
                             />
                         )
                     }

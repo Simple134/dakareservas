@@ -13,7 +13,16 @@ export type InvestmentData = {
     paidCurrency: string; // 'USD' or 'DOP'
     pendingAmount: number;
     progress: number;
-    installments: any[];
+    installments: {
+        number: number;
+        id: string;
+        amount: number;
+        currency: string;
+        date: string;
+        status: string;
+        paymentMethod: string;
+        receiptUrl: string;
+    }[];
     cotizacion_url?: string | null;
 }
 
@@ -123,8 +132,8 @@ export const UserDashboard = ({
                                     key={inv.id}
                                     onClick={() => setSelectedInvestmentId(inv.id)}
                                     className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${selectedInvestmentId === inv.id
-                                            ? 'bg-[#131E29] text-white border-[#131E29] shadow-md'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]'
+                                        ? 'bg-[#131E29] text-white border-[#131E29] shadow-md'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]'
                                         }`}
                                 >
                                     <Building2 size={18} className={selectedInvestmentId === inv.id ? "text-[#A9780F]" : ""} />
@@ -250,7 +259,7 @@ export const UserDashboard = ({
                                         };
 
                                         return (
-                                            <tr key={payment.number} className="hover:bg-gray-50">
+                                            <tr key={payment.id} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{payment.number}</td>
                                                 <td className="px-6 py-4 text-sm text-gray-600">{formattedDate}</td>
                                                 <td className="px-6 py-4 text-sm font-semibold text-gray-900">

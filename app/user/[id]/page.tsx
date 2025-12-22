@@ -67,7 +67,7 @@ export default function UserPage() {
                 }
 
                 // 2. Get Product Allocations based on Persona Type
-                let query = supabase.from('product_allocations').select('*');
+                let query = supabase.from('product_allocations').select('*, payments(*)');
 
                 if (profile.id_fisica) {
                     query = query.eq('persona_fisica_id', profile.id_fisica);
@@ -115,24 +115,27 @@ export default function UserPage() {
                         }
 
                         const total = localeData?.total_value || 0;
-                        // Handle amount as string[]
-                        const paid = (allocation.amount || []).reduce((acc: number, val: string) => acc + parseFloat(val), 0);
+                        const payments = allocation.payments || [];
+
+                        // Calculate paid amount from approved payments
+                        const paid = payments
+                            .filter((p: any) => p.status === 'approved')
+                            .reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+
                         const pending = Math.max(0, total - paid);
                         const progress = total > 0 ? (paid / total) * 100 : 0;
                         const localeCode = `Local ${allocation.locales_id} `;
 
-                        // Build installments array from allocation
-                        const amounts = allocation.amount || [];
-                        const receipts = allocation.receipt_url || [];
-
-                        const installments = amounts.map((amt: string, index: number) => ({
+                        // Build installments array from payments table
+                        const installments = payments.map((p: any, index: number) => ({
                             number: index + 1,
-                            amount: parseFloat(amt),
-                            currency: allocation.currency || 'USD',
-                            date: allocation.created_at, // Using created_at as base, ideally we'd have dates per payment
-                            status: allocation.status || 'pending',
-                            paymentMethod: allocation.payment_method || 'N/A',
-                            receiptUrl: receipts[index] || ''
+                            id: p.id,
+                            amount: Number(p.amount),
+                            currency: p.currency || allocation.currency || 'USD',
+                            date: p.created_at,
+                            status: p.status || 'pending',
+                            paymentMethod: p.payment_method || allocation.payment_method || 'N/A',
+                            receiptUrl: p.receipt_url || ''
                         }));
 
                         investments.push({
@@ -144,7 +147,7 @@ export default function UserPage() {
                             paidCurrency: allocation.currency || 'USD',
                             pendingAmount: pending,
                             progress: progress,
-                            installments: installments,
+                            installments: installments, // Updated to use mapped payments
                             cotizacion_url: allocation.cotizacion_url
                         });
                     }
@@ -198,19 +201,29 @@ export default function UserPage() {
 
             const newReceiptUrl = publicUrlData.publicUrl;
 
-            // 3. Append to arrays
-            const updatedAmounts = [...currentAmounts, amount];
-            const updatedReceipts = [...currentReceipts, newReceiptUrl];
+            // 3. Insert into payments table
+            const { error: insertError } = await supabase
+                .from('payments')
+                .insert({
+                    allocation_id: allocation.id,
+                    amount: parseFloat(amount),
+                    currency: allocation.currency || 'USD',
+                    status: 'pending',
+                    receipt_url: newReceiptUrl,
+                    payment_method: allocation.payment_method || 'manual'
+                });
 
-            // 4. Update DB
+            if (insertError) throw insertError;
+
+            // 4. Update Allocation status if needed (optional, logically if adding payment usually stays pending until confirmed)
             const { error: updateError } = await supabase
                 .from('product_allocations')
                 .update({
-                    amount: updatedAmounts,
-                    receipt_url: updatedReceipts,
-                    status: 'pending'
+                    status: 'pending' // Revert to pending if new payment is added? Or keep as is? User logic usually implies pending review.
                 })
                 .eq('id', allocation.id);
+
+            if (updateError) throw updateError;
 
             if (updateError) throw updateError;
 

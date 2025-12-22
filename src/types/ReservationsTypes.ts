@@ -23,6 +23,7 @@ export interface ReservationViewModel {
     address_display: string;
     unit_code: string | null;
     locale_id: number | null;
+    payments?: Tables<'payments'>[];
 
     locale_details?: {
         level: number;

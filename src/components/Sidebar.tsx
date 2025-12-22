@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Clock, Save, Trash2, X, Mail, Edit } from "lucide-react";
+import { CheckCircle2, Clock, Save, Trash2, X, Mail, Edit, ExternalLink as ExternalLinkIcon } from "lucide-react";
 import { ReservationViewModel } from "../types/ReservationsTypes";
 import DetailRow from "../lib/DetailRow";
 import { Tables } from "../types/supabase";
@@ -25,18 +25,20 @@ interface SidebarReservationProps {
     handleDeleteQuotation: () => void;
     products: Tables<'products'>[];
     handleUpdateProduct: (productId: string) => void;
-    handleUpdatePaymentMethod: (paymentMethod: string) => void;
+    handleUpdatePaymentMethod: (paymentId: string, method: string) => Promise<void>;
+    handleUpdatePaymentStatus: (paymentId: string, newStatus: string) => Promise<void>;
 }
 
 
 
-export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct, handleUpdatePaymentMethod }: SidebarReservationProps) => {
+export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct, handleUpdatePaymentMethod, handleUpdatePaymentStatus }: SidebarReservationProps) => {
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
     const [selectedProductId, setSelectedProductId] = useState<string>("");
 
-    const totalPaid = Array.isArray(selectedReservation.amount)
-        ? selectedReservation.amount.reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
-        : 0;
+    const payments = selectedReservation.payments || [];
+    const totalPaid = payments
+        .filter(p => p.status === 'approved')
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
     useEffect(() => {
         // Find the product ID based on the reservation's product name
@@ -183,103 +185,140 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                             </select>
                         </div>
 
-                        {/* Edit Payment Info Section if not approved */}
-                        {selectedReservation.status !== 'approved' && totalPaid === 0 ? (
-                            <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mt-2 space-y-3">
-                                <h4 className="text-xs font-bold text-black uppercase">Actualizar Pago</h4>
+                        {/* Add Payment Manual Section */}
+                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mt-2 space-y-3">
+                            <h4 className="text-xs font-bold text-black uppercase">Agarar Pago Manual</h4>
 
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Monto de Reserva</label>
-                                    <div className="flex gap-2">
-                                        <select
-                                            value={editCurrency}
-                                            onChange={(e) => setEditCurrency(e.target.value)}
-                                            className="w-20 text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
-                                        >
-                                            <option value="USD">USD</option>
-                                            <option value="DOP">DOP</option>
-                                        </select>
-                                        <input
-                                            type="number"
-                                            value={editAmount}
-                                            onChange={(e) => setEditAmount(e.target.value)}
-                                            placeholder="Monto"
-                                            className="flex-1 text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Método de Pago</label>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Monto de Reserva</label>
+                                <div className="flex gap-2">
                                     <select
-                                        value={editPaymentMethod}
-                                        onChange={(e) => setEditPaymentMethod(e.target.value)}
-                                        className="w-full text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
+                                        value={editCurrency}
+                                        onChange={(e) => setEditCurrency(e.target.value)}
+                                        className="w-20 text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
                                     >
-                                        <option value="">Seleccione...</option>
-                                        <option value="transfer">Transferencia</option>
-                                        <option value="card">Tarjeta Crédito/Débito</option>
-                                        <option value="check">Cheque</option>
-                                        <option value="cash">Efectivo</option>
+                                        <option value="USD">USD</option>
+                                        <option value="DOP">DOP</option>
                                     </select>
+                                    <input
+                                        type="number"
+                                        value={editAmount}
+                                        onChange={(e) => setEditAmount(e.target.value)}
+                                        placeholder="Monto"
+                                        className="flex-1 text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
+                                    />
                                 </div>
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Subir Comprobante</label>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="file"
-                                            accept="image/*,.pdf"
-                                            onChange={(e) => setEditReceiptFile(e.target.files?.[0] || null)}
-                                            className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-gray-700"
-                                        />
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={handleUpdatePaymentInfo}
-                                    disabled={updatingStatus}
-                                    className="w-full flex items-center justify-center gap-2 bg-[#A9780F] hover:bg-[#966b0d] text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50"
-                                >
-                                    <Save size={14} />
-                                    Guardar Cambios
-                                </button>
                             </div>
-                        ) : (
-                            <>
-                                <DetailRow label="Moneda" value={selectedReservation.currency} />
-                                <DetailRow
-                                    label="Valor Pagado"
-                                    value={new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedReservation.currency || 'USD' }).format(
-                                        Array.isArray(selectedReservation.amount)
-                                            ? selectedReservation.amount.reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
-                                            : 0
-                                    )}
-                                    highlight
-                                />
 
-                                {/* Payment Method Update Section */}
-                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                                    <span className="text-sm font-medium text-gray-500">Método de Pago</span>
-                                    <select
-                                        value={selectedReservation.payment_method || ""}
-                                        onChange={(e) => {
-                                            const newMethod = e.target.value;
-                                            if (newMethod) handleUpdatePaymentMethod(newMethod);
-                                        }}
-                                        disabled={updatingStatus}
-                                        className="text-sm font-medium text-right text-gray-900 border-none focus:ring-0 cursor-pointer bg-transparent pr-8 py-0"
-                                        style={{ width: 'auto', maxWidth: '200px' }}
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        <option value="transfer">Transferencia</option>
-                                        <option value="card">Tarjeta Crédito/Débito</option>
-                                        <option value="check">Cheque</option>
-                                        <option value="cash">Efectivo</option>
-                                    </select>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Método de Pago</label>
+                                <select
+                                    value={editPaymentMethod}
+                                    onChange={(e) => setEditPaymentMethod(e.target.value)}
+                                    className="w-full text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
+                                >
+                                    <option value="">Seleccione...</option>
+                                    <option value="transfer">Transferencia</option>
+                                    <option value="card">Tarjeta Crédito/Débito</option>
+                                    <option value="check">Cheque</option>
+                                    <option value="cash">Efectivo</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Subir Comprobante</label>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="file"
+                                        accept="image/*,.pdf"
+                                        onChange={(e) => setEditReceiptFile(e.target.files?.[0] || null)}
+                                        className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-gray-700"
+                                    />
                                 </div>
-                            </>
-                        )}
+                            </div>
+
+                            <button
+                                onClick={handleUpdatePaymentInfo}
+                                disabled={updatingStatus}
+                                className="w-full flex items-center justify-center gap-2 bg-[#A9780F] hover:bg-[#966b0d] text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50"
+                            >
+                                <Save size={14} />
+                                Agregar Pago
+                            </button>
+                        </div>
+
+                        {/* Payments List */}
+                        <div className="mt-4">
+                            <h4 className="text-sm font-bold text-black mb-2 uppercase border-b border-gray-200 pb-1">Historial de Pagos</h4>
+                            {payments.length === 0 ? (
+                                <p className="text-xs text-gray-500 italic">No hay pagos registrados.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {payments
+                                        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                                        .map(p => (
+                                            <div key={p.id} className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm flex flex-col gap-2">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <p className="text-sm font-bold text-gray-900 border-b border-dashed border-gray-300 inline-block mb-1">
+                                                            {new Intl.NumberFormat('en-US', { style: 'currency', currency: p.currency || 'USD' }).format(p.amount)}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-500">{new Date(p.created_at).toLocaleDateString()} {new Date(p.created_at).toLocaleTimeString()}</p>
+                                                        <select
+                                                            value={p.payment_method || 'manual'}
+                                                            onChange={(e) => handleUpdatePaymentMethod(p.id, e.target.value)}
+                                                            className="text-[10px] text-gray-500 font-medium border-0 bg-transparent p-0 cursor-pointer focus:ring-0 hover:text-gray-700"
+                                                            disabled={updatingStatus}
+                                                        >
+                                                            <option value="transfer">Transferencia</option>
+                                                            <option value="card">Tarjeta</option>
+                                                            <option value="check">Cheque</option>
+                                                            <option value="cash">Efectivo</option>
+                                                            <option value="manual">Manual</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-1">
+                                                        <select
+                                                            value={p.status || 'pending'}
+                                                            onChange={(e) => handleUpdatePaymentStatus(p.id, e.target.value)}
+                                                            className={`text-[10px] font-bold px-2 py-1 rounded border-0 cursor-pointer focus:ring-1 focus:ring-offset-1 ${p.status === 'approved' ? 'bg-green-100 text-green-800 focus:ring-green-500' :
+                                                                p.status === 'rejected' ? 'bg-red-100 text-red-800 focus:ring-red-500' :
+                                                                    'bg-yellow-100 text-yellow-800 focus:ring-yellow-500'
+                                                                }`}
+                                                            disabled={updatingStatus}
+                                                        >
+                                                            <option value="pending">Pendiente</option>
+                                                            <option value="approved">Aprobado</option>
+                                                            <option value="rejected">Rechazado</option>
+                                                        </select>
+                                                        {p.receipt_url && (
+                                                            <a
+                                                                href={p.receipt_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                                            >
+                                                                <span>Ver Recibo</span>
+                                                                <ExternalLinkIcon size={10} />
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Summary */}
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                            <DetailRow label="Moneda" value={selectedReservation.currency} />
+                            <DetailRow
+                                label="Total Pagado (Aprobado)"
+                                value={new Intl.NumberFormat('en-US', { style: 'currency', currency: selectedReservation.currency || 'USD' }).format(totalPaid)}
+                                highlight
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -338,43 +377,49 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                 </div>
 
                 {/* Receipt Gallery Section */}
-                {selectedReservation.receipt_url && Array.isArray(selectedReservation.receipt_url) && selectedReservation.receipt_url.length > 0 && (
+                {/* Receipt Gallery Section */}
+                {selectedReservation.payments && selectedReservation.payments.length > 0 && (
                     <div className="mt-4">
                         <h4 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
-                            Comprobantes ({selectedReservation.receipt_url.length})
+                            Comprobantes ({selectedReservation.payments.filter(p => p.receipt_url).length})
                         </h4>
                         <div className="grid grid-cols-2 gap-3">
-                            {selectedReservation.receipt_url.map((url, index) => (
-                                <div key={index} className="relative group">
-                                    {url.toLowerCase().endsWith('.pdf') ? (
-                                        <a
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block w-full h-24"
-                                        >
-                                            <div className="h-full w-full bg-gray-100 rounded-lg border-2 border-[#A9780F] flex flex-col items-center justify-center hover:bg-gray-200 transition-colors">
-                                                <span className="text-xs font-bold text-[#A9780F]">PDF</span>
-                                                <span className="text-[10px] text-gray-500">Ver documento</span>
+                            {selectedReservation.payments
+                                .filter(p => p.receipt_url)
+                                .map((payment, index) => (
+                                    <div key={payment.id} className="relative group">
+                                        {payment.receipt_url!.toLowerCase().endsWith('.pdf') ? (
+                                            <a
+                                                href={payment.receipt_url!}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block w-full h-24"
+                                            >
+                                                <div className="h-full w-full bg-gray-100 rounded-lg border-2 border-[#A9780F] flex flex-col items-center justify-center hover:bg-gray-200 transition-colors">
+                                                    <span className="text-xs font-bold text-[#A9780F]">PDF</span>
+                                                    <span className="text-[10px] text-gray-500">Ver documento</span>
+                                                </div>
+                                            </a>
+                                        ) : (
+                                            <div
+                                                onClick={() => setExpandedImage(payment.receipt_url!)}
+                                                className="h-24 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 cursor-zoom-in relative"
+                                            >
+                                                <img
+                                                    src={payment.receipt_url!}
+                                                    alt={`Comprobante ${index + 1}`}
+                                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                                />
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                                                    <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-bold bg-black/50 px-2 py-1 rounded">Ver</span>
+                                                </div>
                                             </div>
-                                        </a>
-                                    ) : (
-                                        <div
-                                            onClick={() => setExpandedImage(url)}
-                                            className="h-24 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 cursor-zoom-in relative"
-                                        >
-                                            <img
-                                                src={url}
-                                                alt={`Comprobante ${index + 1}`}
-                                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                                            />
-                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                                                <span className="text-white opacity-0 group-hover:opacity-100 text-xs font-bold bg-black/50 px-2 py-1 rounded">Ver</span>
-                                            </div>
+                                        )}
+                                        <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1 rounded">
+                                            {payment.status}
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                    </div>
+                                ))}
                         </div>
                     </div>
                 )}

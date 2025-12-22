@@ -11,7 +11,11 @@ import { Database } from "@/src/types/supabase";
 export default function ConfirmacionPage() {
     const params = useParams();
     const router = useRouter();
-    const [allocation, setAllocation] = useState<Database['public']['Tables']['product_allocations']['Row']>();
+    type AllocationWithPayments = Database['public']['Tables']['product_allocations']['Row'] & {
+        payments: Database['public']['Tables']['payments']['Row'][];
+    };
+
+    const [allocation, setAllocation] = useState<AllocationWithPayments>();
     const [product, setProduct] = useState<Database['public']['Tables']['products']['Row']>();
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
@@ -51,7 +55,7 @@ export default function ConfirmacionPage() {
                 // Fetch allocation
                 const { data: allocData, error: allocError } = await supabase
                     .from('product_allocations')
-                    .select('*')
+                    .select('*, payments(*)')
                     .eq('id', allocationId)
                     .single();
 
@@ -154,13 +158,24 @@ export default function ConfirmacionPage() {
             }
 
             // Update Allocation
+            // Insert into payments
+            const { error: paymentError } = await supabase
+                .from('payments')
+                .insert({
+                    allocation_id: allocationId,
+                    amount: numAmount,
+                    currency: currency,
+                    payment_method: paymentMethod,
+                    receipt_url: receiptUrl,
+                    status: 'pending'
+                });
+
+            if (paymentError) throw paymentError;
+
+            // Update Allocation Status
             const { error: allocError } = await supabase
                 .from('product_allocations')
                 .update({
-                    amount: [numAmount.toString()],
-                    currency: currency,
-                    payment_method: paymentMethod,
-                    receipt_url: receiptUrl ? [receiptUrl] : null,
                     status: 'pending',
                 })
                 .eq('id', allocationId);
@@ -298,7 +313,7 @@ export default function ConfirmacionPage() {
                             )}
 
                             {/* Payment Inputs */}
-                            {!allocation?.amount ? (
+                            {(!allocation?.payments || allocation.payments.length === 0) ? (
                                 <div className="space-y-6 text-start">
                                     {/* 1. Currency & Amount */}
                                     <div className="row g-3">
@@ -457,9 +472,9 @@ export default function ConfirmacionPage() {
                                     <p>
                                         Usted ha confirmado una inversión de: <br />
                                         <strong>
-                                            {Array.isArray(allocation.amount)
-                                                ? parseFloat(allocation.amount[0]).toLocaleString()
-                                                : parseFloat(allocation.amount as unknown as string).toLocaleString()} {allocation.currency}
+                                            {allocation?.payments && allocation.payments.length > 0
+                                                ? allocation.payments[0].amount.toLocaleString()
+                                                : "0"} {allocation?.currency || "USD"}
                                         </strong>
                                     </p>
                                     <hr />
