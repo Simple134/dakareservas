@@ -123,12 +123,10 @@ export type Database = {
           created_at: string
           product_id: string
           user_type: string
-          amount: string[] | null
           currency: string | null
           persona_fisica_id: string | null
           persona_juridica_id: string | null
           payment_method: string | null
-          receipt_url: string[] | null
           status: string | null
           locales_id: number | null
           cotizacion_url: string | null
@@ -138,12 +136,10 @@ export type Database = {
           created_at?: string
           product_id: string
           user_type: string
-          amount?: string[] | null
           currency?: string | null
           persona_fisica_id?: string | null
           persona_juridica_id?: string | null
           payment_method?: string | null
-          receipt_url?: string[] | null
           status?: string | null
           locales_id?: number | null
           cotizacion_url?: string | null
@@ -153,12 +149,10 @@ export type Database = {
           created_at?: string
           product_id?: string
           user_type?: string
-          amount?: string[] | null
           currency?: string | null
           persona_fisica_id?: string | null
           persona_juridica_id?: string | null
           payment_method?: string | null
-          receipt_url?: string[] | null
           status?: string | null
           locales_id?: number | null
           cotizacion_url?: string | null

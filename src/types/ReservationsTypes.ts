@@ -4,20 +4,15 @@ export interface ReservationViewModel {
     id: string;
     created_at: string;
     status: string;
-
     client_name: string;
     client_type_label: string;
     identification_label: string;
     identification_value: string;
-
     product_name: string;
-    amount: string[];
     currency: string;
     payment_method: string;
-    receipt_url: string[] | null;
     cotizacion_url?: string | null;
     transaction_number: string | null;
-
     email: string | null;
     phone?: string;
     address_display: string;
