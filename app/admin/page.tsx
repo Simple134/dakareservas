@@ -932,7 +932,6 @@ export default function AdminPage() {
                 status: 'pending', // Admin manual assignment assumed approved
                 persona_fisica_id: type === 'fisica' ? userId : null,
                 persona_juridica_id: type === 'juridica' ? userId : null,
-                amount: ["0"], // Should probably be input, but creating with 0 for now as manual assignment
                 currency: 'USD',
                 locales_id: selectedLocale.id
             });
@@ -1000,7 +999,6 @@ export default function AdminPage() {
                 status: 'pending', // Admin manual creation
                 persona_fisica_id: newUserType === 'fisica' ? newUserId : null,
                 persona_juridica_id: newUserType === 'juridica' ? newUserId : null,
-                amount: ["0"],
                 currency: 'USD',
                 locales_id: selectedLocale.id
             });

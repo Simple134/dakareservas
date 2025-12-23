@@ -183,8 +183,7 @@ export default function UserPage() {
 
             if (fetchError || !allocation) throw new Error("Allocation not found");
 
-            const currentAmounts = allocation.amount || [];
-            const currentReceipts = allocation.receipt_url || [];
+
 
             // 2. Upload Receipt
             const fileExt = file.name.split('.').pop();
