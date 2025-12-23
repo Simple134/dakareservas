@@ -195,10 +195,8 @@ export default function ConfirmacionPage() {
             // Update local allocation state to show confirmation
             setAllocation({
                 ...allocation!,
-                amount: [numAmount.toString()],
                 currency: currency,
                 payment_method: paymentMethod,
-                receipt_url: receiptUrl ? [receiptUrl] : null,
                 status: 'pending'
             });
         } catch (error: any) {
