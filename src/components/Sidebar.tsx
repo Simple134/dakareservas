@@ -64,14 +64,30 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
     const usdAmount = calculateUSDAmount();
 
     const handleManualPaymentSubmit = () => {
-        const amountToSubmit = parseFloat(usdAmount.toFixed(2));
-        handleUpdatePaymentInfo(amountToSubmit, 'USD');
+        // If currency is DOP, send as is. If USD, send as usual.
+        if (editCurrency === 'DOP') {
+            // Send original DOP amount
+            const amountToSubmit = parseFloat(editAmount) || 0;
+            handleUpdatePaymentInfo(amountToSubmit, 'DOP');
+        } else {
+            const amountToSubmit = parseFloat(usdAmount.toFixed(2));
+            handleUpdatePaymentInfo(amountToSubmit, 'USD');
+        }
     };
 
     const payments = selectedReservation.payments || [];
     const totalPaid = payments
         .filter(p => p.status === 'approved')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        .reduce((sum, p) => {
+            let amountInUsd = Number(p.amount) || 0;
+
+            // Convert DOP to USD if needed for the total
+            if (p.currency === 'DOP' && exchangeRate) {
+                amountInUsd = amountInUsd / exchangeRate;
+            }
+
+            return sum + amountInUsd;
+        }, 0);
 
     useEffect(() => {
         // Find the product ID based on the reservation's product name
