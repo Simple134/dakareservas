@@ -2,9 +2,7 @@
 import { Login } from "@/src/components/Login";
 
 const Page = () => {
-    return (
-        <Login />
-    );
+  return <Login />;
 };
 
 export default Page;

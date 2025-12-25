@@ -8,7 +8,7 @@ const roboto = Roboto({
   weight: ["100", "300", "400", "500", "700", "900"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-roboto"
+  variable: "--font-roboto",
 });
 
 export const metadata: Metadata = {
@@ -23,10 +23,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${roboto.variable} antialiased text-black font-sans`} suppressHydrationWarning={true}>
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+      <body
+        className={`${roboto.variable} antialiased text-black font-sans`}
+        suppressHydrationWarning={true}
+      >
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

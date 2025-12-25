@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export const formatCedula = (value: string) => {
   // Strip all non-numeric characters
-  const digits = value.replace(/\D/g, '').slice(0, 11);
+  const digits = value.replace(/\D/g, "").slice(0, 11);
 
   let res = "";
 
