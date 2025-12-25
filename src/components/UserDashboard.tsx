@@ -84,7 +84,7 @@ export const UserDashboard = ({
                     </div>
                     <button
                         onClick={() => signOut()}
-                        className="flex items-center gap-2 bg-white text-gray-700 hover:text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg border border-gray-200 shadow-sm transition-all"
+                        className="bg-white"
                     >
                         <LogOut size={18} />
                         <span>Cerrar Sesión</span>
@@ -116,7 +116,7 @@ export const UserDashboard = ({
                     </div>
                     <button
                         onClick={() => signOut()}
-                        className="flex items-center gap-2 bg-white text-gray-700 hover:text-red-700 hover:bg-red-50 font-medium py-2 px-4 rounded-lg border border-gray-200 shadow-sm transition-all self-start md:self-auto"
+                        className="bg-white"
                     >
                         <LogOut size={18} />
                         <span>Cerrar Sesión</span>

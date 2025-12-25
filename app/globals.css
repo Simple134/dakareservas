@@ -3,12 +3,20 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* Sidebar Colors */
+  --sidebar: #0F2744;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent: #1a3a5c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1a3a5c;
+  --sidebar-ring: #2563eb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 

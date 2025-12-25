@@ -15,6 +15,9 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { sendQuotationAction } from "@/src/actions/send-quotation";
 import { profile } from "console";
+import { AppSidebar } from "@/src/components/AppSidebar";
+import { DashboardView } from "@/src/components/dashboard/DashboardView";
+import { useSearchParams } from "next/navigation";
 
 type ProductAllocationResponse = Tables<'product_allocations'> & {
     product: { name: string } | null;
@@ -56,7 +59,19 @@ export default function AdminPage() {
     const [view, setView] = useState<'reservations' | 'locales' | 'users'>('reservations');
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [selectedReservation, setSelectedReservation] = useState<ReservationViewModel | null>(null);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(false); // Legacy drawer
+
+    // New View Logic
+    const searchParams = useSearchParams();
+    const viewParam = searchParams.get('view') || 'dashboard';
+
+    // Sync legacy view state
+    useEffect(() => {
+        if (viewParam === 'items') setView('locales');
+        else if (viewParam === 'contacts') setView('users');
+        else if (viewParam === 'reservations') setView('reservations');
+    }, [viewParam]);
+
     const [updatingStatus, setUpdatingStatus] = useState(false);
 
     // Status Update State for Locales table
@@ -1143,453 +1158,501 @@ export default function AdminPage() {
 
 
     return (
-        <div className="min-h-screen bg-white p-8 font-sans">
-            <div className="mx-auto ">
-                <div className="flex flex-col md:flex-row items-center justify-between p-4 mb-6">
-                    <div className="flex items-end justify-center">
-                        <Image
-                            src="/logoDaka.png"
-                            alt="Daka Logo"
-                            width={120}
-                            height={60}
-                            className="object-contain"
-                            priority
-                        />
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex bg-gray-100 rounded-lg p-1">
-                            <button
-                                onClick={() => {
-                                    setView('reservations');
-                                    setSidebarOpen(false);
-                                    setSelectedLocale(null);
-                                    setSelectedUser(null);
-                                }}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'reservations'
-                                    ? 'bg-white text-[#A9780F] shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                                    }`}
-                            >
-                                Reservas <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{reservations.length}</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setView('locales');
-                                    setSidebarOpen(false);
-                                    setSelectedReservation(null);
-                                    setSelectedUser(null);
-                                }}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'locales'
-                                    ? 'bg-white text-[#A9780F] shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                                    }`}
-                            >
-                                Locales <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{locales.length}</span>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setView('users');
-                                    setSidebarOpen(false);
-                                    setSelectedReservation(null);
-                                    setSelectedLocale(null);
-                                }}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'users'
-                                    ? 'bg-white text-[#A9780F] shadow-sm'
-                                    : 'text-gray-600 hover:text-gray-900'
-                                    }`}
-                            >
-                                Usuarios <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{users.length}</span>
-                            </button>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="h-6 w-6 text-[#A9780F] hover:text-[#8e650c] transition-colors"
-                        >
-                            <LogOut />
-                        </button>
-                    </div>
-                </div>
-
-                {fetchError && (
-                    <div className="mb-4 rounded-md bg-red-900/50 p-4 text-red-200 border border-red-700">
-                        Error fetching reservations: {fetchError}
-                    </div>
-                )}
-
-                {view === 'reservations' ? (
-                    <div key="reservations" className="space-y-6">
-                        {/* Reservation Filters */}
-                        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
-                            <div className="flex-1 relative">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Buscar</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Nombre, ID, Identificación..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="block w-full pl-8 py-2 text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm  border"
-                                    />
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search className="h-4 w-4 text-gray-400" />
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="md:w-48">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Producto</label>
-                                <select
-                                    value={resFilterProduct}
-                                    onChange={(e) => setResFilterProduct(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    {uniqueResProducts.map(p => (
-                                        <option key={p} value={p || ""}>{p}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="md:w-32">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Moneda</label>
-                                <select
-                                    value={resFilterCurrency}
-                                    onChange={(e) => setResFilterCurrency(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                >
-                                    <option value="all">Todas</option>
-                                    {uniqueResCurrencies.map(c => (
-                                        <option key={c} value={c || ""}>{c}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="md:w-40">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Método Pago</label>
-                                <select
-                                    value={resFilterPaymentMethod}
-                                    onChange={(e) => setResFilterPaymentMethod(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    {uniqueResPaymentMethods.map(m => (
-                                        <option key={m} value={m || ""}>{m}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="md:w-40">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                                <select
-                                    value={resFilterStatus}
-                                    onChange={(e) => setResFilterStatus(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    {uniqueResStatuses.map(s => (
-                                        <option key={s} value={s || ""}>{s}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
-                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <h3 className="font-bold text-black">Listado de Reservas</h3>
-                                <span className="text-sm font-medium text-gray-500">Total: {filteredReservations.length}</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Fecha</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Cliente / Empresa</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">ID</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Producto</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Moneda</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Método Pago</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Precio</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Status</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Vista</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200 bg-white">
-                                        {filteredReservations.map((reservation) => (
-                                            <tr
-                                                key={reservation.id}
-                                                onClick={() => handleRowClick(reservation)}
-                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                            >
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{new Date(reservation.created_at).toLocaleDateString()}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                                                    <div className="flex flex-col">
-                                                        <span>{reservation.client_name}</span>
-                                                        <span className="text-xs text-gray-500">{reservation.client_type_label}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                                    <div className="flex flex-col">
-                                                        <span>{reservation.identification_value}</span>
-                                                        <span className="text-xs text-gray-400">{reservation.identification_label}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.product_name || "-"}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.currency || "USD"}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.payment_method || "-"}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#A9780F]">
-                                                    {reservation.payments
-                                                        ? new Intl.NumberFormat('en-US', { style: 'currency', currency: reservation.currency || 'USD' }).format(
-                                                            reservation.payments
-                                                                .filter(p => p.status === 'approved')
-                                                                .reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
-                                                        )
-                                                        : "-"}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4">
-                                                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${reservation.status === "approved"
-                                                        ? "bg-green-100 text-green-800"
-                                                        : reservation.status === "pending"
-                                                            ? "bg-yellow-100 text-yellow-800"
-                                                            : "bg-red-100 text-red-800"
-                                                        }`}>
-                                                        {reservation.status}
-                                                    </span>
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                                    {reservation.profileId ? (
-                                                        <a
-                                                            href={`/user/${reservation.profileId}`}
-                                                            className="text-[#A9780F] hover:text-[#A9780F] hover:underline inline-flex items-center"
-                                                            title="Ver dashboard del usuario"
-                                                        >
-                                                            <ExternalLinkIcon className="w-4 h-4" />
-                                                        </a>
-                                                    ) : (
-                                                        <div className="inline-flex items-center opacity-30 cursor-not-allowed" title="Sin perfil registrado - no puede acceder al dashboard">
-                                                            <ExternalLinkIcon className="w-4 h-4 text-gray-400" />
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {reservations.length === 0 && !fetchError && (
-                                <div className="p-12 text-center">
-                                    <p className="text-gray-500 text-lg">No reservations found.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                ) : view === 'locales' ? (
-                    <div key="locales" className="space-y-6">
-                        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Nivel</label>
-                                <select
-                                    value={levelFilter}
-                                    onChange={(e) => setLevelFilter(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    {uniqueLevels.map(level => (
-                                        <option key={level} value={level.toString()}>{level}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    {uniqueStatuses.map(status => (
-                                        <option key={status} value={status}>{status}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Precio Min</label>
-                                <input
-                                    type="number"
-                                    placeholder="Min"
-                                    value={minPriceFilter}
-                                    onChange={(e) => setMinPriceFilter(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Precio Max</label>
-                                <input
-                                    type="number"
-                                    placeholder="Max"
-                                    value={maxPriceFilter}
-                                    onChange={(e) => setMaxPriceFilter(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
-                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <h3 className="font-bold text-black">Listado de Locales</h3>
-                                <span className="text-sm font-medium text-gray-500">Mostrando: {filteredLocales.length} de {locales.length}</span>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">ID Local</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Nivel</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Área (m²)</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Precio / m²</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Valor Total</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Estado</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200 bg-white">
-                                        {filteredLocales.map((locale) => (
-                                            <tr
-                                                key={locale.id}
-                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                                onClick={() => handleLocaleClick(locale)}
-                                            >
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{locale.id}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{locale.level}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{locale.area_mt2}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(locale.price_per_mt2)}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-bold text-[#A9780F]">
-                                                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(locale.total_value)}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                                    <div className="flex items-center gap-2">
-                                                        <select
-                                                            value={pendingStatusUpdates[locale.id] || locale.status}
-                                                            onChange={(e) => handleStatusChange(locale.id, e.target.value)}
-                                                            className={`block w-full text-xs font-bold rounded-full px-2 py-1 border-0 ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 ${(pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('disponible') ? "bg-green-50 text-green-700 ring-green-600/20 focus:ring-green-600" :
-                                                                (pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('vendido') ? "bg-red-50 text-red-700 ring-red-600/20 focus:ring-red-600" :
-                                                                    (pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('reservado') ? "bg-orange-50 text-orange-700 ring-orange-600/20 focus:ring-orange-600" :
-                                                                        "bg-yellow-50 text-yellow-700 ring-yellow-600/20 focus:ring-yellow-600"
-                                                                }`}
-                                                        >
-                                                            <option value="DISPONIBLE">DISPONIBLE</option>
-                                                            <option value="VENDIDO">VENDIDO</option>
-                                                            <option value="RESERVADO">RESERVADO</option>
-                                                            <option value="BLOQUEADO">BLOQUEADO</option>
-                                                        </select>
-
-                                                        {pendingStatusUpdates[locale.id] && pendingStatusUpdates[locale.id] !== locale.status && (
-                                                            <button
-                                                                onClick={(e) => saveLocaleStatus(locale.id, e)}
-                                                                disabled={updatingStatus}
-                                                                className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-                                                                title="Confirmar cambio"
-                                                            >
-                                                                <Check className="w-4 h-4" />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {filteredLocales.length === 0 && (
-                                <div className="p-12 text-center">
-                                    <p className="text-gray-500 text-lg">No locales found matching filters.</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+        <div className="flex min-h-screen w-full bg-gray-50">
+            <AppSidebar currentView={viewParam} />
+            <main className="flex-1 overflow-auto h-screen relative ml-64">
+                {viewParam === 'dashboard' ? (
+                    <DashboardView />
                 ) : (
-                    <div key="users" className="space-y-6">
-                        {/* Users Filters */}
-                        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
-                            <div className="flex-1 relative">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Buscar</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Nombre, ID, RNC, Email..."
-                                        value={userSearchQuery}
-                                        onChange={(e) => setUserSearchQuery(e.target.value)}
-                                        className="block w-full pl-8 py-2 text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm border"
+                    <div className="min-h-screen bg-white p-8 font-sans">
+                        <div className="mx-auto ">
+                            <div className="flex flex-col md:flex-row items-center justify-between p-4 mb-6">
+                                <div className="flex items-end justify-center">
+                                    <Image
+                                        src="/logoDaka.png"
+                                        alt="Daka Logo"
+                                        width={120}
+                                        height={60}
+                                        className="object-contain"
+                                        priority
                                     />
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search className="h-4 w-4 text-gray-400" />
-                                    </div>
                                 </div>
-                            </div>
-                            <div className="md:w-48">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Usuaro</label>
-                                <select
-                                    value={userFilterType}
-                                    onChange={(e) => setUserFilterType(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    <option value="fisica">Persona Física</option>
-                                    <option value="juridica">Persona Jurídica</option>
-                                </select>
-                            </div>
-                            <div className="md:w-48">
-                                <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
-                                <select
-                                    value={userFilterStatus}
-                                    onChange={(e) => setUserFilterStatus(e.target.value)}
-                                    className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
-                                >
-                                    <option value="all">Todos</option>
-                                    <option value="active">Activo</option>
-                                    <option value="inactive">Inactivo</option>
-                                    {/* Add more statuses as discovered from DB */}
-                                    {Array.from(new Set(users.map(u => u.status)))
-                                        .filter(s => s !== 'active' && s !== 'inactive' && s !== 'unknown')
-                                        .map(s => <option key={s} value={s}>{s}</option>)
-                                    }
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
-                            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-                                <h3 className="font-bold text-black">Listado de Usuarios</h3>
                                 <div className="flex items-center gap-4">
+                                    <div className="flex bg-gray-100 rounded-lg p-1">
+                                        <button
+                                            onClick={() => {
+                                                setView('reservations');
+                                                setSidebarOpen(false);
+                                                setSelectedLocale(null);
+                                                setSelectedUser(null);
+                                            }}
+                                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'reservations'
+                                                ? 'bg-white text-[#A9780F] shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                                }`}
+                                        >
+                                            Reservas <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{reservations.length}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setView('locales');
+                                                setSidebarOpen(false);
+                                                setSelectedReservation(null);
+                                                setSelectedUser(null);
+                                            }}
+                                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'locales'
+                                                ? 'bg-white text-[#A9780F] shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                                }`}
+                                        >
+                                            Locales <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{locales.length}</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setView('users');
+                                                setSidebarOpen(false);
+                                                setSelectedReservation(null);
+                                                setSelectedLocale(null);
+                                            }}
+                                            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${view === 'users'
+                                                ? 'bg-white text-[#A9780F] shadow-sm'
+                                                : 'text-gray-600 hover:text-gray-900'
+                                                }`}
+                                        >
+                                            Usuarios <span className="ml-1 text-xs bg-gray-200 px-2 py-0.5 rounded-full">{users.length}</span>
+                                        </button>
+                                    </div>
                                     <button
-                                        onClick={() => setIsAddUserModalOpen(true)}
-                                        className="bg-[#A9780F] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#8a620c] transition-colors flex items-center gap-2"
+                                        onClick={handleLogout}
+                                        className="h-6 w-6 text-[#A9780F] hover:text-[#8e650c] transition-colors"
                                     >
-                                        <User className="w-4 h-4" />
-                                        Agregar Usuario
+                                        <LogOut />
                                     </button>
-                                    <span className="text-sm font-medium text-gray-500">
-                                        Total: {users.filter(u => {
-                                            const matchesSearch =
-                                                u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                                                u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                                                u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
-                                            const matchesType = userFilterType === "all" || u.type === userFilterType;
-                                            const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
-                                            return matchesSearch && matchesType && matchesStatus;
-                                        }).length}
-                                    </span>
                                 </div>
                             </div>
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700 text-center w-10">Tipo</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Nombre / Empresa</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Identificación</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Email</th>
-                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Teléfono</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200 bg-white">
-                                        {users.filter(u => {
+
+                            {fetchError && (
+                                <div className="mb-4 rounded-md bg-red-900/50 p-4 text-red-200 border border-red-700">
+                                    Error fetching reservations: {fetchError}
+                                </div>
+                            )}
+
+                            {view === 'reservations' ? (
+                                <div key="reservations" className="space-y-6">
+                                    {/* Reservation Filters */}
+                                    <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
+                                        <div className="flex-1 relative">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Buscar</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Nombre, ID, Identificación..."
+                                                    value={searchQuery}
+                                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                                    className="block w-full pl-8 py-2 text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm  border"
+                                                />
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <Search className="h-4 w-4 text-gray-400" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="md:w-48">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Producto</label>
+                                            <select
+                                                value={resFilterProduct}
+                                                onChange={(e) => setResFilterProduct(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                {uniqueResProducts.map(p => (
+                                                    <option key={p} value={p || ""}>{p}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="md:w-32">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Moneda</label>
+                                            <select
+                                                value={resFilterCurrency}
+                                                onChange={(e) => setResFilterCurrency(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                            >
+                                                <option value="all">Todas</option>
+                                                {uniqueResCurrencies.map(c => (
+                                                    <option key={c} value={c || ""}>{c}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="md:w-40">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Método Pago</label>
+                                            <select
+                                                value={resFilterPaymentMethod}
+                                                onChange={(e) => setResFilterPaymentMethod(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                {uniqueResPaymentMethods.map(m => (
+                                                    <option key={m} value={m || ""}>{m}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="md:w-40">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                                            <select
+                                                value={resFilterStatus}
+                                                onChange={(e) => setResFilterStatus(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                {uniqueResStatuses.map(s => (
+                                                    <option key={s} value={s || ""}>{s}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
+                                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                            <h3 className="font-bold text-black">Listado de Reservas</h3>
+                                            <span className="text-sm font-medium text-gray-500">Total: {filteredReservations.length}</span>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Fecha</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Cliente / Empresa</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">ID</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Producto</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Moneda</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Método Pago</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Precio</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Status</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Vista</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200 bg-white">
+                                                    {filteredReservations.map((reservation) => (
+                                                        <tr
+                                                            key={reservation.id}
+                                                            onClick={() => handleRowClick(reservation)}
+                                                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                        >
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{new Date(reservation.created_at).toLocaleDateString()}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
+                                                                <div className="flex flex-col">
+                                                                    <span>{reservation.client_name}</span>
+                                                                    <span className="text-xs text-gray-500">{reservation.client_type_label}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                                                                <div className="flex flex-col">
+                                                                    <span>{reservation.identification_value}</span>
+                                                                    <span className="text-xs text-gray-400">{reservation.identification_label}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.product_name || "-"}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.currency || "USD"}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{reservation.payment_method || "-"}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-[#A9780F]">
+                                                                {reservation.payments
+                                                                    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: reservation.currency || 'USD' }).format(
+                                                                        reservation.payments
+                                                                            .filter(p => p.status === 'approved')
+                                                                            .reduce((acc, p) => acc + (Number(p.amount) || 0), 0)
+                                                                    )
+                                                                    : "-"}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4">
+                                                                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${reservation.status === "approved"
+                                                                    ? "bg-green-100 text-green-800"
+                                                                    : reservation.status === "pending"
+                                                                        ? "bg-yellow-100 text-yellow-800"
+                                                                        : "bg-red-100 text-red-800"
+                                                                    }`}>
+                                                                    {reservation.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                                {reservation.profileId ? (
+                                                                    <a
+                                                                        href={`/user/${reservation.profileId}`}
+                                                                        className="text-[#A9780F] hover:text-[#A9780F] hover:underline inline-flex items-center"
+                                                                        title="Ver dashboard del usuario"
+                                                                    >
+                                                                        <ExternalLinkIcon className="w-4 h-4" />
+                                                                    </a>
+                                                                ) : (
+                                                                    <div className="inline-flex items-center opacity-30 cursor-not-allowed" title="Sin perfil registrado - no puede acceder al dashboard">
+                                                                        <ExternalLinkIcon className="w-4 h-4 text-gray-400" />
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {reservations.length === 0 && !fetchError && (
+                                            <div className="p-12 text-center">
+                                                <p className="text-gray-500 text-lg">No reservations found.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : view === 'locales' ? (
+                                <div key="locales" className="space-y-6">
+                                    <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Nivel</label>
+                                            <select
+                                                value={levelFilter}
+                                                onChange={(e) => setLevelFilter(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                {uniqueLevels.map(level => (
+                                                    <option key={level} value={level.toString()}>{level}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                                            <select
+                                                value={statusFilter}
+                                                onChange={(e) => setStatusFilter(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                {uniqueStatuses.map(status => (
+                                                    <option key={status} value={status}>{status}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Precio Min</label>
+                                            <input
+                                                type="number"
+                                                placeholder="Min"
+                                                value={minPriceFilter}
+                                                onChange={(e) => setMinPriceFilter(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Precio Max</label>
+                                            <input
+                                                type="number"
+                                                placeholder="Max"
+                                                value={maxPriceFilter}
+                                                onChange={(e) => setMaxPriceFilter(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-3 border"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
+                                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                            <h3 className="font-bold text-black">Listado de Locales</h3>
+                                            <span className="text-sm font-medium text-gray-500">Mostrando: {filteredLocales.length} de {locales.length}</span>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">ID Local</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Nivel</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Área (m²)</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Precio / m²</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Valor Total</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Estado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200 bg-white">
+                                                    {filteredLocales.map((locale) => (
+                                                        <tr
+                                                            key={locale.id}
+                                                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                            onClick={() => handleLocaleClick(locale)}
+                                                        >
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{locale.id}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{locale.level}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{locale.area_mt2}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(locale.price_per_mt2)}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-bold text-[#A9780F]">
+                                                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(locale.total_value)}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <select
+                                                                        value={pendingStatusUpdates[locale.id] || locale.status}
+                                                                        onChange={(e) => handleStatusChange(locale.id, e.target.value)}
+                                                                        className={`block w-full text-xs font-bold rounded-full px-2 py-1 border-0 ring-1 ring-inset focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6 ${(pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('disponible') ? "bg-green-50 text-green-700 ring-green-600/20 focus:ring-green-600" :
+                                                                            (pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('vendido') ? "bg-red-50 text-red-700 ring-red-600/20 focus:ring-red-600" :
+                                                                                (pendingStatusUpdates[locale.id] || locale.status)?.toLowerCase().includes('reservado') ? "bg-orange-50 text-orange-700 ring-orange-600/20 focus:ring-orange-600" :
+                                                                                    "bg-yellow-50 text-yellow-700 ring-yellow-600/20 focus:ring-yellow-600"
+                                                                            }`}
+                                                                    >
+                                                                        <option value="DISPONIBLE">DISPONIBLE</option>
+                                                                        <option value="VENDIDO">VENDIDO</option>
+                                                                        <option value="RESERVADO">RESERVADO</option>
+                                                                        <option value="BLOQUEADO">BLOQUEADO</option>
+                                                                    </select>
+
+                                                                    {pendingStatusUpdates[locale.id] && pendingStatusUpdates[locale.id] !== locale.status && (
+                                                                        <button
+                                                                            onClick={(e) => saveLocaleStatus(locale.id, e)}
+                                                                            disabled={updatingStatus}
+                                                                            className="p-1 rounded-full bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                                                                            title="Confirmar cambio"
+                                                                        >
+                                                                            <Check className="w-4 h-4" />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {filteredLocales.length === 0 && (
+                                            <div className="p-12 text-center">
+                                                <p className="text-gray-500 text-lg">No locales found matching filters.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div key="users" className="space-y-6">
+                                    {/* Users Filters */}
+                                    <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-100 flex flex-col md:flex-row gap-4">
+                                        <div className="flex-1 relative">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Buscar</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Nombre, ID, RNC, Email..."
+                                                    value={userSearchQuery}
+                                                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                                                    className="block w-full pl-8 py-2 text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm border"
+                                                />
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                    <Search className="h-4 w-4 text-gray-400" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="md:w-48">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Tipo Usuaro</label>
+                                            <select
+                                                value={userFilterType}
+                                                onChange={(e) => setUserFilterType(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                <option value="fisica">Persona Física</option>
+                                                <option value="juridica">Persona Jurídica</option>
+                                            </select>
+                                        </div>
+                                        <div className="md:w-48">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Estado</label>
+                                            <select
+                                                value={userFilterStatus}
+                                                onChange={(e) => setUserFilterStatus(e.target.value)}
+                                                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                                            >
+                                                <option value="all">Todos</option>
+                                                <option value="active">Activo</option>
+                                                <option value="inactive">Inactivo</option>
+                                                {/* Add more statuses as discovered from DB */}
+                                                {Array.from(new Set(users.map(u => u.status)))
+                                                    .filter(s => s !== 'active' && s !== 'inactive' && s !== 'unknown')
+                                                    .map(s => <option key={s} value={s}>{s}</option>)
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-hidden rounded-xl bg-white shadow-2xl border-2 border-[#A9780F]">
+                                        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                                            <h3 className="font-bold text-black">Listado de Usuarios</h3>
+                                            <div className="flex items-center gap-4">
+                                                <button
+                                                    onClick={() => setIsAddUserModalOpen(true)}
+                                                    className="bg-[#A9780F] text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-[#8a620c] transition-colors flex items-center gap-2"
+                                                >
+                                                    <User className="w-4 h-4" />
+                                                    Agregar Usuario
+                                                </button>
+                                                <span className="text-sm font-medium text-gray-500">
+                                                    Total: {users.filter(u => {
+                                                        const matchesSearch =
+                                                            u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                            u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                            u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                                                        const matchesType = userFilterType === "all" || u.type === userFilterType;
+                                                        const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
+                                                        return matchesSearch && matchesType && matchesStatus;
+                                                    }).length}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700 text-center w-10">Tipo</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Nombre / Empresa</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Identificación</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Email</th>
+                                                        <th scope="col" className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-gray-700">Teléfono</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200 bg-white">
+                                                    {users.filter(u => {
+                                                        const matchesSearch =
+                                                            u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                            u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                                                            u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
+                                                        const matchesType = userFilterType === "all" || u.type === userFilterType;
+                                                        const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
+                                                        return matchesSearch && matchesType && matchesStatus;
+                                                    }).map((user) => (
+                                                        <tr
+                                                            key={`${user.type}-${user.id}`}
+                                                            className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                            onClick={() => handleUserClick(user)}
+                                                        >
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 text-center">
+                                                                {user.type === 'fisica' ? (
+                                                                    <div className="flex justify-center" title="Persona Física">
+                                                                        <User className="h-5 w-5 text-blue-600" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex justify-center" title="Persona Jurídica">
+                                                                        <Building2 className="h-5 w-5 text-purple-600" />
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 max-w-xs truncate" title={user.name}>
+                                                                {user.name}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
+                                                                <div className="flex flex-col">
+                                                                    <span>{user.identification}</span>
+                                                                    <span className="text-xs text-gray-400">{user.identification_label}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{user.email}</td>
+                                                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{user.phone || '-'}</td>
+
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {users.length > 0 && users.filter(u => {
                                             const matchesSearch =
                                                 u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
                                                 u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
@@ -1597,210 +1660,172 @@ export default function AdminPage() {
                                             const matchesType = userFilterType === "all" || u.type === userFilterType;
                                             const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
                                             return matchesSearch && matchesType && matchesStatus;
-                                        }).map((user) => (
-                                            <tr
-                                                key={`${user.type}-${user.id}`}
-                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                                onClick={() => handleUserClick(user)}
-                                            >
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500 text-center">
-                                                    {user.type === 'fisica' ? (
-                                                        <div className="flex justify-center" title="Persona Física">
-                                                            <User className="h-5 w-5 text-blue-600" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex justify-center" title="Persona Jurídica">
-                                                            <Building2 className="h-5 w-5 text-purple-600" />
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 max-w-xs truncate" title={user.name}>
-                                                    {user.name}
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                                                    <div className="flex flex-col">
-                                                        <span>{user.identification}</span>
-                                                        <span className="text-xs text-gray-400">{user.identification_label}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{user.email}</td>
-                                                <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">{user.phone || '-'}</td>
-
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {users.length > 0 && users.filter(u => {
-                                const matchesSearch =
-                                    u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                                    u.identification.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                                    u.email.toLowerCase().includes(userSearchQuery.toLowerCase());
-                                const matchesType = userFilterType === "all" || u.type === userFilterType;
-                                const matchesStatus = userFilterStatus === "all" || u.status === userFilterStatus;
-                                return matchesSearch && matchesType && matchesStatus;
-                            }).length === 0 && (
-                                    <div className="p-12 text-center">
-                                        <p className="text-gray-500 text-lg">No se encontraron usuarios con estos filtros.</p>
+                                        }).length === 0 && (
+                                                <div className="p-12 text-center">
+                                                    <p className="text-gray-500 text-lg">No se encontraron usuarios con estos filtros.</p>
+                                                </div>
+                                            )}
+                                        {users.length === 0 && (
+                                            <div className="p-12 text-center">
+                                                <p className="text-gray-500 text-lg">No hay usuarios registrados</p>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            {users.length === 0 && (
-                                <div className="p-12 text-center">
-                                    <p className="text-gray-500 text-lg">No hay usuarios registrados</p>
+                                </div>
+                            )}
+
+                            {/* Sidebar */}
+                            <div
+                                className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? "translate-x-0" : "translate-x-full"} border-l-4 border-[#A9780F]`}
+                            >
+                                {/* RESERVATION DETAIL SIDEBAR */}
+                                {
+                                    selectedReservation && (
+                                        <SidebarReservation
+                                            selectedReservation={selectedReservation}
+                                            closeSidebar={closeSidebar}
+                                            updateStatus={updateStatus}
+                                            updatingStatus={updatingStatus}
+                                            deleteReservation={deleteReservation}
+                                            editCurrency={editCurrency}
+                                            setEditCurrency={setEditCurrency}
+                                            editAmount={editAmount}
+                                            setEditAmount={setEditAmount}
+                                            editPaymentMethod={editPaymentMethod}
+                                            setEditPaymentMethod={setEditPaymentMethod}
+                                            editReceiptFile={editReceiptFile}
+                                            setEditReceiptFile={setEditReceiptFile}
+                                            handleUpdatePaymentInfo={handleUpdatePaymentInfo}
+                                            editQuotationFile={editQuotationFile}
+                                            setEditQuotationFile={setEditQuotationFile}
+                                            handleUploadQuotation={handleUploadQuotation}
+                                            handleDeleteQuotation={handleDeleteQuotation}
+                                            products={products}
+                                            handleUpdateProduct={handleUpdateProduct}
+                                            handleUpdatePaymentMethod={handleUpdatePaymentMethod}
+                                            handleUpdatePaymentStatus={handleUpdatePaymentStatus}
+                                            handleDeletePayment={handleDeletePayment}
+                                        />
+                                    )
+                                }
+
+                                {/* LOCALE DETAIL SIDEBAR */}
+                                {
+                                    selectedLocale && (
+                                        <SidebarLocales
+                                            selectedLocale={selectedLocale}
+                                            closeSidebar={closeSidebar}
+                                            localeOwner={localeOwner}
+                                            handleUnassignUser={handleUnassignUser}
+                                            assignTab={assignTab}
+                                            setAssignTab={setAssignTab}
+                                            selectedProductId={selectedProductId}
+                                            setSelectedProductId={setSelectedProductId}
+                                            products={products}
+                                            assignLocaleToUser={assignLocaleToUser}
+                                            availableUsers={users.map(u => ({
+                                                id: u.id,
+                                                type: u.type,
+                                                label: `${u.name} (${u.identification})`
+                                            }))}
+                                            newUserType={newUserType}
+                                            setNewUserType={setNewUserType}
+                                            newUserForm={newUserForm}
+                                            setNewUserForm={setNewUserForm}
+                                            createAndAssignUser={createAndAssignUser}
+                                            updatingStatus={updatingStatus}
+
+                                        />
+                                    )
+                                }
+                                {
+                                    selectedUser && (
+                                        <SidebarUser
+                                            selectedUser={selectedUser}
+                                            closeSidebar={closeSidebar}
+                                            handleUpdateUser={handleUpdateUser}
+                                            updatingStatus={updatingStatus}
+                                            handleSendEmail={handleSendEmail}
+                                        />
+                                    )
+                                }
+                            </div >
+
+                            {/* Overlay */}
+                            {
+                                sidebarOpen && (
+                                    <div
+                                        className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+                                        onClick={closeSidebar}
+                                    />
+                                )
+                            }
+
+                            <AlertModal
+                                isOpen={modalOpen}
+                                onClose={() => setModalOpen(false)}
+                                onConfirm={modalConfig.onConfirm}
+                                title={modalConfig.title}
+                                message={modalConfig.message}
+                                type={modalConfig.type}
+                                isConfirm={modalConfig.isConfirm}
+                            />
+
+                            {/* Add User Modal */}
+                            {isAddUserModalOpen && (
+                                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
+                                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
+                                        <button
+                                            onClick={() => setIsAddUserModalOpen(false)}
+                                            className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors z-10"
+                                        >
+                                            <X className="w-5 h-5 text-gray-600" />
+                                        </button>
+
+                                        <div className="p-8">
+                                            <h2 className="text-2xl font-bold text-[#131E29] mb-6 border-b pb-4">Agregar Nuevo Usuario</h2>
+
+                                            <div className="mb-6">
+                                                <label className="block text-sm font-semibold mb-2">Tipo de Usuario</label>
+                                                <div className="flex gap-4">
+                                                    <button
+                                                        onClick={() => setAddUserType('fisica')}
+                                                        className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${addUserType === 'fisica'
+                                                            ? 'border-[#A9780F] bg-[#A9780F] text-white'
+                                                            : 'border-gray-200 text-gray-500 hover:border-[#A9780F]'
+                                                            }`}
+                                                    >
+                                                        Persona Física
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setAddUserType('juridica')}
+                                                        className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${addUserType === 'juridica'
+                                                            ? 'border-[#A9780F] bg-[#A9780F] text-white'
+                                                            : 'border-gray-200 text-gray-500 hover:border-[#A9780F]'
+                                                            }`}
+                                                    >
+                                                        Persona Jurídica
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="mt-4">
+                                                {addUserType === 'fisica' ? (
+                                                    <FisicaForm onSuccess={handleAddUserSuccess} />
+                                                ) : (
+                                                    <JuridicaForm onSuccess={handleAddUserSuccess} />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
+
                 )}
-
-                {/* Sidebar */}
-                <div
-                    className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${sidebarOpen ? "translate-x-0" : "translate-x-full"} border-l-4 border-[#A9780F]`}
-                >
-                    {/* RESERVATION DETAIL SIDEBAR */}
-                    {
-                        selectedReservation && (
-                            <SidebarReservation
-                                selectedReservation={selectedReservation}
-                                closeSidebar={closeSidebar}
-                                updateStatus={updateStatus}
-                                updatingStatus={updatingStatus}
-                                deleteReservation={deleteReservation}
-                                editCurrency={editCurrency}
-                                setEditCurrency={setEditCurrency}
-                                editAmount={editAmount}
-                                setEditAmount={setEditAmount}
-                                editPaymentMethod={editPaymentMethod}
-                                setEditPaymentMethod={setEditPaymentMethod}
-                                editReceiptFile={editReceiptFile}
-                                setEditReceiptFile={setEditReceiptFile}
-                                handleUpdatePaymentInfo={handleUpdatePaymentInfo}
-                                editQuotationFile={editQuotationFile}
-                                setEditQuotationFile={setEditQuotationFile}
-                                handleUploadQuotation={handleUploadQuotation}
-                                handleDeleteQuotation={handleDeleteQuotation}
-                                products={products}
-                                handleUpdateProduct={handleUpdateProduct}
-                                handleUpdatePaymentMethod={handleUpdatePaymentMethod}
-                                handleUpdatePaymentStatus={handleUpdatePaymentStatus}
-                                handleDeletePayment={handleDeletePayment}
-                            />
-                        )
-                    }
-
-                    {/* LOCALE DETAIL SIDEBAR */}
-                    {
-                        selectedLocale && (
-                            <SidebarLocales
-                                selectedLocale={selectedLocale}
-                                closeSidebar={closeSidebar}
-                                localeOwner={localeOwner}
-                                handleUnassignUser={handleUnassignUser}
-                                assignTab={assignTab}
-                                setAssignTab={setAssignTab}
-                                selectedProductId={selectedProductId}
-                                setSelectedProductId={setSelectedProductId}
-                                products={products}
-                                assignLocaleToUser={assignLocaleToUser}
-                                availableUsers={users.map(u => ({
-                                    id: u.id,
-                                    type: u.type,
-                                    label: `${u.name} (${u.identification})`
-                                }))}
-                                newUserType={newUserType}
-                                setNewUserType={setNewUserType}
-                                newUserForm={newUserForm}
-                                setNewUserForm={setNewUserForm}
-                                createAndAssignUser={createAndAssignUser}
-                                updatingStatus={updatingStatus}
-
-                            />
-                        )
-                    }
-                    {
-                        selectedUser && (
-                            <SidebarUser
-                                selectedUser={selectedUser}
-                                closeSidebar={closeSidebar}
-                                handleUpdateUser={handleUpdateUser}
-                                updatingStatus={updatingStatus}
-                                handleSendEmail={handleSendEmail}
-                            />
-                        )
-                    }
-                </div >
-
-                {/* Overlay */}
-                {
-                    sidebarOpen && (
-                        <div
-                            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
-                            onClick={closeSidebar}
-                        />
-                    )
-                }
-
-                <AlertModal
-                    isOpen={modalOpen}
-                    onClose={() => setModalOpen(false)}
-                    onConfirm={modalConfig.onConfirm}
-                    title={modalConfig.title}
-                    message={modalConfig.message}
-                    type={modalConfig.type}
-                    isConfirm={modalConfig.isConfirm}
-                />
-
-                {/* Add User Modal */}
-                {isAddUserModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm overflow-y-auto">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
-                            <button
-                                onClick={() => setIsAddUserModalOpen(false)}
-                                className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors z-10"
-                            >
-                                <X className="w-5 h-5 text-gray-600" />
-                            </button>
-
-                            <div className="p-8">
-                                <h2 className="text-2xl font-bold text-[#131E29] mb-6 border-b pb-4">Agregar Nuevo Usuario</h2>
-
-                                <div className="mb-6">
-                                    <label className="block text-sm font-semibold mb-2">Tipo de Usuario</label>
-                                    <div className="flex gap-4">
-                                        <button
-                                            onClick={() => setAddUserType('fisica')}
-                                            className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${addUserType === 'fisica'
-                                                ? 'border-[#A9780F] bg-[#A9780F] text-white'
-                                                : 'border-gray-200 text-gray-500 hover:border-[#A9780F]'
-                                                }`}
-                                        >
-                                            Persona Física
-                                        </button>
-                                        <button
-                                            onClick={() => setAddUserType('juridica')}
-                                            className={`px-4 py-2 rounded-lg font-bold border-2 transition-all ${addUserType === 'juridica'
-                                                ? 'border-[#A9780F] bg-[#A9780F] text-white'
-                                                : 'border-gray-200 text-gray-500 hover:border-[#A9780F]'
-                                                }`}
-                                        >
-                                            Persona Jurídica
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="mt-4">
-                                    {addUserType === 'fisica' ? (
-                                        <FisicaForm onSuccess={handleAddUserSuccess} />
-                                    ) : (
-                                        <JuridicaForm onSuccess={handleAddUserSuccess} />
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+            </main>
+        </div >
     );
 
 }

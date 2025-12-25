@@ -1,0 +1,30 @@
+[
+  {
+    "name": "BarChart",
+    "import": "lucide-react"
+  },
+  {
+    "name": "TrendingUp",
+    "import": "lucide-react"
+  },
+  {
+    "name": "TrendingDown",
+    "import": "lucide-react"
+  },
+  {
+    "name": "Minus",
+    "import": "lucide-react"
+  },
+  {
+    "name": "Wallet",
+    "import": "lucide-react"
+  },
+  {
+    "name": "Percent",
+    "import": "lucide-react"
+  },
+  {
+    "name": "Building2",
+    "import": "lucide-react"
+  }
+]
