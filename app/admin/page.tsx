@@ -788,6 +788,35 @@ export default function AdminPage() {
         }
     };
 
+    const handleDeletePayment = async (paymentId: string) => {
+        setUpdatingStatus(true);
+        try {
+            const { error } = await supabase
+                .from('payments')
+                .delete()
+                .eq('id', paymentId);
+
+            if (error) throw error;
+
+            showAlert("Éxito", "Pago eliminado correctamente.", 'success');
+            await fetchReservations();
+
+            setSelectedReservation(prev => {
+                if (!prev || !prev.payments) return prev;
+                return {
+                    ...prev,
+                    payments: prev.payments.filter(p => p.id !== paymentId)
+                }
+            });
+
+        } catch (error: any) {
+            console.error(error);
+            showAlert("Error", "Error eliminando pago: " + error.message, 'error');
+        } finally {
+            setUpdatingStatus(false);
+        }
+    };
+
     const handleUploadQuotation = async () => {
         if (!selectedReservation) return;
         if (!editQuotationFile) {
@@ -1654,6 +1683,7 @@ export default function AdminPage() {
                                 handleUpdateProduct={handleUpdateProduct}
                                 handleUpdatePaymentMethod={handleUpdatePaymentMethod}
                                 handleUpdatePaymentStatus={handleUpdatePaymentStatus}
+                                handleDeletePayment={handleDeletePayment}
                             />
                         )
                     }

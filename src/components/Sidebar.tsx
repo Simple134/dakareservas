@@ -27,11 +27,12 @@ interface SidebarReservationProps {
     handleUpdateProduct: (productId: string) => void;
     handleUpdatePaymentMethod: (paymentId: string, method: string) => Promise<void>;
     handleUpdatePaymentStatus: (paymentId: string, newStatus: string) => Promise<void>;
+    handleDeletePayment: (paymentId: string) => Promise<void>;
 }
 
 
 
-export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct, handleUpdatePaymentMethod, handleUpdatePaymentStatus }: SidebarReservationProps) => {
+export const SidebarReservation = ({ selectedReservation, closeSidebar, updateStatus, updatingStatus, deleteReservation, editCurrency, setEditCurrency, editAmount, setEditAmount, editPaymentMethod, setEditPaymentMethod, editReceiptFile, setEditReceiptFile, handleUpdatePaymentInfo, editQuotationFile, setEditQuotationFile, handleUploadQuotation, handleDeleteQuotation, products, handleUpdateProduct, handleUpdatePaymentMethod, handleUpdatePaymentStatus, handleDeletePayment }: SidebarReservationProps) => {
     const [expandedImage, setExpandedImage] = useState<string | null>(null);
     const [selectedProductId, setSelectedProductId] = useState<string>("");
     const [exchangeRate, setExchangeRate] = useState<number | null>(null);
@@ -356,7 +357,9 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                                             <option value="manual">Manual</option>
                                                         </select>
                                                     </div>
-                                                    <div className="flex flex-col items-end gap-1">
+                                                </div>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className="flex items-center gap-1">
                                                         <select
                                                             value={p.status || 'pending'}
                                                             onChange={(e) => handleUpdatePaymentStatus(p.id, e.target.value)}
@@ -370,18 +373,29 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
                                                             <option value="approved">Aprobado</option>
                                                             <option value="rejected">Rechazado</option>
                                                         </select>
-                                                        {p.receipt_url && (
-                                                            <a
-                                                                href={p.receipt_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                                                            >
-                                                                <span>Ver Recibo</span>
-                                                                <ExternalLinkIcon size={10} />
-                                                            </a>
-                                                        )}
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('¿Estás seguro de eliminar este pago?')) {
+                                                                    handleDeletePayment(p.id);
+                                                                }
+                                                            }}
+                                                            disabled={updatingStatus}
+                                                            className="text-gray-400 hover:text-red-500 p-1"
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </button>
                                                     </div>
+                                                    {p.receipt_url && (
+                                                        <a
+                                                            href={p.receipt_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                                        >
+                                                            <span>Ver Recibo</span>
+                                                            <ExternalLinkIcon size={10} />
+                                                        </a>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -505,26 +519,28 @@ export const SidebarReservation = ({ selectedReservation, closeSidebar, updateSt
             </div>
 
             {/* Expanded Image Modal */}
-            {expandedImage && (
-                <div
-                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200"
-                    onClick={() => setExpandedImage(null)}
-                >
-                    <button
+            {
+                expandedImage && (
+                    <div
+                        className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200"
                         onClick={() => setExpandedImage(null)}
-                        className="absolute top-4 right-4 text-white hover:text-red-400 p-2 bg-black/50 rounded-full transition-colors"
                     >
-                        <X size={32} />
-                    </button>
-                    <img
-                        src={expandedImage}
-                        alt="Vista ampliada"
-                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>
-            )}
-        </div>
+                        <button
+                            onClick={() => setExpandedImage(null)}
+                            className="absolute top-4 right-4 text-white hover:text-red-400 p-2 bg-black/50 rounded-full transition-colors"
+                        >
+                            <X size={32} />
+                        </button>
+                        <img
+                            src={expandedImage}
+                            alt="Vista ampliada"
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                )
+            }
+        </div >
     );
 };
 
@@ -726,7 +742,7 @@ export const SidebarUser = ({ selectedUser, closeSidebar, handleUpdateUser, upda
                     </button>
                     <button
                         onClick={() => setIsEditing(!isEditing)}
-                        className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-center gap-2 border-2 transition-colors ${isEditing
+                        className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-2 border-2 transition-colors ${isEditing
                             ? "bg-white border-red-500 text-red-500"
                             : "bg-white border-[#A9780F] text-[#A9780F]"
                             }`}
@@ -883,7 +899,7 @@ export const SidebarPayment = ({ closeSidebar, onSubmit, isSubmitting, currency 
 
     const handleSubmit = async () => {
         if (!amount || !file) return;
-        // Always submit in USD
+
         const amountToSubmit = usdAmount.toFixed(2);
         await onSubmit(amountToSubmit, file);
     };
