@@ -47,17 +47,7 @@ export const UserDashboard = ({
     string | null
   >(null);
 
-  // Set initial selected investment when data loads
-  useEffect(() => {
-    if (
-      data?.investments &&
-      data.investments.length > 0 &&
-      !selectedInvestmentId
-    ) {
-      setSelectedInvestmentId(data.investments[0].id);
-    }
-  }, [data, selectedInvestmentId]);
-
+  // Derive selected investment from data - no useEffect needed
   const selectedInvestment =
     data?.investments.find((inv) => inv.id === selectedInvestmentId) ||
     data?.investments[0];
@@ -148,11 +138,10 @@ export const UserDashboard = ({
                 <button
                   key={inv.id}
                   onClick={() => setSelectedInvestmentId(inv.id)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${
-                    selectedInvestmentId === inv.id
-                      ? "bg-[#131E29] text-white border-[#131E29] shadow-md"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]"
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${selectedInvestmentId === inv.id
+                    ? "bg-[#131E29] text-white border-[#131E29] shadow-md"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]"
+                    }`}
                 >
                   <Building2
                     size={18}
@@ -299,7 +288,7 @@ export const UserDashboard = ({
                     </td>
                   </tr>
                 ) : (
-                  selectedInvestment.installments.map((payment: any) => {
+                  selectedInvestment.installments.map((payment) => {
                     const formattedDate = new Date(
                       payment.date,
                     ).toLocaleDateString("es-DO", {

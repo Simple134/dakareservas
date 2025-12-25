@@ -69,7 +69,13 @@ export function KPICard({ kpi }: KPICardProps) {
     }
   };
 
-  const ChangeIcon = getChangeIcon();
+  // Get the change icon component directly
+  const renderChangeIcon = () => {
+    const iconClass = "w-4 h-4";
+    if (kpi.changeType === "positive") return <TrendingUp className={iconClass} />;
+    if (kpi.changeType === "negative") return <TrendingDown className={iconClass} />;
+    return <Minus className={iconClass} />;
+  };
 
   return (
     <div
@@ -96,7 +102,7 @@ export function KPICard({ kpi }: KPICardProps) {
 
         {/* Right side: Change indicator */}
         <div className={`flex items-center gap-1 ${getChangeColor()}`}>
-          <ChangeIcon className="w-4 h-4" />
+          {renderChangeIcon()}
           <span className="text-sm font-semibold">{Math.abs(kpi.change)}%</span>
         </div>
       </div>

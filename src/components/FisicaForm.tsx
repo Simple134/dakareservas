@@ -716,7 +716,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
                   {locales.map(
                     (l: Database["public"]["Tables"]["locales"]["Row"]) => {
                       const isAvailable = l.status === "DISPONIBLE";
-                      let label = `Local ${l.id} (${l.area_mt2} m²)`;
+                      const label = `Local ${l.id} (${l.area_mt2} m²)`;
                       let statusLabel = "";
 
                       if (!isAvailable) {

@@ -168,7 +168,7 @@ export const SidebarReservation = ({
                 selectedReservation.status === "approved"
                   ? "bg-green-500 text-white shadow-lg"
                   : "bg-white border-2 border-green-300 text-green-700 hover:bg-green-50"
-              } disabled:opacity-50`}
+                } disabled:opacity-50`}
             >
               <CheckCircle2 size={18} />
               Aprobar
@@ -513,7 +513,7 @@ export const SidebarReservation = ({
                                   : p.status === "rejected"
                                     ? "bg-red-100 text-red-800 focus:ring-red-500"
                                     : "bg-yellow-100 text-yellow-800 focus:ring-yellow-500"
-                              }`}
+                                }`}
                               disabled={updatingStatus}
                             >
                               <option value="pending">Pendiente</option>
@@ -817,7 +817,7 @@ export const SidebarLocales = ({
                     : selectedLocale.status?.toLowerCase().includes("reservado")
                       ? "bg-orange-100 text-orange-800"
                       : "bg-yellow-100 text-yellow-800"
-              }`}
+                }`}
             >
               {selectedLocale.status}
             </span>
@@ -980,7 +980,7 @@ export const SidebarUser = ({
               isEditing
                 ? "bg-white border-red-500 text-red-500"
                 : "bg-white border-[#A9780F] text-[#A9780F]"
-            }`}
+              }`}
           >
             {isEditing ? (
               <>
@@ -1158,11 +1158,10 @@ export const SidebarPayment = ({
     "USD",
   );
   const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [loadingRate, setLoadingRate] = useState(false);
+  const [loadingRate, setLoadingRate] = useState(true);
 
   // Fetch exchange rate on mount
   useEffect(() => {
-    setLoadingRate(true);
     fetch(
       "https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD",
     )
@@ -1230,7 +1229,7 @@ export const SidebarPayment = ({
                   selectedCurrency === "USD"
                     ? "bg-[#A9780F] text-white border-[#A9780F]"
                     : "bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]"
-                }`}
+                  }`}
               >
                 USD (Dólares)
               </button>
@@ -1242,7 +1241,7 @@ export const SidebarPayment = ({
                   selectedCurrency === "DOP"
                     ? "bg-[#A9780F] text-white border-[#A9780F]"
                     : "bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]"
-                }`}
+                  }`}
               >
                 DOP (Pesos)
               </button>
