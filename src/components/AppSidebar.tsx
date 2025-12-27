@@ -6,14 +6,12 @@ import {
   Users,
   Settings,
   Home,
-  ChevronRight,
   Package,
   Receipt,
 } from "lucide-react";
-import { useProjects } from "@/src/hooks/useProjects";
+import { useRouter } from "next/navigation";
 import { cn } from "@/src/lib/utils";
 
-// Define menu items
 const mainMenuItems = [
   {
     title: "Dashboard",
@@ -23,13 +21,13 @@ const mainMenuItems = [
   },
   {
     title: "Contactos",
-    url: "/admin?view=contacts",
+    url: "/contacts",
     icon: Users,
     id: "contacts",
   },
   {
     title: "Items",
-    url: "/admin?view=items",
+    url: "/items",
     icon: Package,
     id: "items",
   },
@@ -59,17 +57,18 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
-  const { projects } = useProjects();
+  const router = useRouter();
 
-  const handleNav = (viewId: string) => {
+  const handleNav = (viewId: string, url: string) => {
     if (onNavigate) {
       onNavigate(viewId);
+    } else {
+      router.push(url);
     }
   };
 
   return (
     <aside className="w-64 h-screen bg-[#07234B] text-white flex flex-col border-r border-[#1a3a5c] fixed left-0 top-0 z-50">
-      {/* Header with Logo */}
       <div className="h-16 flex items-center px-4 border-b border-[#1a3a5c]">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
@@ -84,7 +83,6 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
         </div>
       </div>
 
-      {/* Main Content Scroll Area */}
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
         {/* Main Menu Group */}
         <div className="space-y-2">
@@ -100,7 +98,7 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                     borderRadius: "10px",
                   }}
                   key={item.id}
-                  onClick={() => handleNav(item.id)}
+                  onClick={() => handleNav(item.id, item.url)}
                   className={cn(
                     "w-full flex items-center gap-2 px-2 py-2 text-sm font-medium transition-colors duration-200",
                     isActive
@@ -139,8 +137,6 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
                 </div> 
                 */}
       </div>
-
-      {/* Footer */}
       <div className="p-4 border-t border-[#1a3a5c]">
         <p className="text-xs text-white/40 text-center">
           v1.0.0 - DAKA Construction ERP

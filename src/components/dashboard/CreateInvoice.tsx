@@ -104,26 +104,22 @@ export function CreateInvoiceDialog({
         },
     ]);
 
-    // Estado para clientes
     const [clients, setClients] = useState<Client[]>([]);
     const [clientFilter, setClientFilter] = useState<
         "all" | "fisica" | "juridica"
     >("all");
     const [isLoadingClients, setIsLoadingClients] = useState(false);
 
-    // Cargar clientes de la base de datos
     useEffect(() => {
         const fetchClients = async () => {
             setIsLoadingClients(true);
             try {
-                // Obtener personas físicas
                 const { data: personasFisicas, error: errorFisicas } = await supabase
                     .from("persona_fisica")
                     .select(
                         "id, first_name, last_name, email, phone, address_street, address_sector, address_province",
                     );
 
-                // Obtener personas jurídicas
                 const { data: personasJuridicas, error: errorJuridicas } =
                     await supabase
                         .from("persona_juridica")
@@ -136,7 +132,6 @@ export function CreateInvoiceDialog({
                 if (errorJuridicas)
                     console.error("Error fetching personas jurídicas:", errorJuridicas);
 
-                // Formatear personas físicas
                 const formattedFisicas = (personasFisicas || []).map((pf) => ({
                     id: pf.id,
                     type: "fisica" as const,
@@ -148,7 +143,6 @@ export function CreateInvoiceDialog({
                         .join(", "),
                 }));
 
-                // Formatear personas jurídicas
                 const formattedJuridicas = (personasJuridicas || []).map((pj) => ({
                     id: pj.id,
                     type: "juridica" as const,
@@ -405,14 +399,12 @@ export function CreateInvoiceDialog({
                         )}
                     </div>
 
-                    {/* Información del Cliente */}
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">
                             Información del Cliente
                         </h3>
 
                         <div className="space-y-4">
-                            {/* Filtro de tipo de cliente */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                                     Tipo de Cliente
@@ -420,38 +412,38 @@ export function CreateInvoiceDialog({
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
+                                        style={{ borderRadius: "50px" }}
                                         onClick={() => setClientFilter("all")}
-                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      clientFilter === "all"
-                        ? "bg-blue-600 text-e"
-                        : "bg-gray-100 text--700 hover:bg-gray-200"
+                                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${clientFilter === "all"
+                                                ? "bg-blue-600 text-white font-bold"
+                                                : "bg-gray-100 hover:bg-gray-200"
                                             }`}
                                     >
-                                        Todos
+                                        <span className={`${clientFilter === "all" ? "font-bold" : ""}`}>Todos</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setClientFilter("fisica")}
-                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                      clientFilter === "fisica"
-                        ? "bg-blue-600 text-e"
-                        : "bg-gray-100 text--700 hover:bg-gray-200"
+                                        style={{ borderRadius: "50px" }}
+                                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${clientFilter === "fisica"
+                                                ? "bg-blue-600 text-white font-bold"
+                                                : "bg-gray-100 hover:bg-gray-200"
                                             }`}
                                     >
                                         <User className="w-4 h-4" />
-                                        Persona Física
+                                        <span className={`${clientFilter === "fisica" ? "font-bold" : ""}`}>Persona Física</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setClientFilter("juridica")}
-                    className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                      clientFilter === "juridica"
-                        ? "bg-blue-600 text-e"
-                        : "bg-gray-100 text--700 hover:bg-gray-200"
+                                        style={{ borderRadius: "50px" }}
+                                        className={`flex-1 px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${clientFilter === "juridica"
+                                                ? "bg-blue-600 text-white font-bold"
+                                                : "bg-gray-100 hover:bg-gray-200"
                                             }`}
                                     >
                                         <Building2 className="w-4 h-4" />
-                                        Persona Jurídica
+                                        <span className={`${clientFilter === "juridica" ? "font-bold" : ""}`}>Persona Jurídica</span>
                                     </button>
                                 </div>
                             </div>
@@ -548,7 +540,6 @@ export function CreateInvoiceDialog({
                         </div>
                     </div>
 
-                    {/* Items de la Factura */}
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-gray-900">
@@ -557,15 +548,15 @@ export function CreateInvoiceDialog({
                             <button
                                 type="button"
                                 onClick={addItem}
+                                style={{borderRadius: "50px"}}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition-colors text-sm font-medium"
                             >
                                 <Plus className="w-4 h-4" />
-                                Agregar Item
+                                <span className="font-bold">Agregar Item</span>
                             </button>
                         </div>
 
                         <div className="space-y-3">
-                            {/* Header */}
                             <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
                                 <div className="col-span-4">Descripción</div>
                                 <div className="col-span-2">Categoría</div>
@@ -575,7 +566,6 @@ export function CreateInvoiceDialog({
                                 <div className="col-span-1"></div>
                             </div>
 
-                            {/* Items */}
                             {items.map((item, index) => (
                                 <div
                                     key={item.id}
@@ -667,9 +657,7 @@ export function CreateInvoiceDialog({
                         </div>
                     </div>
 
-                    {/* Configuración y Totales */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Configuración */}
                         <div className="bg-white border border-gray-200 rounded-lg p-6">
                             <h3 className="text-lg font-semibold text-gray-900 mb-4">
                                 Configuración
@@ -753,7 +741,6 @@ export function CreateInvoiceDialog({
                             </div>
                         </div>
 
-                        {/* Resumen de Totales */}
                         <div className="bg-white border border-gray-200 rounded-lg p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <Calculator className="w-5 h-5 text-gray-700" />
@@ -829,17 +816,18 @@ export function CreateInvoiceDialog({
                         </div>
                     </div>
 
-                    {/* Botones de Acción */}
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                         <button
                             type="button"
                             onClick={onClose}
+                            style={{ borderRadius: "50px" }}
                             className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors font-medium"
                         >
                             Cancelar
                         </button>
                         <button
                             type="submit"
+                            style={{ borderRadius: "50px" }}
                             className="px-6 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
                         >
                             Crear Factura de Venta

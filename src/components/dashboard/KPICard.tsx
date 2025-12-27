@@ -15,14 +15,7 @@ interface KPICardProps {
 }
 
 export function KPICard({ kpi }: KPICardProps) {
-  // Dynamic icon loading
   const IconComponent = (LucideIcons as any)[kpi.icon] || LucideIcons.BarChart;
-
-  const getChangeIcon = () => {
-    if (kpi.changeType === "positive") return TrendingUp;
-    if (kpi.changeType === "negative") return TrendingDown;
-    return Minus;
-  };
 
   const getChangeColor = () => {
     if (kpi.changeType === "positive") return "text-green-600";
@@ -69,7 +62,6 @@ export function KPICard({ kpi }: KPICardProps) {
     }
   };
 
-  // Get the change icon component directly
   const renderChangeIcon = () => {
     const iconClass = "w-4 h-4";
     if (kpi.changeType === "positive") return <TrendingUp className={iconClass} />;
@@ -84,14 +76,10 @@ export function KPICard({ kpi }: KPICardProps) {
             `}
     >
       <div className="flex items-center justify-between">
-        {/* Left side: Icon and content */}
         <div className="flex items-start gap-4 flex-1">
-          {/* Icon */}
           <div className={`${getIconBgColor()} p-3 rounded-lg`}>
             <IconComponent className={`w-5 h-5 ${getIconColor()}`} />
           </div>
-
-          {/* Title and Value */}
           <div className="flex flex-col">
             <p className="text-sm font-medium text-gray-600 mb-1">
               {kpi.title}
@@ -100,7 +88,6 @@ export function KPICard({ kpi }: KPICardProps) {
           </div>
         </div>
 
-        {/* Right side: Change indicator */}
         <div className={`flex items-center gap-1 ${getChangeColor()}`}>
           {renderChangeIcon()}
           <span className="text-sm font-semibold">{Math.abs(kpi.change)}%</span>

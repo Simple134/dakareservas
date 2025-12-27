@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/src/lib/supabase/client";
 
+const DOP_TO_USD_RATE = 62.8;
+
 export type Project = {
     id: string | number;
     name: string;
@@ -21,6 +23,7 @@ export type Project = {
 export function useProjects() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [totalPaymentsUSD, setTotalPaymentsUSD] = useState(0);
 
     useEffect(() => {
         fetchProjects();
@@ -65,12 +68,15 @@ export function useProjects() {
             const transformed: Project[] = (data || []).map((item) => {
                 const totalValue = item.locales?.total_value || 0;
 
-                // Calculate executed budget from approved payments
+                // Calculate executed budget from approved payments (converted to USD)
                 const payments = item.payments || [];
                 const executedBudget = payments
                     .filter((p) => p.status === "approved")
                     .reduce((sum, p) => {
-                        return sum + (Number(p.amount) || 0);
+                        const amount = Number(p.amount) || 0;
+                        // Convert DOP to USD if needed
+                        const amountUSD = p.currency === "DOP" ? amount / DOP_TO_USD_RATE : amount;
+                        return sum + amountUSD;
                     }, 0);
 
                 const completionPercentage =
@@ -124,7 +130,16 @@ export function useProjects() {
                 };
             });
 
+            // Calculate total payments in USD from ALL payments (not just approved)
+            const allPayments = (data || []).flatMap(item => item.payments || []);
+            const totalUSD = allPayments.reduce((sum, p) => {
+                const amount = Number(p.amount) || 0;
+                const amountUSD = p.currency === "DOP" ? amount / DOP_TO_USD_RATE : amount;
+                return sum + amountUSD;
+            }, 0);
+
             setProjects(transformed);
+            setTotalPaymentsUSD(totalUSD);
         } catch (err) {
             console.error("Error fetching projects:", err);
         } finally {
@@ -132,5 +147,5 @@ export function useProjects() {
         }
     };
 
-    return { projects, isLoading, refetch: fetchProjects };
+    return { projects, isLoading, totalPaymentsUSD, refetch: fetchProjects };
 }

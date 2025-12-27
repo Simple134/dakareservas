@@ -24,9 +24,9 @@ export function BenefitsCard({
   totalProjects,
 }: BenefitsCardProps) {
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-DO", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "DOP",
+      currency: "USD",
       minimumFractionDigits: 0,
     }).format(amount);
   };
@@ -38,9 +38,8 @@ export function BenefitsCard({
       </h3>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Net Profit - More vibrant green */}
         <div className="bg-gradient-to-br from-green-50 to-green-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-3xl font-bold text-green-700">
+          <span className="text-md lg:text-3xl font-bold text-green-700">
             {formatCurrency(netProfit)}
           </span>
           <span className="text-sm text-green-600 font-semibold mt-2">
@@ -48,9 +47,8 @@ export function BenefitsCard({
           </span>
         </div>
 
-        {/* Total Revenue - Richer blue */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-3xl font-bold text-blue-700">
+          <span className="text-md lg:text-3xl font-bold text-blue-700">
             {formatCurrency(totalRevenue)}
           </span>
           <span className="text-sm text-blue-600 font-semibold mt-2">
@@ -58,9 +56,8 @@ export function BenefitsCard({
           </span>
         </div>
 
-        {/* Margin - More saturated purple */}
         <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-3xl font-bold text-purple-700">
+          <span className="text-md lg:text-3xl font-bold text-purple-700">
             {profitMargin.toFixed(1)}%
           </span>
           <span className="text-sm text-purple-600 font-semibold mt-2">
@@ -68,9 +65,8 @@ export function BenefitsCard({
           </span>
         </div>
 
-        {/* Active Projects - Warmer orange */}
         <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-3xl font-bold text-orange-700">
+          <span className="text-md lg:text-3xl font-bold text-orange-700">
             {totalProjects}
           </span>
           <span className="text-sm text-orange-600 font-semibold mt-2">

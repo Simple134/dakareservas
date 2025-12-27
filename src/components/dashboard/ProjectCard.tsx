@@ -60,15 +60,15 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
   };
 
   return (
-    <Card
-      className="hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 border-l-primary hover:scale-[1.02]"
+    <div
+      className="hover:shadow-lg rounded-lg shadow transition-all duration-200 cursor-pointer border-l-4 border-l-primary hover:scale-[1.02]"
       onClick={() => onSelect?.(project)}
     >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <CardTitle className="text-lg">Daka 2</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h3 className="text-lg font-bold">Daka 2</h3>
+            <p className="text-sm font-bold text-muted-foreground mt-1">
               {project.client}
             </p>
           </div>
@@ -81,22 +81,22 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
       <CardContent className="space-y-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="w-4 h-4" />
-          <span>{project.location}</span>
+          <span>La Vega, República Dominicana</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <Calendar className="w-4 h-4 text-gray-400" />
             <div className="text-sm">
               <p className="font-medium">{formatDate(project.startDate)}</p>
-              <p className="text-muted-foreground">Inicio</p>
+              <p className="text-gray-400">Inicio</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <Calendar className="w-4 h-4 text-gray-400" />
             <div className="text-sm">
               <p className="font-medium">{formatDate(project.endDate)}</p>
-              <p className="text-muted-foreground">Fin</p>
+              <p className="text-gray-400">Fin</p>
             </div>
           </div>
         </div>
@@ -104,30 +104,30 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span>Progreso del Proyecto</span>
-            <span className="font-medium">{project.completionPercentage}%</span>
+            <span className="font-medium">{project.completionPercentage + 25}%</span>
           </div>
-          <Progress value={project.completionPercentage} className="h-2" />
+          <Progress value={project.completionPercentage + 25} className="h-2" />
         </div>
 
         <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <DollarSign className="w-4 h-4 text-green-600" />
-            <div className="text-sm">
-              <p className="font-medium">
+            <div className="text-sm !p-0 !m-0">
+              <p className="font-medium !p-0 !m-0">
                 {formatCurrency(project.totalBudget)}
               </p>
-              <p className="text-muted-foreground">Presupuesto</p>
+              <p className="text-gray-400 !p-0 !m-0">Presupuesto</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <Percent className="w-4 h-4 text-blue-600" />
-            <div className="text-sm">
-              <p className="font-medium">{project.profitMargin}%</p>
-              <p className="text-muted-foreground">Margen</p>
+            <div className="text-sm !p-0 !m-0">
+              <p className="font-medium !p-0 !m-0">{project.profitMargin}%</p>
+              <p className="text-gray-400 !p-0 !m-0">Margen</p>
             </div>
           </div>
         </div>
       </CardContent>
-    </Card>
+    </div>
   );
 }
