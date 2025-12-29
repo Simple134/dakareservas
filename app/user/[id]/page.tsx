@@ -124,15 +124,15 @@ export default function UserPage() {
 
             // Calculate paid amount from approved payments
             const paid = payments
-              .filter((p: any) => p.status === "approved")
-              .reduce((acc: number, p: any) => acc + Number(p.amount), 0);
+              .filter((p) => p.status === "approved")
+              .reduce((acc: number, p) => acc + Number(p.amount), 0);
 
             const pending = Math.max(0, total - paid);
             const progress = total > 0 ? (paid / total) * 100 : 0;
             const localeCode = `Local ${allocation.locales_id} `;
 
             // Build installments array from payments table
-            const installments = payments.map((p: any, index: number) => ({
+            const installments = payments.map((p, index) => ({
               number: index + 1,
               id: p.id,
               amount: Number(p.amount),
@@ -163,9 +163,11 @@ export default function UserPage() {
           userName: userName,
           investments: investments,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Dashboard fetch error:", err);
-        setError(err.message);
+        setError(
+          err instanceof Error ? err.message : "Error fetching dashboard data",
+        );
       } finally {
         setDataLoading(false);
       }
@@ -238,9 +240,11 @@ export default function UserPage() {
       // 6. Success
       setPaymentSidebarOpen(false);
       window.location.reload(); // Simple reload to refresh data
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Payment error:", error);
-      setError("Error procesando pago: " + error.message);
+      setError(
+        error instanceof Error ? error.message : "Error procesando pago",
+      );
     } finally {
       setSubmittingPayment(false);
     }

@@ -178,16 +178,10 @@ export default function ConfirmacionPage() {
 
         receiptUrl = publicUrlData.publicUrl;
       }
-
-      // Verify locale_id is present on the allocation
-      // Casting allocation to any because Typescript definitions might be outdated
-      const allocationData = allocation as any;
+      const allocationData = allocation;
       if (!allocationData?.locales_id) {
         throw new Error("No se encontró un local asignado a esta reserva.");
       }
-
-      // Update Allocation
-      // Insert into payments
       const { error: paymentError } = await supabase.from("payments").insert({
         allocation_id: allocationId,
         amount: numAmount,
@@ -199,7 +193,6 @@ export default function ConfirmacionPage() {
 
       if (paymentError) throw paymentError;
 
-      // Update Allocation Status
       const { error: allocError } = await supabase
         .from("product_allocations")
         .update({
@@ -226,9 +219,9 @@ export default function ConfirmacionPage() {
         payment_method: paymentMethod,
         status: "pending",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating payment:", error);
-      alert(error.message || "Error actualizando el pago.");
+      alert((error as Error).message || "Error actualizando el pago.");
     } finally {
       setUpdating(false);
       localStorage.removeItem("daka_user_id");

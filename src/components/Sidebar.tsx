@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
 import {
   CheckCircle2,
   Clock,
@@ -76,20 +77,24 @@ export const SidebarReservation = ({
   const [loadingRate, setLoadingRate] = useState(false);
 
   useEffect(() => {
-    setLoadingRate(true);
-    fetch(
-      "https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD",
-    )
-      .then((res) => res.json())
-      .then((data) => {
+    const fetchExchangeRate = async () => {
+      setLoadingRate(true);
+      try {
+        const res = await fetch(
+          "https://v6.exchangerate-api.com/v6/8d1451c8aaa667219c66291d/latest/USD",
+        );
+        const data = await res.json();
         if (data.result === "success" && data.conversion_rates?.DOP) {
           setExchangeRate(data.conversion_rates.DOP);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error fetching exchange rate:", err);
-      })
-      .finally(() => setLoadingRate(false));
+      } finally {
+        setLoadingRate(false);
+      }
+    };
+
+    fetchExchangeRate();
   }, []);
 
   const calculateUSDAmount = (): number => {
@@ -134,10 +139,10 @@ export const SidebarReservation = ({
     const matchingProduct = products.find(
       (p) => p.name === selectedReservation.product_name,
     );
-    if (matchingProduct) {
+    if (matchingProduct && matchingProduct.id !== selectedProductId) {
       setSelectedProductId(matchingProduct.id);
     }
-  }, [selectedReservation, products]);
+  }, [selectedReservation.product_name, products, selectedProductId]);
   return (
     <div className="h-full flex flex-col">
       <div className="bg-[#131E29] p-6 flex items-center justify-between">
@@ -168,7 +173,7 @@ export const SidebarReservation = ({
                 selectedReservation.status === "approved"
                   ? "bg-green-500 text-white shadow-lg"
                   : "bg-white border-2 border-green-300 text-green-700 hover:bg-green-50"
-                } disabled:opacity-50`}
+              } disabled:opacity-50`}
             >
               <CheckCircle2 size={18} />
               Aprobar
@@ -513,7 +518,7 @@ export const SidebarReservation = ({
                                   : p.status === "rejected"
                                     ? "bg-red-100 text-red-800 focus:ring-red-500"
                                     : "bg-yellow-100 text-yellow-800 focus:ring-yellow-500"
-                                }`}
+                              }`}
                               disabled={updatingStatus}
                             >
                               <option value="pending">Pendiente</option>
@@ -724,10 +729,39 @@ export const SidebarReservation = ({
   );
 };
 
+interface LocaleOwner {
+  id: string | number;
+  type: "fisica" | "juridica";
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  identification?: string;
+  passport?: string;
+  company_name?: string;
+  rnc?: string;
+}
+
+interface AvailableUser {
+  id: string | number;
+  type: "fisica" | "juridica";
+  label: string;
+}
+
+export interface NewUserForm {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  identification?: string;
+  companyName?: string;
+  rnc?: string;
+  phone?: string;
+  [key: string]: string | undefined;
+}
+
 interface SidebarLocaleProps {
   selectedLocale: Tables<"locales">;
   closeSidebar: () => void;
-  localeOwner: any;
+  localeOwner: LocaleOwner | null;
   handleUnassignUser: () => void;
   assignTab: "existing" | "new";
   setAssignTab: (tab: "existing" | "new") => void;
@@ -735,11 +769,11 @@ interface SidebarLocaleProps {
   setSelectedProductId: (productId: string) => void;
   products: Tables<"products">[];
   assignLocaleToUser: (id: string, type: "fisica" | "juridica") => void;
-  availableUsers: any[];
+  availableUsers: AvailableUser[];
   newUserType: "fisica" | "juridica";
   setNewUserType: (type: "fisica" | "juridica") => void;
-  newUserForm: any;
-  setNewUserForm: (form: any) => void;
+  newUserForm: NewUserForm;
+  setNewUserForm: (form: NewUserForm) => void;
   createAndAssignUser: () => void;
   updatingStatus: boolean;
 }
@@ -766,7 +800,10 @@ export const SidebarLocales = ({
   const [selectedUserValue, setSelectedUserValue] = useState("");
 
   useEffect(() => {
-    setSelectedUserValue("");
+    if (selectedUserValue !== "") {
+      setSelectedUserValue("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLocale.id]);
 
   return (
@@ -817,7 +854,7 @@ export const SidebarLocales = ({
                     : selectedLocale.status?.toLowerCase().includes("reservado")
                       ? "bg-orange-100 text-orange-800"
                       : "bg-yellow-100 text-yellow-800"
-                }`}
+              }`}
             >
               {selectedLocale.status}
             </span>
@@ -835,17 +872,24 @@ export const SidebarLocales = ({
                 <>
                   <DetailRow
                     label="Nombre"
-                    value={`${localeOwner.first_name} ${localeOwner.last_name}`}
+                    value={`${localeOwner.first_name || ""} ${localeOwner.last_name || ""}`}
                   />
                   <DetailRow
                     label="Identificación"
-                    value={localeOwner.identification || localeOwner.passport}
+                    value={
+                      localeOwner.identification ||
+                      localeOwner.passport ||
+                      "N/A"
+                    }
                   />
                 </>
               ) : (
                 <>
-                  <DetailRow label="Empresa" value={localeOwner.company_name} />
-                  <DetailRow label="RNC" value={localeOwner.rnc} />
+                  <DetailRow
+                    label="Empresa"
+                    value={localeOwner.company_name || "N/A"}
+                  />
+                  <DetailRow label="RNC" value={localeOwner.rnc || "N/A"} />
                 </>
               )}
               <DetailRow label="Email" value={localeOwner.email} />
@@ -919,10 +963,31 @@ export const SidebarLocales = ({
   );
 };
 
+interface UserFormData {
+  email: string;
+  phone: string;
+  first_name?: string;
+  last_name?: string;
+  identification?: string;
+  passport?: string;
+  company_name?: string;
+  rnc?: string;
+}
+
 interface SidebarUserProps {
-  selectedUser: any;
+  selectedUser: {
+    id: string | number;
+    name: string;
+    email: string;
+    phone: string;
+    type: "fisica" | "juridica";
+    identification_label: string;
+    identification: string;
+    address?: string;
+    raw?: Record<string, unknown>;
+  };
   closeSidebar: () => void;
-  handleUpdateUser: (updatedData: any) => void;
+  handleUpdateUser: (updatedData: UserFormData) => void;
   updatingStatus: boolean;
   handleSendEmail: () => void;
 }
@@ -935,21 +1000,26 @@ export const SidebarUser = ({
   handleSendEmail,
 }: SidebarUserProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<any>({});
 
+  const { register, handleSubmit, reset } = useForm<UserFormData>({
+    defaultValues: {
+      email: selectedUser.email || "",
+      phone: selectedUser.phone || "",
+      ...(selectedUser.raw || {}),
+    },
+  });
+
+  // Reset form when selectedUser changes
   useEffect(() => {
-    if (selectedUser) {
-      setFormData({
-        name: selectedUser.name,
-        email: selectedUser.email,
-        phone: selectedUser.phone,
-        ...selectedUser.raw,
-      });
-    }
-  }, [selectedUser]);
+    reset({
+      email: selectedUser.email || "",
+      phone: selectedUser.phone || "",
+      ...(selectedUser.raw || {}),
+    });
+  }, [selectedUser, reset]);
 
-  const handleSave = () => {
-    handleUpdateUser(formData);
+  const onSubmit = (data: UserFormData) => {
+    handleUpdateUser(data);
     setIsEditing(false);
   };
 
@@ -980,7 +1050,7 @@ export const SidebarUser = ({
               isEditing
                 ? "bg-white border-red-500 text-red-500"
                 : "bg-white border-[#A9780F] text-[#A9780F]"
-              }`}
+            }`}
           >
             {isEditing ? (
               <>
@@ -995,17 +1065,14 @@ export const SidebarUser = ({
         </div>
 
         {isEditing ? (
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Email
               </label>
               <input
                 type="email"
-                value={formData.email || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
+                {...register("email")}
                 className="w-full p-2 border rounded text-black"
               />
             </div>
@@ -1015,10 +1082,7 @@ export const SidebarUser = ({
               </label>
               <input
                 type="text"
-                value={formData.phone || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
+                {...register("phone")}
                 className="w-full p-2 border rounded text-black"
               />
             </div>
@@ -1030,10 +1094,7 @@ export const SidebarUser = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.first_name || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, first_name: e.target.value })
-                    }
+                    {...register("first_name")}
                     className="w-full p-2 border rounded text-black"
                   />
                 </div>
@@ -1043,10 +1104,7 @@ export const SidebarUser = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.last_name || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, last_name: e.target.value })
-                    }
+                    {...register("last_name")}
                     className="w-full p-2 border rounded text-black"
                   />
                 </div>
@@ -1056,13 +1114,7 @@ export const SidebarUser = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.identification || formData.passport || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        identification: e.target.value,
-                      })
-                    }
+                    {...register("identification")}
                     className="w-full p-2 border rounded text-black"
                   />
                 </div>
@@ -1076,10 +1128,7 @@ export const SidebarUser = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.company_name || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, company_name: e.target.value })
-                    }
+                    {...register("company_name")}
                     className="w-full p-2 border rounded text-black"
                   />
                 </div>
@@ -1089,10 +1138,7 @@ export const SidebarUser = ({
                   </label>
                   <input
                     type="text"
-                    value={formData.rnc || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, rnc: e.target.value })
-                    }
+                    {...register("rnc")}
                     className="w-full p-2 border rounded text-black"
                   />
                 </div>
@@ -1100,16 +1146,16 @@ export const SidebarUser = ({
             )}
 
             <button
-              onClick={handleSave}
+              type="submit"
               disabled={updatingStatus}
               className="w-full py-3 bg-green-600 text-white rounded font-bold hover:bg-green-700 transition-colors disabled:opacity-50 mt-4"
             >
               {updatingStatus ? "Guardando..." : "Guardar Cambios"}
             </button>
-          </div>
+          </form>
         ) : (
           <div className="space-y-4">
-            <DetailRow label="ID de Usuario" value={selectedUser.id} />
+            <DetailRow label="ID de Usuario" value={String(selectedUser.id)} />
             <DetailRow
               label="Tipo"
               value={
@@ -1229,7 +1275,7 @@ export const SidebarPayment = ({
                   selectedCurrency === "USD"
                     ? "bg-[#A9780F] text-white border-[#A9780F]"
                     : "bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]"
-                  }`}
+                }`}
               >
                 USD (Dólares)
               </button>
@@ -1241,7 +1287,7 @@ export const SidebarPayment = ({
                   selectedCurrency === "DOP"
                     ? "bg-[#A9780F] text-white border-[#A9780F]"
                     : "bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]"
-                  }`}
+                }`}
               >
                 DOP (Pesos)
               </button>

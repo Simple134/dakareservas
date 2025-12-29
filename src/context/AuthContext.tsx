@@ -91,9 +91,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       setLoading(false);
       return { error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
       setLoading(false);
-      return { error: err };
+      return {
+        error:
+          err instanceof Error ? err : new Error("An unknown error occurred"),
+      };
     }
   };
 
@@ -116,9 +119,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Optionally, you could auto-login or redirect to login page here
       setLoading(false);
       return { error: null };
-    } catch (err: any) {
+    } catch (err: unknown) {
       setLoading(false);
-      return { error: err };
+      return {
+        error:
+          err instanceof Error ? err : new Error("An unknown error occurred"),
+      };
     }
   };
 

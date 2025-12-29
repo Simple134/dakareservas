@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/src/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { Database } from "@/src/types/supabase";
 
 // Mapping product names to images
 const PRODUCT_IMAGES: Record<string, string> = {
@@ -17,7 +18,9 @@ const PRODUCT_IMAGES: Record<string, string> = {
 export default function ProductSelectionPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<
+    Database["public"]["Tables"]["products"]["Row"][]
+  >([]);
   const [submitting, setSubmitting] = useState(false);
   const [showSoldOutMessage, setShowSoldOutMessage] = useState(false);
 
@@ -47,7 +50,7 @@ export default function ProductSelectionPage() {
           ? dakaPlus.limit - dakaPlus.count <= 0
           : true;
 
-        let validProducts: any[] = [];
+        let validProducts;
 
         if (capitalSoldOut && plusSoldOut) {
           // Both sold out -> Show ONLY "Reserva"
@@ -73,7 +76,9 @@ export default function ProductSelectionPage() {
     fetchEverything();
   }, [router]);
 
-  const handleSelectProduct = async (product: any) => {
+  const handleSelectProduct = async (
+    product: Database["public"]["Tables"]["products"]["Row"],
+  ) => {
     if (submitting) return;
 
     try {
@@ -84,7 +89,7 @@ export default function ProductSelectionPage() {
 
       if (!userId || !userType) throw new Error("Sesión no válida");
 
-      // @ts-ignore
+      //@ts-expect-error rpc type mejorar para despues
       const { data, error } = await supabase.rpc("allocate_product_v2", {
         p_user_id: userId,
         p_user_type: userType,
@@ -94,15 +99,16 @@ export default function ProductSelectionPage() {
       });
 
       if (error) throw error;
-      const responseData = data as any;
-      if (responseData && responseData.allocation_id) {
-        router.push(`/confirmacion/${responseData.allocation_id}`);
+      const responseData =
+        data as Database["public"]["Tables"]["product_allocations"]["Row"];
+      if (responseData && responseData.id) {
+        router.push(`/confirmacion/${responseData.id}`);
       } else {
         throw new Error("No se recibió ID de asignación");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error allocating product:", error);
-      alert(error.message || "Error al seleccionar producto.");
+      alert((error as string) || "Error al seleccionar producto.");
     } finally {
       setSubmitting(false);
     }

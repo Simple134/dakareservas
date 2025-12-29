@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, LucideIcon } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 
 export type KPI = {
@@ -15,7 +15,9 @@ interface KPICardProps {
 }
 
 export function KPICard({ kpi }: KPICardProps) {
-  const IconComponent = (LucideIcons as any)[kpi.icon] || LucideIcons.BarChart;
+  const IconComponent = ((LucideIcons as unknown as Record<string, LucideIcon>)[
+    kpi.icon
+  ] || LucideIcons.BarChart) as LucideIcon;
 
   const getChangeColor = () => {
     if (kpi.changeType === "positive") return "text-green-600";
@@ -64,8 +66,10 @@ export function KPICard({ kpi }: KPICardProps) {
 
   const renderChangeIcon = () => {
     const iconClass = "w-4 h-4";
-    if (kpi.changeType === "positive") return <TrendingUp className={iconClass} />;
-    if (kpi.changeType === "negative") return <TrendingDown className={iconClass} />;
+    if (kpi.changeType === "positive")
+      return <TrendingUp className={iconClass} />;
+    if (kpi.changeType === "negative")
+      return <TrendingDown className={iconClass} />;
     return <Minus className={iconClass} />;
   };
 

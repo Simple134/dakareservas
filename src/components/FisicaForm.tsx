@@ -80,9 +80,13 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
 
   // Property Selection State
   const [levels, setLevels] = useState<number[]>([]);
-  const [locales, setLocales] = useState<any[]>([]);
+  const [locales, setLocales] = useState<
+    Database["public"]["Tables"]["locales"]["Row"][]
+  >([]);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
-  const [selectedLocale, setSelectedLocale] = useState<any>(null);
+  const [selectedLocale, setSelectedLocale] = useState<
+    Database["public"]["Tables"]["locales"]["Row"] | null
+  >(null);
   const [uploading, setUploading] = useState(false);
 
   // Fetch Levels on Mount
@@ -94,7 +98,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
         .order("level");
 
       if (data) {
-        const uniqueLevels = Array.from(new Set(data.map((l: any) => l.level)));
+        const uniqueLevels = Array.from(new Set(data.map((l) => l.level)));
         setLevels(uniqueLevels);
       }
     };
@@ -104,7 +108,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
   // Handle Locale Selection
   const handleLocaleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const localeId = e.target.value;
-    const locale = locales.find((l) => l.id.toString() === localeId);
+    const locale = locales.find((l) => l.id === parseInt(localeId));
 
     // Check for all unavailable statuses
     if (locale && locale.status !== "DISPONIBLE") {
@@ -202,11 +206,12 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
         // Redirect to Product Selection
         window.location.href = `/seleccion-producto`;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting form:", error);
       alert(
-        error.message ||
-          "Hubo un error al guardar los datos. Por favor intente nuevamente.",
+        error instanceof Error
+          ? error.message
+          : "Hubo un error al guardar los datos. Por favor intente nuevamente.",
       );
       setUploading(false);
     }

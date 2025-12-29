@@ -82,9 +82,13 @@ export default function JuridicaForm({
 
   // Property Selection State
   const [levels, setLevels] = useState<number[]>([]);
-  const [locales, setLocales] = useState<any[]>([]);
+  const [locales, setLocales] = useState<
+    Database["public"]["Tables"]["locales"]["Row"][]
+  >([]);
   const [selectedLevel, setSelectedLevel] = useState<string>("");
-  const [selectedLocale, setSelectedLocale] = useState<any>(null);
+  const [selectedLocale, setSelectedLocale] = useState<
+    Database["public"]["Tables"]["locales"]["Row"] | null
+  >(null);
   const [uploading, setUploading] = useState(false);
 
   // Fetch Levels on Mount
@@ -96,7 +100,7 @@ export default function JuridicaForm({
         .order("level");
 
       if (data) {
-        const uniqueLevels = Array.from(new Set(data.map((l: any) => l.level)));
+        const uniqueLevels = Array.from(new Set(data.map((l) => l.level)));
         setLevels(uniqueLevels);
       }
     };
@@ -226,9 +230,13 @@ export default function JuridicaForm({
         // Redirect to Product Selection
         window.location.href = `/seleccion-producto`;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting form:", error);
-      alert(error.message || "Hubo un error al guardar los datos.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Hubo un error al guardar los datos.",
+      );
       setUploading(false);
     }
   };

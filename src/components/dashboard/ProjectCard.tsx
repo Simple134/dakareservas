@@ -104,7 +104,9 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span>Progreso del Proyecto</span>
-            <span className="font-medium">{project.completionPercentage + 25}%</span>
+            <span className="font-medium">
+              {project.completionPercentage + 25}%
+            </span>
           </div>
           <Progress value={project.completionPercentage + 25} className="h-2" />
         </div>

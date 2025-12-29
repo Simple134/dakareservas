@@ -110,7 +110,7 @@ export function DashboardView() {
           </button>
           <button
             className="bg-gradient-to-r from-[#224397] to-blue-500 text-white font-bold flex items-center gap-2 rounded-md p-2"
-            onClick={() => router.push('/projects/create')}
+            onClick={() => router.push("/projects/create")}
             style={{ borderRadius: "8px" }}
           >
             <Plus className="w-4 h-4 mr-2" />

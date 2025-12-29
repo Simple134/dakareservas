@@ -138,10 +138,11 @@ export const UserDashboard = ({
                 <button
                   key={inv.id}
                   onClick={() => setSelectedInvestmentId(inv.id)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${selectedInvestmentId === inv.id
-                    ? "bg-[#131E29] text-white border-[#131E29] shadow-md"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${
+                    selectedInvestmentId === inv.id
+                      ? "bg-[#131E29] text-white border-[#131E29] shadow-md"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]"
+                  }`}
                 >
                   <Building2
                     size={18}

@@ -17,7 +17,12 @@ export async function sendQuotationAction(
         message: "Error enviando el correo: " + JSON.stringify(result.error),
       };
     }
-  } catch (e: any) {
-    return { success: false, message: "Error inesperado: " + e.message };
+  } catch (e: unknown) {
+    return {
+      success: false,
+      message:
+        "Error inesperado: " +
+        (e instanceof Error ? e.message : "Error inesperado"),
+    };
   }
 }
