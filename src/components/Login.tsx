@@ -224,21 +224,21 @@ export const Login = () => {
             className="absolute inset-0 flex items-center"
             aria-hidden="true"
           >
-            <div className="w-full border-t border-gray-200" />
+            {/* <div className="w-full border-t border-gray-200" /> */}
           </div>
-          <div className="relative flex justify-center">
+          {/* <div className="relative flex justify-center">
             <span className="bg-white px-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
               MODO DE PRUEBA
             </span>
-          </div>
+          </div> */}
         </div>
 
-        <button
+        {/* <button
           type="button"
           className="w-full justify-center rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-[#111827] hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all"
         >
           Acceso de Prueba
-        </button>
+        </button> */}
 
         <div className="mt-4 text-center text-sm text-[#6B7280]">
           Sistema ERP de Gestión de Construcción

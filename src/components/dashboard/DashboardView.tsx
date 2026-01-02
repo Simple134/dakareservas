@@ -110,7 +110,7 @@ export function DashboardView() {
           </button>
           <button
             className="bg-gradient-to-r from-[#224397] to-blue-500 text-white font-bold flex items-center gap-2 rounded-md p-2"
-            onClick={() => router.push("/projects/create")}
+            onClick={() => router.push("/admin/projects/create")}
             style={{ borderRadius: "8px" }}
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -164,7 +164,7 @@ export function DashboardView() {
               <p className="text-muted-foreground mb-4">
                 No hay proyectos creados aún
               </p>
-              <Button onClick={() => router.push("/projects/create")}>
+              <Button onClick={() => router.push("/admin/projects/create")}>
                 <Plus className="w-4 h-4 mr-2" />
                 Crear Primer Proyecto
               </Button>
