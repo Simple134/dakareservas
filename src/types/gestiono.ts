@@ -311,17 +311,17 @@ export type GestionoClient = GestionoBeneficiaryPayload;
 
 // Divisiones
 export type DivisionType =
-    "WAREHOUSE"
-    "STORE"
-    "CASHIER"
-    "TABLE"
-    "OFFICE"
-    "DEPARTMENT"
-    "LOGICAL"
-    "PROJECT"
-    "PRODUCT"
-    "ROOT"
-    "OTHER"
+    | "WAREHOUSE"
+    | "STORE"
+    | "CASHIER"
+    | "TABLE"
+    | "OFFICE"
+    | "DEPARTMENT"
+    | "LOGICAL"
+    | "PROJECT"
+    | "PRODUCT"
+    | "ROOT"
+    | "OTHER"
 
 export interface GestionoDivision {
     id: number;
