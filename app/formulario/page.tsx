@@ -14,7 +14,13 @@ export default function CompraPage() {
             <div className="card shadow-lg border-0 rounded-4 overflow-hidden">
               {/* Body del Card */}
               <div className="card-body p-5">
-                <Suspense fallback={<div className="text-center p-4">Cargando formulario...</div>}>
+                <Suspense
+                  fallback={
+                    <div className="text-center p-4">
+                      Cargando formulario...
+                    </div>
+                  }
+                >
                   <ClientForm />
                 </Suspense>
               </div>
@@ -36,7 +42,7 @@ export default function CompraPage() {
         .min-vh-100 {
           min-height: 100vh;
         }
-        
+
         .rounded-4 {
           border-radius: 1.5rem;
         }
@@ -46,7 +52,9 @@ export default function CompraPage() {
         }
 
         .card {
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
+          transition:
+            transform 0.3s ease,
+            box-shadow 0.3s ease;
         }
 
         .card:hover {

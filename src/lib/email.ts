@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -9,13 +9,13 @@ export async function sendInvitationEmail(email: string, name: string) {
   }
 
   try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-    const cleanUrl = siteUrl.replace(/\/$/, ''); // Remove trailing slash if present
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const cleanUrl = siteUrl.replace(/\/$/, ""); // Remove trailing slash if present
 
     const { data, error } = await resend.emails.send({
-      from: 'Daka <noreply@reservas.dakadominicana.com>',
+      from: "Daka <noreply@reservas.dakadominicana.com>",
       to: [email],
-      subject: 'Invitación a Daka - Crea tu cuenta',
+      subject: "Invitación a Daka - Crea tu cuenta",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #131E29;">¡Hola ${name}!</h1>
@@ -48,7 +48,11 @@ export async function sendInvitationEmail(email: string, name: string) {
   }
 }
 
-export async function sendQuotationEmail(email: string, name: string, quotationUrl: string) {
+export async function sendQuotationEmail(
+  email: string,
+  name: string,
+  quotationUrl: string,
+) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY is not set. Email not sent.");
     return { success: false, error: "Missing API Key" };
@@ -56,9 +60,9 @@ export async function sendQuotationEmail(email: string, name: string, quotationU
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Daka <noreply@reservas.dakadominicana.com>',
+      from: "Daka <noreply@reservas.dakadominicana.com>",
       to: [email],
-      subject: 'Nueva Cotización - Daka',
+      subject: "Nueva Cotización - Daka",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #131E29;">¡Hola ${name}!</h1>
@@ -91,7 +95,11 @@ export async function sendQuotationEmail(email: string, name: string, quotationU
   }
 }
 
-export async function sendPaymentNotificationEmail(userName: string, amount: string, currency: string) {
+export async function sendPaymentNotificationEmail(
+  userName: string,
+  amount: string,
+  currency: string,
+) {
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY is not set. Email not sent.");
     return { success: false, error: "Missing API Key" };
@@ -99,9 +107,9 @@ export async function sendPaymentNotificationEmail(userName: string, amount: str
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Daka <noreply@reservas.dakadominicana.com>',
-      to: ['Daka.dominicana@gmail.com'],
-      subject: 'Nuevo Pago Recibido - Daka Reservas',
+      from: "Daka <noreply@reservas.dakadominicana.com>",
+      to: ["Daka.dominicana@gmail.com"],
+      subject: "Nuevo Pago Recibido - Daka Reservas",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h1 style="color: #131E29;">Nuevo Pago Registrado</h1>
