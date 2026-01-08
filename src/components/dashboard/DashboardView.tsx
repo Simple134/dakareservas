@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useProjects } from "@/src/hooks/useProjects";
+import { useProjects, Project } from "@/src/hooks/useProjects";
 import { useAuth } from "@/src/hooks/useAuth";
 import { KPICard, KPI } from "@/src/components/dashboard/KPICard";
 import { ProjectCard } from "@/src/components/dashboard/ProjectCard";
@@ -11,35 +11,103 @@ import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { Button } from "@/src/components/ui/button";
 import { Plus, Receipt, LogOut, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useGestiono } from "@/src/context/Gestiono";
+import { PendingRecord } from "@/src/types/gestiono";
 
 export function DashboardView() {
-  const { projects, isLoading, totalPaymentsUSD } = useProjects();
+  const { isLoading } = useProjects();
   const { signOut } = useAuth();
+  const { divisions, pendingRecords } = useGestiono();
   const router = useRouter();
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
 
-  const activeProjects = projects.filter((p) => p.status !== "completed");
+  const activeProjectsList: Project[] = divisions
+    .filter((div) => {
+      if ((div.type as string) === "ROOT" || div.subDivisionOf !== 183 || !div.metadata) return false;
+      let meta: any = div.metadata;
+      if (typeof meta === 'string') {
+        try { meta = JSON.parse(meta); } catch { return false; }
+      }
+      return meta && meta.budget !== undefined && meta.status !== undefined;
+    })
+    .map((div) => {
+      let meta: any = div.metadata || {};
+      if (typeof meta === 'string') {
+        try { meta = JSON.parse(meta); } catch { meta = {}; }
+      }
+      let status: Project["status"] = "planning";
+      const metaStatus = String(meta.status || "").toLowerCase();
+      if (metaStatus.includes("ejecuci") || metaStatus === "execution") status = "execution";
+      if (metaStatus.includes("complete") || metaStatus === "completed") status = "completed";
+      return {
+        id: div.id,
+        name: div.name,
+        client: meta.client || "Cliente General",
+        startDate: meta.startDate || new Date().toISOString(),
+        endDate: meta.endDate || new Date().toISOString(),
+        totalBudget: Number(meta.budget) || 0,
+        executedBudget: 0,
+        status,
+        location: meta.location || "Sin ubicación",
+        profitMargin: 20,
+        completionPercentage: 0,
+        project_type: meta.projectType || "General",
+        permitting_category: meta.permissionCategory || "General",
+        ownerProfileId: undefined
+      };
+    });
 
-  // Total revenue comes from all payments (already in USD)
-  const totalRevenue = totalPaymentsUSD;
+  const resume = pendingRecords?.resume
 
-  // Total costs from executed budget (already in USD)
-  const totalCosts = projects.reduce(
-    (sum, project) => sum + Number(project.executedBudget),
-    0,
-  );
+  const totalCharged = resume?.totalCharged || 0;
+  const toCharge = resume?.toCharge || 0;
+  const totalRevenue = totalCharged + toCharge;
 
-  // Net profit = revenue - costs
-  const netProfit = totalRevenue - totalCosts;
+  const items: PendingRecord[] = pendingRecords?.items || [];
 
-  // Mock values for now
-  const averageMargin = 20; // Mock 20%
-  const cashFlow = netProfit; // Using net profit as cash flow for now
+  let totalGrossProfit = 0;
+  let totalItemsAmount = 0;
+
+  const calculateTrend = (values: number[]): number => {
+    if (values.length < 2) return 0;
+    const mid = Math.ceil(values.length / 2);
+    const recent = values.slice(0, mid).reduce((a, b) => a + b, 0);
+    const previous = values.slice(mid).reduce((a, b) => a + b, 0);
+
+    if (previous === 0) return recent > 0 ? 100 : 0;
+    return ((recent - previous) / previous) * 100;
+  };
+
+  const revenueValues: number[] = [];
+  const marginValues: number[] = [];
+  const paymentValues: number[] = [];
+
+  items.forEach((item: PendingRecord) => {
+    totalGrossProfit += item.grossProfit || 0;
+    totalItemsAmount += item.amount || 0;
+
+    revenueValues.push(item.amount);
+
+    const itemMargin = item.amount > 0 ? ((item.grossProfit) / item.amount) * 100 : 0;
+    marginValues.push(itemMargin);
+
+    paymentValues.push(item.paid);
+  });
+
+  const calculatedMargin = totalItemsAmount > 0 ? (totalGrossProfit / totalItemsAmount) * 100 : 20;
+  const averageMargin = calculatedMargin;
+
+  const netProfit = totalRevenue * (averageMargin / 100);
+  const cashFlow = resume?.totalPaid || 0;
+
+  const revenueTrend = calculateTrend(revenueValues);
+  const marginTrend = calculateTrend(marginValues);
+  const cashFlowTrend = calculateTrend(paymentValues);
 
   const kpis: KPI[] = [
     {
       title: "Proyectos Activos",
-      value: 1, // Always 1 project
+      value: activeProjectsList.length,
       change: 0,
       changeType: "neutral",
       icon: "Building2",
@@ -47,25 +115,25 @@ export function DashboardView() {
     },
     {
       title: "Ingresos Totales",
-      value: `USD $${(totalRevenue / 1000).toFixed(1)}K`,
-      change: 15.2, // Mock
-      changeType: "positive",
+      value: `USD $${(totalRevenue).toLocaleString('en-US')}`,
+      change: Number(revenueTrend.toFixed(1)),
+      changeType: revenueTrend >= 0 ? "positive" : "negative",
       icon: "TrendingUp",
       color: "success",
     },
     {
       title: "Margen Promedio",
       value: `${averageMargin.toFixed(1)}%`,
-      change: -2.1, // Mock
-      changeType: "negative",
+      change: Number(marginTrend.toFixed(1)),
+      changeType: marginTrend >= 0 ? "positive" : "negative",
       icon: "Percent",
       color: "warning",
     },
     {
       title: "Flujo de Caja",
-      value: `USD $${(cashFlow / 1000).toFixed(0)}K`,
-      change: 8.5, // Mock
-      changeType: "positive",
+      value: `USD $${(cashFlow).toLocaleString('en-US')}`,
+      change: Number(cashFlowTrend.toFixed(1)),
+      changeType: cashFlowTrend >= 0 ? "positive" : "negative",
       icon: "Wallet",
       color: "info",
     },
@@ -128,13 +196,13 @@ export function DashboardView() {
       <div className="grid grid-cols-1 gap-6">
         <BenefitsCard
           title="Análisis de Beneficios"
-          totalProjects={1}
+          totalProjects={activeProjectsList.length}
           totalRevenue={totalRevenue}
-          totalCosts={totalCosts}
+          totalCosts={totalRevenue - netProfit} // Costs derived from profit
           netProfit={netProfit}
           profitMargin={averageMargin}
-          targetMargin={20}
-          monthlyGrowth={8.5}
+          targetMargin={25} // Objetivo default
+          monthlyGrowth={8.5} // Mock
           projectedAnnualProfit={netProfit * 12}
         />
       </div>
@@ -146,17 +214,17 @@ export function DashboardView() {
             Proyectos Activos
           </h2>
           <p className="text-sm text-muted-foreground font-medium">
-            {activeProjects.length} proyectos en curso
+            {activeProjectsList.length} proyectos en curso
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.length > 0 ? (
-            projects.map((project) => (
+          {activeProjectsList.length > 0 ? (
+            activeProjectsList.map((project) => (
               <ProjectCard
                 key={project.id}
                 project={project}
-                onSelect={(p) => router.push(`/user/${p.ownerProfileId}`)}
+                onSelect={(p) => router.push(`/admin/projects/${p.id}`)}
               />
             ))
           ) : (

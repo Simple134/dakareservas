@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Filter,
@@ -13,7 +13,6 @@ import {
   TrendingUp,
   ShoppingCart,
   ArrowRight,
-  Calendar,
   CheckCircle,
   Clock,
   AlertCircle,
@@ -24,110 +23,138 @@ import {
   CustomBadge,
   CustomButton,
 } from "@/src/components/project/CustomCard";
+import type { GestionoInvoiceItem, GestionoInvoicesResponse, GestionoBeneficiary, GestionoDivision } from "@/src/types/gestiono";
+import { useGestiono } from "@/src/context/Gestiono";
 
-const mockInvoices = [
-  {
-    id: "1",
-    invoiceNumber: "FAC-001",
-    projectName: "Casa Kilma",
-    clientName: "Kilma Rodriguez",
-    date: "2024-03-15",
-    dueDate: "2024-04-15",
-    amount: 125000,
-    status: "paid",
-    type: "sale",
-    documentType: "invoice",
-  },
-  {
-    id: "2",
-    invoiceNumber: "OC-002",
-    projectName: "Consumo de DAKA",
-    supplierName: "Ferretería Central",
-    date: "2024-03-14",
-    dueDate: "2024-03-29",
-    amount: 45000,
-    status: "pending",
-    type: "purchase",
-    documentType: "order",
-  },
-  {
-    id: "3",
-    invoiceNumber: "FAC-003",
-    projectName: "Edificio Los Jardines",
-    clientName: "Inmobiliaria del Caribe",
-    date: "2024-03-10",
-    dueDate: "2024-04-10",
-    amount: 350000,
-    status: "overdue",
-    type: "sale",
-    documentType: "invoice",
-  },
-  {
-    id: "4",
-    invoiceNumber: "OC-004",
-    projectName: "Casa Kilma",
-    supplierName: "Cemex Dominicana",
-    date: "2024-03-12",
-    dueDate: "2024-03-27",
-    amount: 75000,
-    status: "pending",
-    type: "purchase",
-    documentType: "order",
-  },
-  {
-    id: "5",
-    invoiceNumber: "COT-001",
-    projectName: "Casa Kilma",
-    clientName: "Kilma Rodriguez",
-    date: "2024-03-08",
-    dueDate: "2024-03-23",
-    amount: 50000,
-    status: "pending",
-    type: "sale",
-    documentType: "quote",
-  },
-  {
-    id: "6",
-    invoiceNumber: "COT-002",
-    projectName: "Edificio Los Jardines",
-    supplierName: "Materiales del Este",
-    date: "2024-03-09",
-    dueDate: "2024-03-24",
-    amount: 85000,
-    status: "pending",
-    type: "purchase",
-    documentType: "quote",
-  },
-];
+// Tipo para factura en el componente
+interface InvoiceDisplay {
+  id: string;
+  invoiceNumber: string;
+  projectName: string;
+  clientName?: string;
+  supplierName?: string;
+  date: string;
+  dueDate: string;
+  amount: number;
+  status: string;
+  type: string;
+  documentType: string;
+}
 
-const mockPaymentPlans = [
-  {
-    id: "1",
-    plan_number: "PP-2025/2-819",
-    project_name: "Remodelación Oficinas Tech Solutions",
-    module_name: "A105",
-    total_amount: 3000000,
-    remaining_balance: 3000000,
-    installments_count: 12,
-    status: "active",
-    created_at: "2024-03-01",
-  },
-];
+// Mapear factura de Gestiono a formato del componente
+function mapGestionoToInvoice(
+  gestionoInvoice: GestionoInvoiceItem,
+  beneficiariesMap: Record<number, string> = {},
+  divisions: GestionoDivision[] = []
+): InvoiceDisplay {
+  // Mapear estado
+  const statusMap: Record<string, string> = {
+    'COMPLETED': 'paid',
+    'PENDING': 'pending',
+    'PAST_DUE': 'overdue',
+    'DRAFT': 'draft',
+  };
+
+  const beneficiaryName = beneficiariesMap[gestionoInvoice.beneficiaryId] || `Beneficiario ${gestionoInvoice.beneficiaryId}`;
+  const division = divisions.find(d => d.id === gestionoInvoice.divisionId);
+
+  return {
+    id: String(gestionoInvoice.id),
+    invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
+    projectName: division?.name || gestionoInvoice.description || 'Sin proyecto',
+    clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
+    supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
+    date: new Date(gestionoInvoice.date).toISOString().split('T')[0],
+    dueDate: gestionoInvoice.dueDate
+      ? new Date(gestionoInvoice.dueDate).toISOString().split('T')[0]
+      : new Date(gestionoInvoice.date).toISOString().split('T')[0],
+    amount: gestionoInvoice.amount,
+    status: statusMap[gestionoInvoice.state] || 'draft',
+    type: gestionoInvoice.isSell === 1 ? 'sale' : 'purchase',
+    documentType: 'invoice', // Gestiono solo devuelve INVOICE en este endpoint
+  };
+}
+
 
 export default function InvoicesPage() {
+  const { divisions, isLoading: isLoadingContext } = useGestiono();
+  const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
+  const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
+  const [isLoadingBeneficiaries, setIsLoadingBeneficiaries] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDocumentType, setSelectedDocumentType] = useState("all");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [beneficiariesMap, setBeneficiariesMap] = useState<Record<number, string>>({});
 
-  const filteredInvoices = mockInvoices.filter((invoice) => {
+  useEffect(() => {
+    const fetchBeneficiaries = async () => {
+      setIsLoadingBeneficiaries(true);
+      try {
+        const response = await fetch('/api/gestiono/beneficiaries');
+        if (response.ok) {
+          const beneficiaries: GestionoBeneficiary[] = await response.json();
+          const map: Record<number, string> = {};
+          beneficiaries.forEach(b => {
+            map[b.id] = b.name;
+          });
+          setBeneficiariesMap(map);
+        }
+      } catch (error) {
+        console.error('Error fetching beneficiaries:', error);
+      } finally {
+        setIsLoadingBeneficiaries(false);
+      }
+    };
+    fetchBeneficiaries();
+  }, []);
+
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      setIsLoadingInvoices(true);
+      try {
+        const response = await fetch(
+          `/api/gestiono/invoices?elementsPerPage=${itemsPerPage}&page=${currentPage}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: GestionoInvoicesResponse = await response.json();
+        setRawInvoices(data.items || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalItems(data.totalItems || 0);
+      } catch (error) {
+        console.error('❌ Error fetching invoices:', error);
+      } finally {
+        setIsLoadingInvoices(false);
+      }
+    };
+
+    fetchInvoices();
+  }, [currentPage, itemsPerPage]);
+
+  useEffect(() => {
+    const mapped = rawInvoices.map(item => mapGestionoToInvoice(item, beneficiariesMap, divisions));
+    setInvoices(mapped);
+  }, [rawInvoices, beneficiariesMap, divisions]);
+
+  const isLoading = isLoadingInvoices || isLoadingBeneficiaries || isLoadingContext;
+
+  const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.supplierName?.toLowerCase().includes(searchTerm.toLowerCase());
+      (invoice.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+      (invoice.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
 
     const matchesType = selectedType === "all" || invoice.type === selectedType;
     const matchesDocumentType =
@@ -140,15 +167,15 @@ export default function InvoicesPage() {
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  const totalSales = mockInvoices
+  const totalSales = invoices
     .filter((inv) => inv.type === "sale" && inv.status === "paid")
     .reduce((sum, inv) => sum + inv.amount, 0);
 
-  const totalPurchases = mockInvoices
+  const totalPurchases = invoices
     .filter((inv) => inv.type === "purchase" && inv.status === "paid")
     .reduce((sum, inv) => sum + inv.amount, 0);
 
-  const pendingInvoices = mockInvoices.filter(
+  const pendingInvoices = invoices.filter(
     (inv) => inv.status === "pending",
   ).length;
 
@@ -258,11 +285,6 @@ export default function InvoicesPage() {
                   <ShoppingCart className="w-4 h-4" />
                   Nueva Factura de Compra
                 </button>
-                <div className="border-t border-gray-200 my-1"></div>
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Nuevo Plan de Pago
-                </button>
               </div>
             </div>
           )}
@@ -277,7 +299,7 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-medium">Ventas Totales</h3>
             </div>
             <div className="text-2xl font-bold text-green-600">
-              RD$ {totalSales.toLocaleString()}
+              {isLoading ? <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" /> : `RD$ ${totalSales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </div>
             <p className="text-xs text-gray-600">Facturas de venta pagadas</p>
           </div>
@@ -289,7 +311,7 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-medium">Compras Totales</h3>
             </div>
             <div className="text-2xl font-bold text-red-600">
-              RD$ {totalPurchases.toLocaleString()}
+              {isLoading ? <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" /> : `RD$ ${totalPurchases.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             </div>
             <p className="text-xs text-gray-600">Facturas de compra pagadas</p>
           </div>
@@ -301,7 +323,7 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-medium">Pendientes</h3>
             </div>
             <div className="text-2xl font-bold text-yellow-600">
-              {pendingInvoices}
+              {isLoading ? <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" /> : pendingInvoices}
             </div>
             <p className="text-xs text-gray-600">Facturas por cobrar/pagar</p>
           </div>
@@ -405,14 +427,14 @@ export default function InvoicesPage() {
                   onChange={(e) => setSelectedType(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">Todas ({mockInvoices.length})</option>
+                  <option value="all">Todas ({invoices.length})</option>
                   <option value="sale">
                     Ventas (
-                    {mockInvoices.filter((i) => i.type === "sale").length})
+                    {invoices.filter((i) => i.type === "sale").length})
                   </option>
                   <option value="purchase">
                     Compras (
-                    {mockInvoices.filter((i) => i.type === "purchase").length})
+                    {invoices.filter((i) => i.type === "purchase").length})
                   </option>
                 </select>
               </div>
@@ -427,11 +449,11 @@ export default function InvoicesPage() {
                   onChange={(e) => setSelectedDocumentType(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">Todos ({mockInvoices.length})</option>
+                  <option value="all">Todos ({invoices.length})</option>
                   <option value="quote">
                     Cotizaciones (
                     {
-                      mockInvoices.filter((i) => i.documentType === "quote")
+                      invoices.filter((i) => i.documentType === "quote")
                         .length
                     }
                     )
@@ -439,7 +461,7 @@ export default function InvoicesPage() {
                   <option value="order">
                     Órdenes (
                     {
-                      mockInvoices.filter((i) => i.documentType === "order")
+                      invoices.filter((i) => i.documentType === "order")
                         .length
                     }
                     )
@@ -447,13 +469,10 @@ export default function InvoicesPage() {
                   <option value="invoice">
                     Facturas (
                     {
-                      mockInvoices.filter((i) => i.documentType === "invoice")
+                      invoices.filter((i) => i.documentType === "invoice")
                         .length
                     }
                     )
-                  </option>
-                  <option value="paymentPlan">
-                    Planes de Pago ({mockPaymentPlans.length})
                   </option>
                 </select>
               </div>
@@ -471,7 +490,7 @@ export default function InvoicesPage() {
                   >
                     <CheckCircle className="w-4 h-4" />
                     Pagada (
-                    {mockInvoices.filter((i) => i.status === "paid").length})
+                    {invoices.filter((i) => i.status === "paid").length})
                   </button>
                   <button
                     onClick={() => toggleStatus("pending")}
@@ -479,7 +498,7 @@ export default function InvoicesPage() {
                   >
                     <Clock className="w-4 h-4" />
                     Pendiente (
-                    {mockInvoices.filter((i) => i.status === "pending").length})
+                    {invoices.filter((i) => i.status === "pending").length})
                   </button>
                   <button
                     onClick={() => toggleStatus("overdue")}
@@ -487,7 +506,7 @@ export default function InvoicesPage() {
                   >
                     <AlertCircle className="w-4 h-4" />
                     Vencida (
-                    {mockInvoices.filter((i) => i.status === "overdue").length})
+                    {invoices.filter((i) => i.status === "overdue").length})
                   </button>
                   <button
                     onClick={() => toggleStatus("draft")}
@@ -495,7 +514,7 @@ export default function InvoicesPage() {
                   >
                     <XCircle className="w-4 h-4" />
                     Borrador (
-                    {mockInvoices.filter((i) => i.status === "draft").length})
+                    {invoices.filter((i) => i.status === "draft").length})
                   </button>
                 </div>
               </div>
@@ -556,206 +575,192 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map((invoice) => {
-                  const statusBadge = getStatusBadge(invoice.status);
-                  const typeBadge = getTypeBadge(
-                    invoice.type,
-                    invoice.documentType,
-                  );
-                  const canConvert =
-                    invoice.documentType === "quote" ||
-                    invoice.documentType === "order";
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 animate-pulse">
+                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-6 w-20 bg-gray-200 rounded-full" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-32 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-40 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-4 w-20 bg-gray-200 rounded" /></td>
+                      <td className="py-3 px-4"><div className="h-6 w-24 bg-gray-200 rounded-full" /></td>
+                      <td className="py-3 px-4"><div className="h-8 w-24 bg-gray-200 rounded" /></td>
+                    </tr>
+                  ))
+                ) : filteredInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-gray-500">
+                      No se encontraron facturas matching
+                    </td>
+                  </tr>
+                ) : (
+                  filteredInvoices.map((invoice) => {
+                    const statusBadge = getStatusBadge(invoice.status);
+                    const typeBadge = getTypeBadge(
+                      invoice.type,
+                      invoice.documentType,
+                    );
+                    const canConvert =
+                      invoice.documentType === "quote" ||
+                      invoice.documentType === "order";
 
-                  return (
-                    <tr
-                      key={invoice.id}
-                      className="border-b border-gray-100 hover:bg-gray-50"
-                    >
-                      <td className="py-3 px-4 font-medium text-sm">
-                        {invoice.invoiceNumber}
-                      </td>
-                      <td className="py-3 px-4">
-                        <CustomBadge className={typeBadge.className}>
-                          {typeBadge.label}
-                        </CustomBadge>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {invoice.projectName}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        {invoice.clientName || invoice.supplierName}
-                      </td>
-                      <td className="py-3 px-4 text-sm">{invoice.date}</td>
-                      <td className="py-3 px-4 text-sm">{invoice.dueDate}</td>
-                      <td
-                        className={`py-3 px-4 text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                    return (
+                      <tr
+                        key={invoice.id}
+                        className="border-b border-gray-100 hover:bg-gray-50"
                       >
-                        {invoice.type === "sale" ? "+" : "-"}RD${" "}
-                        {invoice.amount.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <CustomBadge className={statusBadge.className}>
-                          {statusBadge.label}
-                        </CustomBadge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1">
-                          <button
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Ver"
-                          >
-                            <Eye className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <button
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4 text-gray-600" />
-                          </button>
-                          {canConvert && (
+                        <td className="py-3 px-4 font-medium text-sm">
+                          {invoice.invoiceNumber}
+                        </td>
+                        <td className="py-3 px-4">
+                          <CustomBadge className={typeBadge.className}>
+                            {typeBadge.label}
+                          </CustomBadge>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {invoice.projectName}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {invoice.clientName || invoice.supplierName}
+                        </td>
+                        <td className="py-3 px-4 text-sm">{invoice.date}</td>
+                        <td className="py-3 px-4 text-sm">{invoice.dueDate}</td>
+                        <td
+                          className={`py-3 px-4 text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {invoice.type === "sale" ? "+" : "-"}RD${" "}
+                          {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4">
+                          <CustomBadge className={statusBadge.className}>
+                            {statusBadge.label}
+                          </CustomBadge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1">
                             <button
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Convertir a Factura"
+                              title="Ver"
                             >
-                              <ArrowRight className="w-4 h-4 text-gray-600" />
+                              <Eye className="w-4 h-4 text-gray-600" />
                             </button>
-                          )}
-                          <button
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Descargar"
-                          >
-                            <Download className="w-4 h-4 text-gray-600" />
-                          </button>
-                          <button
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4 text-red-600" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <button
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4 text-gray-600" />
+                            </button>
+                            {canConvert && (
+                              <button
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Convertir a Factura"
+                              >
+                                <ArrowRight className="w-4 h-4 text-gray-600" />
+                              </button>
+                            )}
+                            <button
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Descargar"
+                            >
+                              <Download className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      </CustomCard>
 
-      {/* Payment Plans Section */}
-      {(selectedDocumentType === "all" ||
-        selectedDocumentType === "paymentPlan") &&
-        mockPaymentPlans.length > 0 && (
-          <CustomCard>
-            <div className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Calendar className="h-5 w-5" />
-                <h2 className="text-xl font-semibold">Planes de Pago</h2>
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+              <div className="text-sm text-gray-600">
+                Mostrando{" "}
+                <span className="font-medium">
+                  {(currentPage - 1) * itemsPerPage + 1}
+                </span>{" "}
+                -{" "}
+                <span className="font-medium">
+                  {Math.min(currentPage * itemsPerPage, totalItems)}
+                </span>{" "}
+                de <span className="font-medium">{totalItems}</span> facturas
               </div>
-              <p className="text-sm text-gray-600 mb-4">
-                {mockPaymentPlans.length} planes de pago
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Número
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Proyecto
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Módulo
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Monto Total
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Balance
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Progreso
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Estado
-                      </th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mockPaymentPlans.map((plan) => {
-                      const paidAmount =
-                        plan.total_amount - plan.remaining_balance;
-                      const progress = (paidAmount / plan.total_amount) * 100;
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1 || isLoading}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === 1 || isLoading
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                >
+                  Anterior
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((page) => {
+                      // Mostrar primera, última, actual y adyacentes
+                      return (
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - currentPage) <= 1
+                      );
+                    })
+                    .map((page, idx, arr) => {
+                      // Agregar ellipsis si hay saltos
+                      const showEllipsisBefore =
+                        idx > 0 && page - arr[idx - 1] > 1;
 
                       return (
-                        <tr
-                          key={plan.id}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          <td className="py-3 px-4 font-medium text-sm">
-                            {plan.plan_number}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {plan.project_name}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            {plan.module_name}
-                          </td>
-                          <td className="py-3 px-4 text-sm">
-                            RD$ {plan.total_amount.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4 text-sm text-red-600">
-                            RD$ {plan.remaining_balance.toLocaleString()}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div
-                              className="space-y-1"
-                              style={{ width: "128px" }}
-                            >
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-blue-600 h-2 rounded-full transition-all"
-                                  style={{ width: `${progress}%` }}
-                                ></div>
-                              </div>
-                              <span className="text-xs text-gray-600">
-                                {progress.toFixed(0)}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <CustomBadge
-                              className={
-                                plan.status === "completed"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-blue-100 text-blue-800"
-                              }
-                            >
-                              {plan.status === "completed"
-                                ? "Completado"
-                                : "Activo"}
-                            </CustomBadge>
-                          </td>
-                          <td className="py-3 px-4">
-                            <button className="flex items-center gap-1 px-3 py-1 text-sm hover:bg-gray-100 rounded-lg transition-colors">
-                              <Eye className="w-4 h-4" />
-                              Ver
-                            </button>
-                          </td>
-                        </tr>
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsisBefore && (
+                            <span className="px-2 text-gray-400">...</span>
+                          )}
+                          <button
+                            onClick={() => setCurrentPage(page)}
+                            disabled={isLoading}
+                            className={`px-3 py-1 text-sm rounded transition-colors ${page === currentPage
+                              ? "bg-blue-600 text-white border border-blue-600"
+                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                              } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
+                          >
+                            {page}
+                          </button>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
+                </div>
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages || isLoading}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === totalPages || isLoading
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                >
+                  Siguiente
+                </button>
               </div>
             </div>
-          </CustomCard>
-        )}
+          )}
+        </div>
+      </CustomCard>
     </div>
   );
 }

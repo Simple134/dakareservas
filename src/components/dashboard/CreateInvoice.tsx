@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Plus,
   Trash2,
@@ -8,60 +10,15 @@ import {
   Building2,
   TrendingUp,
   X,
-  User,
 } from "lucide-react";
-import { supabase } from "@/src/lib/supabase/client";
-
-interface InvoiceItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  category: "materials" | "labor" | "equipment" | "services" | "other";
-}
-
-interface Client {
-  id: string;
-  type: "fisica" | "juridica";
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-}
-
-interface Invoice {
-  documentType: string;
-  transactionType: string;
-  invoiceNumber: string;
-  invoiceDate: string;
-  dueDate: string;
-  selectedProjectId: string;
-  clientId: string;
-  clientName: string;
-  clientPhone: string;
-  clientEmail: string;
-  clientAddress: string;
-  tax: number;
-  discount: number;
-  paymentMethod: string;
-  notes: string;
-  items: InvoiceItem[];
-  subtotal: number;
-  totalAmount: number;
-  status: string;
-}
-
-interface CreateInvoiceDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  projectId?: string;
-  projectName?: string;
-  clientName?: string;
-  documentType?: "quote" | "order" | "invoice";
-  transactionType?: "sale" | "purchase";
-  onCreateInvoice?: (invoice: Invoice) => void;
-}
+import {
+  invoiceFormSchema,
+  type InvoiceFormData,
+  type Invoice,
+  type CreateInvoiceDialogProps,
+} from "@/src/types/invoice";
+import { useGestiono } from "@/src/context/Gestiono";
+import { GestionoBeneficiary } from "@/src/types/gestiono";
 
 export function CreateInvoiceDialog({
   isOpen,
@@ -72,174 +29,165 @@ export function CreateInvoiceDialog({
   transactionType = "sale",
   onCreateInvoice,
 }: CreateInvoiceDialogProps) {
-  // Form State
-  const [formData, setFormData] = useState({
-    documentType: documentType,
-    transactionType: transactionType,
-    invoiceNumber: `FAC-V-${Date.now()}`,
-    invoiceDate: new Date().toISOString().split("T")[0],
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0],
-    selectedProjectId: projectId || "daka-consumption",
-    clientId: "",
-    clientName: clientName || "",
-    clientPhone: "",
-    clientEmail: "",
-    clientAddress: "",
-    tax: 18,
-    discount: 0,
-    paymentMethod: "",
-    notes: "",
+  // Gestiono integration states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [gestionoBeneficiaries, setGestionoBeneficiaries] = useState<GestionoBeneficiary[]>([]);
+  // Usar el contexto global para las divisiones
+  const { divisions: gestionoDivisions } = useGestiono();
+  const [selectedDivisionId, setSelectedDivisionId] = useState<number>(183); // División por defecto
+
+  // Initialize useForm with default values
+  const {
+    register,
+    handleSubmit,
+    control,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<InvoiceFormData>({
+    resolver: zodResolver(invoiceFormSchema),
+    defaultValues: {
+      documentType: documentType,
+      transactionType: transactionType,
+      invoiceNumber: `FAC-V-${Date.now()}`,
+      invoiceDate: new Date().toISOString().split("T")[0],
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      selectedProjectId: projectId || "daka-consumption",
+      clientId: "",
+      clientName: clientName || "",
+      clientPhone: "",
+      clientEmail: "",
+      clientAddress: "",
+      tax: 18,
+      discount: 0,
+      paymentMethod: "",
+      notes: "",
+      items: [
+        {
+          id: "1",
+          description: "",
+          quantity: 1,
+          unitPrice: 0,
+          totalPrice: 0,
+          category: "materials",
+        },
+      ],
+    },
   });
 
-  const [items, setItems] = useState<InvoiceItem[]>([
-    {
-      id: "1",
+  // useFieldArray for dynamic items
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "items",
+  });
+
+  const watchItems = watch("items");
+  const watchTax = watch("tax");
+  const watchDiscount = watch("discount");
+
+  // Fetch Gestiono Beneficiaries
+  useEffect(() => {
+    const fetchGestionoBeneficiaries = async () => {
+      if (!isOpen) return;
+
+      try {
+        console.log('🔄 Obteniendo beneficiarios de Gestiono...');
+        const params = new URLSearchParams({
+          withContacts: 'true',
+          withTaxData: 'false',
+        });
+
+        const response = await fetch(`/api/gestiono/beneficiaries?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        console.log('✅ Beneficiarios de Gestiono:', data);
+        setGestionoBeneficiaries(data || []);
+      } catch (error) {
+        console.error('❌ Error obteniendo beneficiarios:', error);
+      }
+    };
+
+    fetchGestionoBeneficiaries();
+  }, [isOpen]);
+
+  console.log('Gestiono Beneficiaries:', gestionoBeneficiaries);
+
+  useEffect(() => {
+    if (isOpen && gestionoDivisions.length > 0) {
+      setSelectedDivisionId(gestionoDivisions[0].id);
+      console.log(`🏢 División seleccionada desde contexto: ${gestionoDivisions[0].name} (ID: ${gestionoDivisions[0].id})`);
+    }
+  }, [isOpen, gestionoDivisions]);
+
+  const subtotal = watchItems.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0,
+  );
+  const taxAmount = (subtotal * watchTax) / 100;
+  const discountAmount = (subtotal * watchDiscount) / 100;
+  const total = subtotal + taxAmount - discountAmount;
+
+  useEffect(() => {
+    watchItems.forEach((item, index) => {
+      const totalPrice = item.quantity * item.unitPrice;
+      if (item.totalPrice !== totalPrice) {
+        setValue(`items.${index}.totalPrice`, totalPrice);
+      }
+    });
+  }, [watchItems, setValue]);
+
+  const addItem = () => {
+    append({
+      id: Date.now().toString(),
       description: "",
       quantity: 1,
       unitPrice: 0,
       totalPrice: 0,
       category: "materials",
-    },
-  ]);
-
-  const [clients, setClients] = useState<Client[]>([]);
-  const [clientFilter, setClientFilter] = useState<
-    "all" | "fisica" | "juridica"
-  >("all");
-  const [isLoadingClients, setIsLoadingClients] = useState(false);
-
-  useEffect(() => {
-    const fetchClients = async () => {
-      setIsLoadingClients(true);
-      try {
-        const { data: personasFisicas, error: errorFisicas } = await supabase
-          .from("persona_fisica")
-          .select(
-            "id, first_name, last_name, email, phone, address_street, address_sector, address_province",
-          );
-
-        const { data: personasJuridicas, error: errorJuridicas } =
-          await supabase
-            .from("persona_juridica")
-            .select(
-              "id, company_name, email, phone, company_address_street, company_address_sector, company_address_province",
-            );
-
-        if (errorFisicas)
-          console.error("Error fetching personas físicas:", errorFisicas);
-        if (errorJuridicas)
-          console.error("Error fetching personas jurídicas:", errorJuridicas);
-
-        const formattedFisicas = (personasFisicas || []).map((pf) => ({
-          id: pf.id,
-          type: "fisica" as const,
-          name: `${pf.first_name || ""} ${pf.last_name || ""}`.trim(),
-          email: pf.email || "",
-          phone: pf.phone || "",
-          address: [pf.address_street, pf.address_sector, pf.address_province]
-            .filter(Boolean)
-            .join(", "),
-        }));
-
-        const formattedJuridicas = (personasJuridicas || []).map((pj) => ({
-          id: pj.id,
-          type: "juridica" as const,
-          name: pj.company_name || "",
-          email: pj.email || "",
-          phone: pj.phone || "",
-          address: [
-            pj.company_address_street,
-            pj.company_address_sector,
-            pj.company_address_province,
-          ]
-            .filter(Boolean)
-            .join(", "),
-        }));
-
-        setClients([...formattedFisicas, ...formattedJuridicas]);
-      } catch (error) {
-        console.error("Error loading clients:", error);
-      } finally {
-        setIsLoadingClients(false);
-      }
-    };
-
-    if (isOpen) {
-      fetchClients();
-    }
-  }, [isOpen]);
-
-  // Calculations
-  const subtotal = items.reduce(
-    (sum, item) => sum + item.quantity * item.unitPrice,
-    0,
-  );
-  const taxAmount = (subtotal * formData.tax) / 100;
-  const discountAmount = (subtotal * formData.discount) / 100;
-  const total = subtotal + taxAmount - discountAmount;
-
-  const handleInputChange = (field: string, value: string | number) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleItemChange = (
-    index: number,
-    field: keyof InvoiceItem,
-    value: string | number,
-  ) => {
-    const updatedItems = [...items];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-
-    if (field === "quantity" || field === "unitPrice") {
-      updatedItems[index].totalPrice =
-        updatedItems[index].quantity * updatedItems[index].unitPrice;
-    }
-
-    setItems(updatedItems);
-  };
-
-  const addItem = () => {
-    setItems([
-      ...items,
-      {
-        id: Date.now().toString(),
-        description: "",
-        quantity: 1,
-        unitPrice: 0,
-        totalPrice: 0,
-        category: "materials",
-      },
-    ]);
+    });
   };
 
   const removeItem = (index: number) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index));
+    if (fields.length > 1) {
+      remove(index);
     }
   };
 
   const handleClientSelect = (clientId: string) => {
-    const selectedClient = clients.find((c) => c.id === clientId);
-    if (selectedClient) {
-      setFormData((prev) => ({
-        ...prev,
-        clientId,
-        clientName: selectedClient.name,
-        clientPhone: selectedClient.phone,
-        clientEmail: selectedClient.email,
-        clientAddress: selectedClient.address,
-      }));
+    const selectedBeneficiary = gestionoBeneficiaries.find(
+      (b) => String(b.id) === clientId
+    );
+    if (selectedBeneficiary) {
+      const phone = selectedBeneficiary.contacts?.find((c) => c.type === 'phone')?.data || '';
+      const email = selectedBeneficiary.contacts?.find((c) => c.type === 'email')?.data || '';
+      const address = selectedBeneficiary.contacts?.find((c) => c.type === 'address')?.data || '';
+
+      setValue("clientId", clientId);
+      setValue("clientName", selectedBeneficiary.name);
+      setValue("clientPhone", phone);
+      setValue("clientEmail", email);
+      setValue("clientAddress", address);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: InvoiceFormData) => {
+    // Reset states
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    setIsSubmitting(true);
 
-    const invoice = {
-      ...formData,
-      items,
+    // Create local invoice object
+    const invoice: Invoice = {
+      ...data,
       subtotal,
       tax: taxAmount,
       discount: discountAmount,
@@ -247,8 +195,106 @@ export function CreateInvoiceDialog({
       status: "draft",
     };
 
-    onCreateInvoice?.(invoice);
-    onClose();
+    try {
+      console.log('📤 Enviando factura a Gestiono...');
+
+      // Preparar datos para enviar al API route
+      const invoiceData = {
+        documentType: data.documentType,
+        transactionType: data.transactionType,
+        invoiceNumber: data.invoiceNumber,
+        invoiceDate: data.invoiceDate,
+        dueDate: data.dueDate,
+        clientId: data.clientId,
+        clientName: data.clientName,
+        clientEmail: data.clientEmail,
+        clientPhone: data.clientPhone,
+        clientAddress: data.clientAddress,
+        divisionId: selectedDivisionId, // División seleccionada
+        items: data.items,
+        tax: taxAmount,
+        discount: discountAmount,
+        subtotal,
+        totalAmount: total,
+        paymentMethod: data.paymentMethod,
+        notes: data.notes,
+        selectedProjectId: data.selectedProjectId,
+        currency: "DOP" as const,
+      };
+
+      // Llamar a la API Route (servidor)
+      const response = await fetch('/api/gestiono/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invoiceData),
+      });
+
+      const result = await response.json();
+
+      // Si Gestiono no está configurado, continuar sin integración
+      if (!result.configured) {
+        console.warn('⚠️ Gestiono no está configurado:', result.details);
+        onCreateInvoice?.(invoice);
+        onClose();
+        return;
+      }
+
+      // Si hubo error en la API
+      if (!result.success) {
+        throw new Error(result.error || 'Error al crear factura');
+      }
+
+      console.log('✅ Factura creada en Gestiono:', {
+        id: result.invoice.id,
+        number: result.invoice.invoiceNumber,
+        pdfUrl: result.invoice.pdfUrl,
+      });
+
+      // Add Gestiono data to invoice
+      const enhancedInvoice = {
+        ...invoice,
+        gestionoId: result.invoice.id,
+        pdfUrl: result.invoice.pdfUrl,
+        xmlUrl: result.invoice.xmlUrl,
+      };
+
+      // Show success
+      setSubmitSuccess(true);
+
+      // Call callback with enhanced invoice
+      onCreateInvoice?.(enhancedInvoice);
+
+      // Close dialog after brief delay to show success message
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+
+    } catch (error: any) {
+      console.error('❌ Error creando factura:', error);
+      console.error('📋 Error completo:', JSON.stringify(error, null, 2));
+
+      // Handle specific errors
+      let errorMessage = 'Error al crear factura';
+
+      if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // If it's a response error, try to get more details
+      if (error.response) {
+        console.error('📡 Response error:', error.response);
+      }
+
+      setSubmitError(errorMessage);
+
+      // Still save locally even if Gestiono fails
+      onCreateInvoice?.(invoice);
+
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -275,7 +321,37 @@ export function CreateInvoiceDialog({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Error Message */}
+        {submitError && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-red-600 text-xl">❌</span>
+              <div>
+                <p className="text-sm font-medium text-red-800">Error</p>
+                <p className="text-sm text-red-600 mt-1">{submitError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Success Message */}
+        {submitSuccess && (
+          <div className="mx-6 mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-green-600 text-xl">✅</span>
+              <div>
+                <p className="text-sm font-medium text-green-800">
+                  ¡Factura creada exitosamente!
+                </p>
+                <p className="text-sm text-green-600 mt-1">
+                  La factura se ha registrado en Gestiono correctamente.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
           {/* Configuración del Documento */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -288,16 +364,18 @@ export function CreateInvoiceDialog({
                   Tipo de Documento
                 </label>
                 <select
-                  value={formData.documentType}
-                  onChange={(e) =>
-                    handleInputChange("documentType", e.target.value)
-                  }
+                  {...register("documentType")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="quote">Cotización</option>
                   <option value="order">Orden</option>
                   <option value="invoice">Factura</option>
                 </select>
+                {errors.documentType && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.documentType.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -305,15 +383,17 @@ export function CreateInvoiceDialog({
                   Tipo de Transacción
                 </label>
                 <select
-                  value={formData.transactionType}
-                  onChange={(e) =>
-                    handleInputChange("transactionType", e.target.value)
-                  }
+                  {...register("transactionType")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="sale">Venta</option>
                   <option value="purchase">Compra</option>
                 </select>
+                {errors.transactionType && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.transactionType.message}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -324,12 +404,14 @@ export function CreateInvoiceDialog({
                 </label>
                 <input
                   type="text"
-                  value={formData.invoiceNumber}
-                  onChange={(e) =>
-                    handleInputChange("invoiceNumber", e.target.value)
-                  }
+                  {...register("invoiceNumber")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                {errors.invoiceNumber && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.invoiceNumber.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -338,12 +420,14 @@ export function CreateInvoiceDialog({
                 </label>
                 <input
                   type="date"
-                  value={formData.invoiceDate}
-                  onChange={(e) =>
-                    handleInputChange("invoiceDate", e.target.value)
-                  }
+                  {...register("invoiceDate")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                {errors.invoiceDate && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.invoiceDate.message}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -352,10 +436,14 @@ export function CreateInvoiceDialog({
                 </label>
                 <input
                   type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => handleInputChange("dueDate", e.target.value)}
+                  {...register("dueDate")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                {errors.dueDate && (
+                  <p className="text-red-500 text-xs mt-1">
+                    {errors.dueDate.message}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -374,31 +462,38 @@ export function CreateInvoiceDialog({
                 Proyecto
               </label>
               <select
-                value={formData.selectedProjectId}
-                onChange={(e) =>
-                  handleInputChange("selectedProjectId", e.target.value)
-                }
+                {...register("selectedProjectId")}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedDivisionId(Number(val));
+                  setValue("selectedProjectId", val);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="daka-consumption">
-                  Consumo de DAKA (Gastos Generales)
-                </option>
-                <option value="project-1">Proyecto Daka 2</option>
+                {gestionoDivisions.length === 0 && (
+                  <option value="">Cargando proyectos...</option>
+                )}
+                {gestionoDivisions.map((division) => (
+                  <option key={division.id} value={division.id}>
+                    {division.name}
+                  </option>
+                ))}
               </select>
+              {errors.selectedProjectId && (
+                <p className="text-red-500 text-xs mt-1">
+                  {errors.selectedProjectId.message}
+                </p>
+              )}
             </div>
 
-            {formData.selectedProjectId === "daka-consumption" && (
-              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <p className="text-sm font-medium text-orange-900">
-                  Consumo DAKA
-                </p>
-                <p className="text-xs text-orange-700 mt-0.5">
-                  Esta factura será asignada a gastos generales de la empresa
-                </p>
-              </div>
-            )}
+            <div className="bg-blue-50 text-center mt-2 rounded-lg pt-1">
+              <p className="text-sm font-bold text-blue-900">
+                Proyecto Seleccionado: {gestionoDivisions.find(d => d.id === selectedDivisionId)?.name || 'N/A'}
+              </p>
+            </div>
           </div>
 
+          {/* Información del Cliente */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               Información del Cliente
@@ -407,90 +502,37 @@ export function CreateInvoiceDialog({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Tipo de Cliente
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    style={{ borderRadius: "50px" }}
-                    onClick={() => setClientFilter("all")}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
-                      clientFilter === "all"
-                        ? "bg-blue-600 text-white font-bold"
-                        : "bg-gray-100 hover:bg-gray-200"
-                    }`}
-                  >
-                    <span
-                      className={`${clientFilter === "all" ? "font-bold" : ""}`}
-                    >
-                      Todos
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setClientFilter("fisica")}
-                    style={{ borderRadius: "50px" }}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                      clientFilter === "fisica"
-                        ? "bg-blue-600 text-white font-bold"
-                        : "bg-gray-100 hover:bg-gray-200"
-                    }`}
-                  >
-                    <User className="w-4 h-4" />
-                    <span
-                      className={`${clientFilter === "fisica" ? "font-bold" : ""}`}
-                    >
-                      Persona Física
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setClientFilter("juridica")}
-                    style={{ borderRadius: "50px" }}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                      clientFilter === "juridica"
-                        ? "bg-blue-600 text-white font-bold"
-                        : "bg-gray-100 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Building2 className="w-4 h-4" />
-                    <span
-                      className={`${clientFilter === "juridica" ? "font-bold" : ""}`}
-                    >
-                      Persona Jurídica
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Cliente
                 </label>
                 <select
-                  value={formData.clientId}
+                  {...register("clientId")}
                   onChange={(e) => handleClientSelect(e.target.value)}
-                  disabled={isLoadingClients}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-                  <option value="">
-                    {isLoadingClients
-                      ? "Cargando clientes..."
-                      : "Seleccionar cliente"}
-                  </option>
-                  {clients
-                    .filter(
-                      (client) =>
-                        clientFilter === "all" || client.type === clientFilter,
-                    )
-                    .map((client) => (
+
+                  {/* Beneficiarios de Gestiono (TODOS los tipos) */}
+                  {gestionoBeneficiaries.map((beneficiary) => {
+                    // Icono según tipo
+                    const iconMap: Record<string, string> = {
+                      'CLIENT': '🌐',
+                      'PROVIDER': '📦',
+                      'SELLER': '💼',
+                      'ORGANIZATION': '🏢',
+                      'BOTH': '🔄',
+                      'EMPLOYEE': '👨‍💼',
+                      'OTHER': '📋'
+                    };
+                    const icon = iconMap[beneficiary.type] || '📋';
+
+                    return (
                       <option
-                        key={`${client.type}-${client.id}`}
-                        value={client.id}
+                        key={`gestiono-${beneficiary.id}`}
+                        value={String(beneficiary.id)}
                       >
-                        {client.type === "fisica" ? "👤" : "🏢"} {client.name}
+                        {icon} {beneficiary.name} {beneficiary.taxId ? `(${beneficiary.taxId})` : ''} - {beneficiary.type}
                       </option>
-                    ))}
+                    );
+                  })}
                 </select>
               </div>
 
@@ -501,12 +543,14 @@ export function CreateInvoiceDialog({
                   </label>
                   <input
                     type="text"
-                    value={formData.clientName}
-                    onChange={(e) =>
-                      handleInputChange("clientName", e.target.value)
-                    }
+                    {...register("clientName")}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {errors.clientName && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.clientName.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -515,13 +559,15 @@ export function CreateInvoiceDialog({
                   </label>
                   <input
                     type="text"
-                    value={formData.clientPhone}
-                    onChange={(e) =>
-                      handleInputChange("clientPhone", e.target.value)
-                    }
+                    {...register("clientPhone")}
                     placeholder="(809) 000-0000"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {errors.clientPhone && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.clientPhone.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -530,12 +576,14 @@ export function CreateInvoiceDialog({
                   </label>
                   <input
                     type="email"
-                    value={formData.clientEmail}
-                    onChange={(e) =>
-                      handleInputChange("clientEmail", e.target.value)
-                    }
+                    {...register("clientEmail")}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  {errors.clientEmail && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.clientEmail.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -543,18 +591,21 @@ export function CreateInvoiceDialog({
                     Dirección
                   </label>
                   <textarea
-                    value={formData.clientAddress}
-                    onChange={(e) =>
-                      handleInputChange("clientAddress", e.target.value)
-                    }
+                    {...register("clientAddress")}
                     rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
+                  {errors.clientAddress && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.clientAddress.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Items de la Factura */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
@@ -581,29 +632,28 @@ export function CreateInvoiceDialog({
                 <div className="col-span-1"></div>
               </div>
 
-              {items.map((item, index) => (
+              {fields.map((field, index) => (
                 <div
-                  key={item.id}
+                  key={field.id}
                   className="grid grid-cols-12 gap-2 items-center"
                 >
                   <div className="col-span-4">
                     <input
                       type="text"
-                      value={item.description}
-                      onChange={(e) =>
-                        handleItemChange(index, "description", e.target.value)
-                      }
+                      {...register(`items.${index}.description`)}
                       placeholder="Descripción del item"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
+                    {errors.items?.[index]?.description && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.items[index]?.description?.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-2">
                     <select
-                      value={item.category}
-                      onChange={(e) =>
-                        handleItemChange(index, "category", e.target.value)
-                      }
+                      {...register(`items.${index}.category`)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     >
                       <option value="materials">Materiales</option>
@@ -619,16 +669,16 @@ export function CreateInvoiceDialog({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={item.quantity}
-                      onChange={(e) =>
-                        handleItemChange(
-                          index,
-                          "quantity",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
+                      {...register(`items.${index}.quantity`, {
+                        valueAsNumber: true,
+                      })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
+                    {errors.items?.[index]?.quantity && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.items[index]?.quantity?.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-2">
@@ -636,22 +686,25 @@ export function CreateInvoiceDialog({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={item.unitPrice}
-                      onChange={(e) =>
-                        handleItemChange(
-                          index,
-                          "unitPrice",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
+                      {...register(`items.${index}.unitPrice`, {
+                        valueAsNumber: true,
+                      })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     />
+                    {errors.items?.[index]?.unitPrice && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.items[index]?.unitPrice?.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-2">
                     <input
                       type="text"
-                      value={(item.quantity * item.unitPrice).toFixed(2)}
+                      value={(
+                        (watchItems[index]?.quantity || 0) *
+                        (watchItems[index]?.unitPrice || 0)
+                      ).toFixed(2)}
                       disabled
                       className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-600"
                     />
@@ -661,7 +714,7 @@ export function CreateInvoiceDialog({
                     <button
                       type="button"
                       onClick={() => removeItem(index)}
-                      disabled={items.length === 1}
+                      disabled={fields.length === 1}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -670,9 +723,15 @@ export function CreateInvoiceDialog({
                 </div>
               ))}
             </div>
+            {errors.items && (
+              <p className="text-red-500 text-xs mt-2">
+                {errors.items.message}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Configuración */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Configuración
@@ -689,15 +748,14 @@ export function CreateInvoiceDialog({
                       min="0"
                       max="100"
                       step="0.01"
-                      value={formData.tax}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "tax",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
+                      {...register("tax", { valueAsNumber: true })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                    {errors.tax && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.tax.message}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -709,15 +767,14 @@ export function CreateInvoiceDialog({
                       min="0"
                       max="100"
                       step="0.01"
-                      value={formData.discount}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "discount",
-                          parseFloat(e.target.value) || 0,
-                        )
-                      }
+                      {...register("discount", { valueAsNumber: true })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
+                    {errors.discount && (
+                      <p className="text-red-500 text-xs mt-1">
+                        {errors.discount.message}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -726,10 +783,7 @@ export function CreateInvoiceDialog({
                     Método de Pago
                   </label>
                   <select
-                    value={formData.paymentMethod}
-                    onChange={(e) =>
-                      handleInputChange("paymentMethod", e.target.value)
-                    }
+                    {...register("paymentMethod")}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Seleccionar método de pago</option>
@@ -739,6 +793,11 @@ export function CreateInvoiceDialog({
                     <option value="card">Tarjeta</option>
                     <option value="credit">Crédito</option>
                   </select>
+                  {errors.paymentMethod && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.paymentMethod.message}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -746,16 +805,21 @@ export function CreateInvoiceDialog({
                     Notas
                   </label>
                   <textarea
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange("notes", e.target.value)}
+                    {...register("notes")}
                     rows={3}
                     placeholder="Notas adicionales..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
+                  {errors.notes && (
+                    <p className="text-red-500 text-xs mt-1">
+                      {errors.notes.message}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
+            {/* Resumen de Totales */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Calculator className="w-5 h-5 text-gray-700" />
@@ -778,7 +842,7 @@ export function CreateInvoiceDialog({
 
                 <div className="flex justify-between text-sm">
                   <span className="text-green-600">
-                    ITBIS ({formData.tax}%):
+                    ITBIS ({watchTax}%):
                   </span>
                   <span className="font-medium text-green-600">
                     RD${" "}
@@ -789,10 +853,10 @@ export function CreateInvoiceDialog({
                   </span>
                 </div>
 
-                {formData.discount > 0 && (
+                {watchDiscount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-red-600">
-                      Descuento ({formData.discount}%):
+                      Descuento ({watchDiscount}%):
                     </span>
                     <span className="font-medium text-red-600">
                       -RD${" "}
@@ -842,10 +906,18 @@ export function CreateInvoiceDialog({
             </button>
             <button
               type="submit"
+              disabled={isSubmitting}
               style={{ borderRadius: "50px" }}
-              className="px-6 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium"
+              className="px-6 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Crear Factura de Venta
+              {isSubmitting ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Creando factura...
+                </>
+              ) : (
+                'Crear Factura de Venta'
+              )}
             </button>
           </div>
         </form>

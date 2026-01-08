@@ -7,31 +7,30 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
+import { PendingRecord } from "@/src/types/gestiono";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface ProjectStatusChartProps {
-  projects: Array<{
-    status: string;
-  }>;
+  records: PendingRecord[];
 }
 
-export const ProjectStatusChart = ({ projects }: ProjectStatusChartProps) => {
+export const ProjectStatusChart = ({ records }: ProjectStatusChartProps) => {
   const statusData = [
     {
-      name: "Planificación",
-      value: projects.filter((p) => p.status === "planning").length,
+      name: "Pendiente",
+      value: records.filter((r) => r.state === 'PENDING').length,
       color: "#f59e0b", // amber-500
     },
     {
-      name: "Ejecución",
-      value: projects.filter((p) => p.status === "execution").length,
-      color: "#10b981", // green-500
+      name: "En Proceso", // Covers PARTIALLY_PAID, DRAFT, etc if needed, or mapped logic
+      value: records.filter((r) => r.state !== 'PENDING' && r.state !== 'PAID').length,
+      color: "#3b82f6", // blue-500
     },
     {
-      name: "Completado",
-      value: projects.filter((p) => p.status === "completed").length,
-      color: "#3b82f6", // blue-500
+      name: "Pagado",
+      value: records.filter((r) => r.state === 'PAID').length,
+      color: "#10b981", // green-500
     },
   ].filter((item) => item.value > 0);
 
@@ -64,7 +63,7 @@ export const ProjectStatusChart = ({ projects }: ProjectStatusChartProps) => {
               0,
             );
             const percentage = ((value / total) * 100).toFixed(0);
-            return `${label}: ${value} proyectos (${percentage}%)`;
+            return `${label}: ${value} facturas (${percentage}%)`;
           },
         },
       },

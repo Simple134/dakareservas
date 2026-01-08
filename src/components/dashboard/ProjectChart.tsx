@@ -5,30 +5,39 @@ import {
   CardHeader,
   CardTitle,
 } from "@/src/components/ui/card";
-import { useProjects } from "@/src/hooks/useProjects";
 import { BudgetChart } from "@/src/components/charts/BudgetChart";
 import { ProjectStatusChart } from "@/src/components/charts/ProjectStatusChart";
+import { useGestiono } from "@/src/context/Gestiono";
 
 export function ProjectChart() {
-  const { projects } = useProjects();
+  const { pendingRecords, divisions } = useGestiono();
+
+  // Transform pendingRecords for BudgetChart
+  // Map items to: Name (Reference/Desc), Budget (Amount), Executed (Paid)
+  const castedPendingRecords = pendingRecords as unknown;
+  const data: any = (Array.isArray(castedPendingRecords) && castedPendingRecords.length === 0)
+    ? null
+    : castedPendingRecords;
+
+  const items = data?.items || [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Presupuesto vs Ejecutado</CardTitle>
+          <CardTitle>Facturado vs Cobrado (Últimos Registros)</CardTitle>
         </CardHeader>
         <CardContent>
-          <BudgetChart projects={projects} />
+          <BudgetChart records={items} divisions={divisions} />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Estado de Proyectos</CardTitle>
+          <CardTitle>Estado de Facturas</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProjectStatusChart projects={projects} />
+          <ProjectStatusChart records={items} />
         </CardContent>
       </Card>
     </div>

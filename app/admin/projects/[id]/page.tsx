@@ -1,7 +1,6 @@
 "use client";
 
-import { useParams } from "next/navigation";
-import { useProjects } from "@/src/hooks/useProjects";
+import { useParams, useRouter } from "next/navigation";
 import {
   CalendarDays,
   MapPin,
@@ -19,6 +18,7 @@ import {
   TrendingDown,
   ChevronDown,
   Check,
+  Loader2,
 } from "lucide-react";
 import { BudgetModule } from "@/src/components/project/BudgetModule";
 import { FinancesModule } from "@/src/components/project/FinancesModule";
@@ -30,6 +30,7 @@ import {
   CustomButton,
   CustomCard,
 } from "@/src/components/project/CustomCard";
+import { GestionoDivisionWithBalance } from "@/src/types/gestiono";
 
 const sections = [
   {
@@ -54,13 +55,68 @@ const sections = [
 export default function ProjectOverview() {
   const params = useParams();
   const projectId = params?.id as string;
-  const { projects } = useProjects();
+  const router = useRouter();
+
+  const [division, setDivision] = useState<GestionoDivisionWithBalance | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState("presupuesto-general");
   const selectRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
 
-  const project = projects.find((p) => String(p.id) === projectId);
+  useEffect(() => {
+    const fetchDivision = async () => {
+      if (!projectId) return;
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/gestiono/divisions/${projectId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const divData = Array.isArray(data) ? data[0] : data;
+          setDivision(divData);
+        } else {
+          console.error("Failed to fetch division");
+        }
+      } catch (error) {
+        console.error("Error fetching division:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDivision();
+  }, [projectId]);
+
+
+  const project = division ? {
+    id: division.id,
+    name: division.name,
+    client: division.metadata?.client || "Cliente Desconocido",
+    location: division.metadata?.location || "Ubicación desconocida",
+    status: division.metadata?.status || "planning",
+    totalBudget: division.metadata?.budget || 0,
+    executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+    completionPercentage: division.metadata?.completionPercentage || 0,
+    profitMargin: division.metadata?.profitMargin || 0,
+    startDate: division.metadata?.startDate || new Date().toISOString(),
+    endDate: division.metadata?.endDate || new Date().toISOString(),
+  } : null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <h1 className="text-2xl font-bold text-gray-800">Proyecto no encontrado</h1>
+        <CustomButton onClick={() => router.back()}>Volver</CustomButton>
+      </div>
+    );
+  }
 
   // Status helpers...
   const getStatusColor = (status: string) => {
@@ -116,23 +172,23 @@ export default function ProjectOverview() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              {project?.name || "Daka 2"}
+              {project?.name}
             </h1>
             <p className="text-gray-500 mt-1">
-              Cliente: {project?.client || "Josue"}
+              Cliente: {project?.client}
             </p>
             <div className="flex items-center gap-2 mt-2">
               <MapPin className="w-4 h-4 text-gray-400" />
               <span className="text-sm text-gray-500">
-                {project?.location || "San Pedro de Macorix"}
+                {project?.location}
               </span>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <CustomBadge
-              className={getStatusColor(project?.status || "Pendiente")}
+              className={getStatusColor(project?.status || "planning")}
             >
-              {getStatusText(project?.status || "Pendiente")}
+              {getStatusText(project?.status || "planning")}
             </CustomBadge>
             <CustomButton
               onClick={() => setIsInvoiceDialogOpen(true)}
@@ -155,7 +211,7 @@ export default function ProjectOverview() {
                   Presupuesto Total
                 </p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(project?.totalBudget || 4500000)}
+                  {formatCurrency(project?.totalBudget || 0)}
                 </p>
               </div>
             </div>
@@ -169,7 +225,7 @@ export default function ProjectOverview() {
               <div>
                 <p className="text-sm font-medium text-gray-500">Ejecutado</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {formatCurrency(project?.executedBudget ?? 4500000)}
+                  {formatCurrency(project?.executedBudget || 0)}
                 </p>
               </div>
             </div>
@@ -183,7 +239,7 @@ export default function ProjectOverview() {
               <div>
                 <p className="text-sm font-medium text-gray-500">Progreso</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {project?.completionPercentage || 10}%
+                  {project?.completionPercentage || 0}%
                 </p>
               </div>
             </div>
@@ -197,7 +253,7 @@ export default function ProjectOverview() {
               <div>
                 <p className="text-sm font-medium text-gray-500">Margen</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {project?.profitMargin || 25}%
+                  {project?.profitMargin || 0}%
                 </p>
               </div>
             </div>
@@ -213,20 +269,20 @@ export default function ProjectOverview() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Progreso General</span>
                 <span className="font-medium text-gray-900">
-                  {project?.completionPercentage || 10}%
+                  {project?.completionPercentage || 0}%
                 </span>
               </div>
               <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-600 transition-all duration-500 ease-in-out"
-                  style={{ width: `${project?.completionPercentage || 10}%` }}
+                  style={{ width: `${project?.completionPercentage || 0}%` }}
                 />
               </div>
               <div className="flex justify-between text-sm text-gray-500">
                 <span>
-                  Inicio: {formatDate(project?.startDate || "2025-12-28")}
+                  Inicio: {formatDate(project?.startDate || new Date().toISOString())}
                 </span>
-                <span>Fin: {formatDate(project?.endDate || "2025-12-28")}</span>
+                <span>Fin: {formatDate(project?.endDate || new Date().toISOString())}</span>
               </div>
             </div>
           </div>
@@ -251,7 +307,7 @@ export default function ProjectOverview() {
         {/* Dynamic Content */}
         <div className="space-y-6">
           {selectedSection === "presupuesto-general" && (
-            <BudgetModule projectId={project?.id ?? ""} />
+            <BudgetModule projectId={project?.id ?? 0} />
           )}
 
           {selectedSection === "costos-indirectos" && (
@@ -288,7 +344,7 @@ export default function ProjectOverview() {
           )}
 
           {selectedSection === "facturacion" && (
-            <FinancesModule projectId={project?.id ?? ""} />
+            <FinancesModule projectId={project?.id ?? 0} />
           )}
 
           {selectedSection === "ingresos-pagos" && (

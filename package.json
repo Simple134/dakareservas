@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",
+    "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-slot": "^1.2.4",
     "@simplepdf/react-embed-pdf": "^1.9.0",
     "@supabase/supabase-js": "^2.86.2",
@@ -34,7 +35,8 @@
     "react-qr-code": "^2.0.18",
     "recharts": "^3.6.0",
     "resend": "^6.6.0",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "zod": "^4.3.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",

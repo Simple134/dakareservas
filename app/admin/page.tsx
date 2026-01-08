@@ -2467,13 +2467,7 @@ function AdminPageContent() {
 
 export default function AdminPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="w-8 h-8 animate-spin text-[#A9780F]" />
-        </div>
-      }
-    >
+    <Suspense>
       <AdminPageContent />
     </Suspense>
   );

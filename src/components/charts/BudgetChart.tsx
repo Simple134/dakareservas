@@ -10,6 +10,7 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
+import { PendingRecord, GestionoDivision } from "@/src/types/gestiono";
 
 ChartJS.register(
   CategoryScale,
@@ -21,36 +22,39 @@ ChartJS.register(
 );
 
 interface BudgetChartProps {
-  projects: Array<{
-    name: string;
-    totalBudget: number;
-    executedBudget: number;
-  }>;
+  records: PendingRecord[];
+  divisions: GestionoDivision[];
 }
 
-export const BudgetChart = ({ projects }: BudgetChartProps) => {
-  const budgetData = projects
-    .map((project) => ({
-      name: project.name.split(" ")[0] + "...",
-      presupuesto: project.totalBudget / 1000,
-      ejecutado: project.executedBudget / 1000,
-    }))
-    .slice(0, 5);
+export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
+  const budgetData = records
+    .map((record) => {
+      const division = divisions.find(d => d.id === record.divisionId);
+      const name = division
+        ? division.name
+        : (record.description || `Record #${record.id}`);
+
+      return {
+        name: name.slice(0, 8) + (name.length > 8 ? "..." : ""),
+        facturado: record.amount,
+        cobrado: record.paid,
+      };
+    })
 
   const data = {
     labels: budgetData.map((p) => p.name),
     datasets: [
       {
-        label: "Presupuesto",
-        data: budgetData.map((p) => p.presupuesto),
+        label: "Facturado", // Was Presupuesto
+        data: budgetData.map((p) => p.facturado),
         backgroundColor: "rgba(59, 130, 246, 0.8)", // blue-500
         borderColor: "rgb(59, 130, 246)",
         borderWidth: 1,
         borderRadius: 4,
       },
       {
-        label: "Ejecutado",
-        data: budgetData.map((p) => p.ejecutado),
+        label: "Cobrado", // Was Ejecutado
+        data: budgetData.map((p) => p.cobrado),
         backgroundColor: "rgba(16, 185, 129, 0.8)", // green-500
         borderColor: "rgb(16, 185, 129)",
         borderWidth: 1,
@@ -70,7 +74,7 @@ export const BudgetChart = ({ projects }: BudgetChartProps) => {
         callbacks: {
           label: function (context: TooltipItem<"bar">) {
             const value = context.parsed.y || 0;
-            return `${context.dataset.label}: $${(value * 1000).toLocaleString()}`;
+            return `${context.dataset.label}: $${value.toLocaleString()}`;
           },
         },
       },
@@ -80,7 +84,10 @@ export const BudgetChart = ({ projects }: BudgetChartProps) => {
         beginAtZero: true,
         ticks: {
           callback: function (value: number | string) {
-            return `$${value}k`;
+            if (typeof value === "number" && value >= 1000) {
+              return `$${(value / 1000).toFixed(1)}k`;
+            }
+            return `$${value}`;
           },
         },
       },

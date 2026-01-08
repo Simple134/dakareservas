@@ -3,6 +3,8 @@ import { ArrowLeft, Upload, Plus, X, FileCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, DragEvent } from "react";
 
+import { GestionoDivisionPayload } from "@/src/types/gestiono";
+
 interface BudgetCategory {
   id: string;
   name: string;
@@ -12,6 +14,7 @@ interface BudgetCategory {
 
 const CreateProject = () => {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
   const [projectName, setProjectName] = useState("");
   const [client, setClient] = useState("");
@@ -158,21 +161,50 @@ const CreateProject = () => {
     0,
   );
 
-  const handleCreateProject = () => {
-    console.log("Creating project:", {
-      projectName,
-      client,
-      location,
-      initialStatus,
-      projectType,
-      permissionCategory,
-      totalBudget,
-      startDate,
-      endDate,
-      budgetDocument,
-      budgetCategories,
-      projectDescription,
-    });
+  const handleCreateProject = async () => {
+    if (!projectName || !client || !totalBudget) {
+      alert("Por favor complete los campos obligatorios (*)");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const payload: GestionoDivisionPayload = {
+        name: projectName,
+        type: 'PROJECT',
+        subDivisionOf: 183,
+        metadata: {
+          client,
+          location,
+          status: initialStatus,
+          projectType,
+          permissionCategory,
+          budget: parseFloat(totalBudget) || 0,
+          startDate,
+          endDate,
+          description: projectDescription,
+          budgetCategories,
+          budgetFileName: budgetDocument?.name
+        }
+      };
+
+      await fetch('/api/gestiono/divisions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      alert("Proyecto creado exitosamente");
+      router.push("/admin");
+    } catch (error) {
+      console.error("Error creating project:", error);
+      alert("Error al crear el proyecto. Por favor intente nuevamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -354,10 +386,10 @@ const CreateProject = () => {
             </label>
             <div
               className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${isDragging
-                  ? 'border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg'
-                  : budgetDocument
-                    ? 'border-green-500 bg-green-50 shadow-md'
-                    : 'border-gray-300 hover:border-[#224397] hover:bg-gray-50'
+                ? 'border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg'
+                : budgetDocument
+                  ? 'border-green-500 bg-green-50 shadow-md'
+                  : 'border-gray-300 hover:border-[#224397] hover:bg-gray-50'
                 }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -561,10 +593,11 @@ const CreateProject = () => {
           </button>
           <button
             onClick={handleCreateProject}
-            className="px-6 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5f] transition-colors flex items-center gap-2"
+            className="px-6 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5f] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
           >
-            <span>📋</span>
-            Crear Proyecto
+            <span>{loading ? '⏳' : '📋'}</span>
+            {loading ? 'Creando...' : 'Crear Proyecto'}
           </button>
         </div>
       </div>
