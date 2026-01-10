@@ -13,13 +13,13 @@ export interface PendingRecord {
     organizationId: number;
     beneficiaryId: number;
     projectId?: string; // UUID
-    
+
     // Dates & Status
     date: AnyDate;
     dueDate?: AnyDate;
     state: InvoiceState;
     status?: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'DISCARDED'; // Sometimes used for export status
-    
+
     // Details
     description?: string;
     notes?: string;
@@ -28,41 +28,41 @@ export interface PendingRecord {
     isSell: boolean;
     isInstantDelivery: boolean;
     currency: Currency;
-    
+
     // Tax Info
     taxId?: string;
     taxExpirationDate?: AnyDate;
     salesTaxReduced?: boolean;
-    
+
     // Denormalized Financial Fields (Cached calculations)
     amount: number;         // Total amount
     subTotal: number;       // Amount before taxes
     taxes: number;          // Total taxes
     paid: number;           // Amount paid so far
     dueToPay: number;       // Remaining balance
-    
+
     paymentsAmount: number;
     creditPayments: number;
     givenCredit: number;
-    
+
     salesTaxRetention: number;
     isrTaxRetention: number;
     payrollDeduction: number;
-    
+
     totalReturnedValue: number;
     totalReturnedToClaim: number;
     returnsCount: number;
-    
+
     resourceCost: number;
     grossProfit: number;
-    
+
     // Computed Fields (from Detailed View)
     subTotalWithoutDiscount: number;
     afterTaxesDiscount: number;
     preTaxesDiscount: number;
     creditDue: number;
     nextInvoiceDate?: string;
-    
+
     // Relationships
     user?: {
         id: number;
@@ -95,16 +95,16 @@ export interface PendingRecord {
         type: string; // CLIENT, PROVIDER, etc.
         taxId?: string;
     };
-    
+
     // Items / Lines
     elements?: PendingRecordElement[];
-    
+
     // Associated Records
     payments: PaymentRecord[];
     commissions: CommissionRecord[];
     credits: Credit[];
     returns?: Return[];
-    
+
     // Logistics
     deliveryTask?: any; // Matches ResourcesApi['delivery']['GET']['Res']
     pendingToDeliver?: {
@@ -112,12 +112,12 @@ export interface PendingRecord {
         resourceId: number;
         serialNumbers?: string[];
     }[];
-    
+
     // Metadata
     labels?: string[];
     clientdata?: Record<string, any> | string;
     metadata?: Record<string, any>;
-    
+
     // Linked Items
     invoices?: PendingRecord[]; // Recursively referenced if this is a parent record
     linkedCosts?: {
@@ -130,22 +130,22 @@ export interface PendingRecordElement {
     pendingRecordId: number;
     resourceId?: number;
     description: string;
-    
+
     quantity: number;
     unit: string;
     price: number;
     variation: number | string; // amount or percentage string e.g. "10%"
-    
+
     priceAfterVariation?: number;
     resourceCost?: number;
-    
+
     serialNumbers?: string[] | null;
     comment?: string | null;
-    
+
     // Extended info for UI
     resourceDescription?: string;
     resourceSku?: string;
-    
+
     taxes: PendingRecordElementTax[];
 }
 
@@ -155,7 +155,7 @@ export interface PendingRecordElementTax {
     taxRateId: number;
     isIncludedInPrice: boolean;
     // Extended info
-    taxRate?: number; 
+    taxRate?: number;
 }
 
 export interface PaymentRecord {
@@ -185,12 +185,12 @@ export interface Credit {
     amount: number;
     interest: number;
     interestType: 'SIMPLE' | 'COMPOUND';
-    
+
     dueAmount: number;
     numberOfDuePayments: number;
     numberOfPastDuePayments: number;
     numberOfCompletedPayments: number;
-    
+
     cleanCreditPayment: {
         capital: number;
         interest: number;
@@ -206,7 +206,7 @@ export interface Return {
     returnedElementsValue: number;
     reason?: string;
     createdAt: AnyDate;
-    
+
     pendingToRedeem: number;
     redeemtions: any[]; // Records of type REDEMPTION
 }
@@ -250,7 +250,7 @@ export interface GestionoBeneficiaryContact {
 }
 
 export interface GestionoBeneficiaryPayload {
-    id:number
+    id: number
     name: string;
     type: 'CLIENT' | 'PROVIDER' | 'BOTH' | 'EMPLOYEE' | 'OTHER';
     taxId?: string;
@@ -495,38 +495,38 @@ export interface V2GetPendingRecordsResponse {
 }
 
 export interface V2GetPendingRecordsQuery {
-  month: string,
-                year: string,
-                query?: string,
-                timeZone?: number,
-                type: "INVOICE" | "RECURRENT_INVOICE" | "QUOTE" | "ORDER" | "LOAN" | "RECURRENT_PAYROLL" | "PAYROLL",
-                pendingRecordElements: boolean
-                pendingRecordPayments: boolean,
-                elements: number,
-                page: number,
-                pendingRecordCredits: boolean,
-                beneficiaryId: number,
-                divisionId: number,
-                informal: boolean,
-                state: string,
-                stateMethod: '!=' | '=',
-                fromDate?: string,
-                toDate?: string,
-                dateOrder: 'ASC' | 'DESC',
-                sort: 'ASC' | 'DESC',
-                orderBy: PendingRecord,
-                includeArchived: boolean,
-                ignoreDetailedData?: boolean,
-                raw: boolean,
-                isSell: boolean,
-                ids: number[],
-                extendedClientData: boolean,
-                advancedSearch: AdvancedSearchFilter[],
-                daysFromCreationMin: number,
-                daysFromCreationMax: number,
-                daysPastDueMin: number, 
-                daysPastDueMax: number,
-                labels?: string[],
+    month: string,
+    year: string,
+    query?: string,
+    timeZone?: number,
+    type: "INVOICE" | "RECURRENT_INVOICE" | "QUOTE" | "ORDER" | "LOAN" | "RECURRENT_PAYROLL" | "PAYROLL",
+    pendingRecordElements: boolean
+    pendingRecordPayments: boolean,
+    elements: number,
+    page: number,
+    pendingRecordCredits: boolean,
+    beneficiaryId: number,
+    divisionId: number,
+    informal: boolean,
+    state: string,
+    stateMethod: '!=' | '=',
+    fromDate?: string,
+    toDate?: string,
+    dateOrder: 'ASC' | 'DESC',
+    sort: 'ASC' | 'DESC',
+    orderBy: PendingRecord,
+    includeArchived: boolean,
+    ignoreDetailedData?: boolean,
+    raw: boolean,
+    isSell: boolean,
+    ids: number[],
+    extendedClientData: boolean,
+    advancedSearch: AdvancedSearchFilter[],
+    daysFromCreationMin: number,
+    daysFromCreationMax: number,
+    daysPastDueMin: number,
+    daysPastDueMax: number,
+    labels?: string[],
 }
 // Supporting Types
 export type AdvancedSearchFilter = {
@@ -539,8 +539,7 @@ export interface PayPendingRecordBody {
     pendingRecordId: number; // ID de la factura
     paymentMethod: 'CASH' | 'TRANSFER' | 'CARD';
     accountId: number;       // Cuenta de banco o caja donde entra el dinero
-    
-    // Opcionales
+
     amount?: number;         // Monto a pagar (si es parcial), por defecto paga el total pendiente
     state?: 'PENDING' | 'COMPLETED' | 'CANCELED' | 'FAILED'; // Estado del pago
     reference?: string;      // Referencia del pago (ej: número de cheque)
@@ -551,6 +550,136 @@ export interface PayPendingRecordBody {
     labels?: string[];
     metadata?: Record<string, any>;
 }
+
+export interface CreateResourceBody {
+    // CAMPOS OBLIGATORIOS
+    name: string;                    // Mínimo 2 caracteres
+    type: 'PRODUCT' | 'SERVICE' | 'ASSET' | 'OTHER';
+    relation: 'FOR_SALE' | 'FOR_RENT' | 'MATERIAL' | 'ONE_TIME_USE' | 'OPERATIONS' | 'OTHER';
+    unit: string;                    // Ej: "unidad", "kg", "litro"
+    priceStrategy: 'FIXED' | 'DEFINE_ON_INVOICE' | 'VARIABLE';
+    variation: number | string;      // Precio de venta (ej: 100 o "10%")
+
+    // CAMPOS OPCIONALES
+    description?: string;
+    divisionId?: number;             // División asignada
+    variantOf?: number;              // Si es variante de otro producto
+    costStrategy?: 'MINIMUM_PROVIDER_COST' | 'MAXIMUM_PROVIDER_COST' | 'AVG_PROVIDER_COST' | 'FIXED';
+    currency?: 'DOP' | 'USD' | 'EUR';
+
+    // Precio por mayor
+    bulkVariation?: number | string;
+    bulkVariationLabel?: string;
+    bulkVariationMinQuantity?: number;
+
+    // Configuración de inventario
+    canSellWithoutStock?: boolean;   // Default: true
+    canBeSold?: boolean;             // Default: true
+    followsInventory?: boolean;      // Default: true
+    requiresSerialNumbers?: boolean; // Default: false
+    quantityDecimals?: number;       // Default: 0
+
+    // Identificadores
+    sku?: string;                    // Código de producto
+    barCode?: string;                // Código de barras
+
+    // Alertas de inventario
+    minStockAlert?: number;
+    maxStockAlert?: number;
+
+    // Impuestos
+    taxes?: {
+        taxRateId: number;
+    }[];
+
+    // Inicialización (opcional)
+    defaultCost?: number;            // Costo inicial
+    initialStock?: number;           // Stock inicial
+
+    // Multimedia
+    multimedia?: {
+        url: string;
+        type: 'IMAGE' | 'VIDEO' | 'PDF'; // Default: 'IMAGE'
+        alt?: string;
+    }[];
+
+    // Metadatos
+    labels?: string[];               // Etiquetas
+    clientdata?: Record<string, any>; // Datos personalizados
+}
+
+export interface GetResourcesQuery {
+    page?: string;                   // Número de página
+    elementsPerPage?: string;        // Items por página
+    search?: string;                 // Búsqueda por nombre/SKU
+    type?: string;                   // 'PRODUCT', 'SERVICE', etc.
+    priceStrategy?: string;          // 'FIXED', 'VARIABLE', etc.
+    labels?: string;                 // Filtrar por etiquetas (separadas por coma)
+    archived?: string;               // 'true' o 'false'
+    currency?: 'DOP' | 'USD' | 'EUR'; // Moneda para precios
+    divisionId?: number;             // Filtrar por división
+    advancedSearch?: AdvancedSearchFilter[]; // Búsqueda avanzada
+}
+
+// Tipo de respuesta de v2GetResources
+export interface V2GetResourcesResponse {
+    itemsPerPage: number;
+    page: number;
+    totalPages: number;
+    totalItems: number;
+    items: {
+        id: number;
+        name: string;
+        description?: string;
+        type: 'PRODUCT' | 'SERVICE' | 'ASSET' | 'OTHER';
+        relation: 'FOR_SALE' | 'FOR_RENT' | 'MATERIAL' | 'ONE_TIME_USE' | 'OPERATIONS' | 'OTHER';
+        unit: string;
+        priceStrategy: 'FIXED' | 'DEFINE_ON_INVOICE' | 'VARIABLE';
+        sellPrice?: number;
+        sellPriceCurrency?: "DOP" | "USD" | "EUR";
+        minimumCost?: number;
+        calculatedCost?: number;
+        defaultCost?: number;
+        sku?: string;
+        barCode?: string;
+        divisionId?: number;
+        archived?: number;
+        canBeSold?: number;
+        canSellWithoutStock?: number | boolean;
+        followsInventory?: number | boolean;
+        requiresSerialNumbers?: number | boolean;
+        quantityDecimals?: number;
+        costStrategy?: string;
+        salesTaxRate?: number;
+        organizationId?: number;
+        publishInEcommerce?: number | boolean;
+        doesNotDeliver?: number | boolean;
+        variantOf?: number | null;
+        createdAt?: string;
+        updatedAt?: string | null;
+        maxStockAlert?: number | null;
+        minStockAlert?: number | null;
+        totalAvailableQuantity?: number | null;
+        totalInPlaceQuantity?: number | null;
+        totalReservedQuantity?: number | null;
+        clientdata?: Record<string, any> | string;
+        division?: ResourceStorage[];
+        total?: ResourceStorage;
+        storage: {
+            divisionId: number;
+            amount: ResourceStorage[];
+        }[];
+    }[];
+}
+
+// Donde ResourceStorage es:
+export interface ResourceStorage {
+    divisionId?: number;
+    available: number;    // Disponible para venta
+    inPlace: number;      // Total en físico
+    reserved: number;     // Reservado en entregas pendientes
+}
+
 // Errores
 export interface GestionoApiError {
     error: string;

@@ -15,6 +15,9 @@ import type {
     CreateBeneficiaryBody,
     BeneficiaryContactResponse,
     PayPendingRecordBody,
+    CreateResourceBody,
+    GetResourcesQuery,
+    V2GetResourcesResponse,
 } from '@/src/types/gestiono';
 
 export async function createInvoice(
@@ -199,6 +202,21 @@ export async function postDivision(data: GestionoDivisionPayload): Promise<Gesti
         body: JSON.stringify(data),
     });
 }
+
+export async function addResource(data: CreateResourceBody): Promise<any> {
+    return gestionoRequest<any>('/v1/resource', {
+        method: 'POST',
+        body: JSON.stringify(data)
+    });
+}
+
+export async function v2GetResources(data: GetResourcesQuery): Promise<V2GetResourcesResponse> {
+    return gestionoRequest<V2GetResourcesResponse>('/v2/resource', {
+        method: 'GET',
+        query: data
+    });
+}
+
 
 export async function v2GetPendingRecords(data: V2GetPendingRecordsQuery): Promise<V2GetPendingRecordsResponse> {
     return gestionoRequest<V2GetPendingRecordsResponse>('/v2/record/pending', {

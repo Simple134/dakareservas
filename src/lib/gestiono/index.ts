@@ -23,6 +23,8 @@ export {
     postDivision,
     // Utils
     transformToGestionoFormat,
+    addResource,
+    v2GetResources,
 } from './endpoints';
 
 export type {
@@ -45,4 +47,6 @@ export type {
     GestionoApiError,
     CreateBeneficiaryBody,
     PayPendingRecordBody,
+    CreateResourceBody,
+    GetResourcesQuery,
 } from '@/src/types/gestiono';

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v2GetPendingRecords } from '@/src/lib/gestiono/endpoints';
+import { addResource, v2GetResources } from '@/src/lib/gestiono/endpoints';
 
 export async function GET(request: NextRequest) {
     try {
@@ -26,8 +26,32 @@ export async function GET(request: NextRequest) {
 
         console.log('📍 Calling v2GetPendingRecords with params:', query);
 
-        const pendingRecords = await v2GetPendingRecords(query);
+        const pendingRecords = await v2GetResources(query);
         console.log('✅ v2GetPendingRecords obtenidas:', pendingRecords);
+        return NextResponse.json(pendingRecords);
+    } catch (error: any) {
+        console.error('❌ Error fetching v2GetPendingRecords:', error);
+        console.error('📋 Error details:', {
+            message: error.message,
+            statusCode: error.statusCode,
+            msg: error.msg,
+            details: error.details,
+        });
+        return NextResponse.json(
+            {
+                error: 'Failed to fetch v2GetPendingRecords',
+                details: error.message || error.msg,
+                gestionoError: error
+            },
+            { status: 500 }
+        );
+    }
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const pendingRecords = await addResource(body);
         return NextResponse.json(pendingRecords);
     } catch (error: any) {
         console.error('❌ Error fetching v2GetPendingRecords:', error);

@@ -18,7 +18,6 @@ import {
   TableRow
 } from "@/src/components/ui/table";
 import { Badge } from "@/src/components/ui/badge";
-import { Button } from "@/src/components/ui/button";
 import { PendingRecord } from "@/src/types/gestiono";
 
 interface FinancesModuleProps {
@@ -228,37 +227,33 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
             <div className="rounded-md border border-gray-200 bg-white p-4">
               <div className="space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                   <input
                     placeholder="Buscar por descripción o referencia..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="p-4 h-10 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-gray-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    variant={selectedType === "all" ? "default" : "outline"}
+                  <button
+                    className="px-2 py-1 border border-gray-200 rounded-md"
                     onClick={() => setSelectedType("all")}
-                    size="sm"
                   >
                     Todos
-                  </Button>
-                  <Button
-                    variant={selectedType === "sale" ? "default" : "outline"}
+                  </button>
+                  <button
+                    className="px-2 py-1 border border-gray-200 rounded-md"
                     onClick={() => setSelectedType("sale")}
-                    size="sm"
                   >
                     Ventas
-                  </Button>
-                  <Button
-                    variant={selectedType === "purchase" ? "default" : "outline"}
+                  </button>
+                  <button
+                    className="px-2 py-1 border border-gray-200 rounded-md"
                     onClick={() => setSelectedType("purchase")}
-                    size="sm"
                   >
                     Compras
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
@@ -319,9 +314,9 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <button className="h-8 w-8 p-0">
                               <Eye className="h-4 w-4" />
-                            </Button>
+                            </button>
                           </div>
                         </TableCell>
                       </TableRow>
