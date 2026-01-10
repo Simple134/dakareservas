@@ -16,24 +16,27 @@ import {
 import { GestionoBeneficiary } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
 
-
 const ContactsPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [contacts, setContacts] = useState<GestionoBeneficiary[]>([]);
-  const [filteredContacts, setFilteredContacts] = useState<GestionoBeneficiary[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<
+    GestionoBeneficiary[]
+  >([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchGestionoBeneficiaries = async () => {
     setIsLoading(true);
     try {
-      console.log('🔄 Obteniendo beneficiarios de Gestiono...');
+      console.log("🔄 Obteniendo beneficiarios de Gestiono...");
       const params = new URLSearchParams({
-        withContacts: 'true',
-        withTaxData: 'false',
+        withContacts: "true",
+        withTaxData: "false",
       });
 
-      const response = await fetch(`/api/gestiono/beneficiaries?${params.toString()}`);
+      const response = await fetch(
+        `/api/gestiono/beneficiaries?${params.toString()}`,
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -41,10 +44,10 @@ const ContactsPage = () => {
 
       const data = await response.json();
 
-      console.log('✅ Beneficiarios de Gestiono:', data);
+      console.log("✅ Beneficiarios de Gestiono:", data);
       setContacts(data || []);
     } catch (error) {
-      console.error('❌ Error obteniendo beneficiarios:', error);
+      console.error("❌ Error obteniendo beneficiarios:", error);
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +69,11 @@ const ContactsPage = () => {
       filtered = filtered.filter(
         (contact) =>
           contact.name.toLowerCase().includes(query) ||
-          contact.contacts?.find((c) => c.type === "phone" || c.type === "email")?.data?.toLowerCase().includes(query) ||
-          (contact.taxId && contact.taxId.includes(query))
+          contact.contacts
+            ?.find((c) => c.type === "phone" || c.type === "email")
+            ?.data?.toLowerCase()
+            .includes(query) ||
+          (contact.taxId && contact.taxId.includes(query)),
       );
     }
 
@@ -76,8 +82,12 @@ const ContactsPage = () => {
 
   const getStats = () => {
     const total = contacts.length;
-    const clients = contacts.filter(c => c.type === 'CLIENT' || c.type === 'BOTH').length;
-    const providers = contacts.filter(c => c.type === 'PROVIDER' || c.type === 'BOTH').length;
+    const clients = contacts.filter(
+      (c) => c.type === "CLIENT" || c.type === "BOTH",
+    ).length;
+    const providers = contacts.filter(
+      (c) => c.type === "PROVIDER" || c.type === "BOTH",
+    ).length;
 
     return { total, clients, providers };
   };
@@ -113,7 +123,11 @@ const ContactsPage = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Total</p>
                   <div className="text-3xl font-bold text-[#131E29]">
-                    {isLoading ? <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" /> : stats.total}
+                    {isLoading ? (
+                      <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                    ) : (
+                      stats.total
+                    )}
                   </div>
                 </div>
                 <div className="w-12 h-12 bg-[#4F80FF]/10 rounded-full flex items-center justify-center">
@@ -127,7 +141,11 @@ const ContactsPage = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Clientes</p>
                   <div className="text-3xl font-bold text-[#131E29]">
-                    {isLoading ? <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" /> : stats.clients}
+                    {isLoading ? (
+                      <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                    ) : (
+                      stats.clients
+                    )}
                   </div>
                 </div>
                 <div className="w-12 h-12 bg-[#10B981]/10 rounded-full flex items-center justify-center">
@@ -141,7 +159,11 @@ const ContactsPage = () => {
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Proveedores</p>
                   <div className="text-3xl font-bold text-[#131E29]">
-                    {isLoading ? <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" /> : stats.providers}
+                    {isLoading ? (
+                      <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                    ) : (
+                      stats.providers
+                    )}
                   </div>
                 </div>
                 <div className="w-12 h-12 bg-[#F59E0B]/10 rounded-full flex items-center justify-center">
@@ -168,7 +190,10 @@ const ContactsPage = () => {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 animate-pulse">
+                <div
+                  key={i}
+                  className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 animate-pulse"
+                >
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 bg-gray-200 rounded-lg" />
@@ -202,21 +227,29 @@ const ContactsPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredContacts.map((contact, index) => {
-                const isProvider = contact.type === 'PROVIDER';
+                const isProvider = contact.type === "PROVIDER";
 
                 // Collect distinct contact methods to display based on available data
-                const contactMethods: { type: string, value: string, icon: any }[] = [];
+                const contactMethods: {
+                  type: string;
+                  value: string;
+                  icon: any;
+                }[] = [];
 
                 if (contact.contacts) {
-                  contact.contacts.forEach(c => {
+                  contact.contacts.forEach((c) => {
                     let Icon = Briefcase;
                     // Map API lowercase types to Icons
-                    if (c.type === 'phone') Icon = Phone;
-                    else if (c.type === 'email') Icon = Mail;
-                    else if (c.type === 'address') Icon = MapPin;
-                    else if (c.type === 'website') Icon = Globe;
+                    if (c.type === "phone") Icon = Phone;
+                    else if (c.type === "email") Icon = Mail;
+                    else if (c.type === "address") Icon = MapPin;
+                    else if (c.type === "website") Icon = Globe;
 
-                    contactMethods.push({ type: c.type.toUpperCase(), value: c.data, icon: Icon });
+                    contactMethods.push({
+                      type: c.type.toUpperCase(),
+                      value: c.data,
+                      icon: Icon,
+                    });
                   });
                 }
 
@@ -228,10 +261,9 @@ const ContactsPage = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${isProvider
-                            ? "bg-[#F59E0B]/10"
-                            : "bg-[#10B981]/10"
-                            }`}
+                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${
+                            isProvider ? "bg-[#F59E0B]/10" : "bg-[#10B981]/10"
+                          }`}
                         >
                           {isProvider ? (
                             <Building2 className="w-5 h-5 text-[#F59E0B]" />
@@ -241,14 +273,18 @@ const ContactsPage = () => {
                         </div>
                         <div>
                           <p className="font-semibold text-[#131E29] text-base leading-tight">
-                            {contact.name || 'Sin Nombre'}
+                            {contact.name || "Sin Nombre"}
                           </p>
                           <span
                             className={`text-xs text-gray-500 mt-0.5 block ${isProvider ? "bg-[#F59E0B]/10 text-[#F59E0B] w-fit p-1 rounded-full" : "bg-[#10B981]/10 text-[#10B981] w-fit p-1 rounded-full"}`}
                           >
-                            {contact.type === 'CLIENT' ? 'Cliente' :
-                              contact.type === 'PROVIDER' ? 'Proveedor' :
-                                contact.type === 'EMPLOYEE' ? 'Empleado' : contact.type}
+                            {contact.type === "CLIENT"
+                              ? "Cliente"
+                              : contact.type === "PROVIDER"
+                                ? "Proveedor"
+                                : contact.type === "EMPLOYEE"
+                                  ? "Empleado"
+                                  : contact.type}
                           </span>
                         </div>
                       </div>
@@ -261,7 +297,9 @@ const ContactsPage = () => {
                       {contact.reference && (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <span className="font-medium text-xs bg-gray-100 px-2 py-0.5 rounded">Ref: {contact.reference}</span>
+                          <span className="font-medium text-xs bg-gray-100 px-2 py-0.5 rounded">
+                            Ref: {contact.reference}
+                          </span>
                         </div>
                       )}
 
@@ -274,17 +312,28 @@ const ContactsPage = () => {
 
                       {contactMethods.map((method, idx) => {
                         const Icon = method.icon;
-                        const isAddress = method.type === 'ADDRESS';
+                        const isAddress = method.type === "ADDRESS";
                         return (
-                          <div key={idx} className={`flex ${isAddress ? 'items-start' : 'items-center'} gap-2 text-sm text-gray-600`}>
-                            <Icon className={`w-4 h-4 text-gray-400 flex-shrink-0 ${isAddress ? 'mt-0.5' : ''}`} />
-                            <span className={isAddress ? 'line-clamp-2' : 'truncate'}>{method.value}</span>
+                          <div
+                            key={idx}
+                            className={`flex ${isAddress ? "items-start" : "items-center"} gap-2 text-sm text-gray-600`}
+                          >
+                            <Icon
+                              className={`w-4 h-4 text-gray-400 flex-shrink-0 ${isAddress ? "mt-0.5" : ""}`}
+                            />
+                            <span
+                              className={
+                                isAddress ? "line-clamp-2" : "truncate"
+                              }
+                            >
+                              {method.value}
+                            </span>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                )
+                );
               })}
             </div>
           )}

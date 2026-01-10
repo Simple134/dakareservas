@@ -29,9 +29,7 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <AuthProvider>
-          <GestionoProvider>
-            {children}
-          </GestionoProvider>
+          <GestionoProvider>{children}</GestionoProvider>
         </AuthProvider>
       </body>
     </html>

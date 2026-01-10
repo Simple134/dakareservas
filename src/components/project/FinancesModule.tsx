@@ -15,7 +15,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
 } from "@/src/components/ui/table";
 import { Badge } from "@/src/components/ui/badge";
 import { PendingRecord } from "@/src/types/gestiono";
@@ -25,7 +25,10 @@ interface FinancesModuleProps {
   records?: PendingRecord[];
 }
 
-export function FinancesModule({ projectId, records = [] }: FinancesModuleProps) {
+export function FinancesModule({
+  projectId,
+  records = [],
+}: FinancesModuleProps) {
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [searchTerm, setSearchTerm] = useState("");
@@ -33,23 +36,24 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
 
   // Calculations
   const totalIncome = records
-    .filter(r => r.isSell)
+    .filter((r) => r.isSell)
     .reduce((acc, r) => acc + r.amount, 0);
 
   const totalExpenses = records
-    .filter(r => !r.isSell)
+    .filter((r) => !r.isSell)
     .reduce((acc, r) => acc + r.amount, 0);
 
   const netCashFlow = totalIncome - totalExpenses;
 
   // Filter records
-  const filteredRecords = records.filter(record => {
+  const filteredRecords = records.filter((record) => {
     const matchesSearch =
       record.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       String(record.id).includes(searchTerm);
 
-    const matchesType = selectedType === "all" ||
+    const matchesType =
+      selectedType === "all" ||
       (selectedType === "sale" && record.isSell) ||
       (selectedType === "purchase" && !record.isSell);
 
@@ -57,19 +61,19 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-DO', {
-      style: 'currency',
-      currency: 'DOP',
-      minimumFractionDigits: 0
+    return new Intl.NumberFormat("es-DO", {
+      style: "currency",
+      currency: "DOP",
+      minimumFractionDigits: 0,
     }).format(amount);
   };
 
   const formatDate = (dateString: string) => {
     try {
-      return new Intl.DateTimeFormat('es-DO', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+      return new Intl.DateTimeFormat("es-DO", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       }).format(new Date(dateString));
     } catch {
       return dateString;
@@ -79,14 +83,15 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
   // Adapted Tabs Implementation
   const renderTabs = () => (
     <div className="flex space-x-1 rounded-xl bg-gray-100 p-1 mb-6">
-      {['overview', 'transactions', 'invoices'].map((tab) => (
+      {["overview", "transactions", "invoices"].map((tab) => (
         <button
           key={tab}
           onClick={() => setActiveTab(tab)}
-          className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 ${activeTab === tab
-            ? 'bg-white text-blue-700 shadow'
-            : 'text-gray-500 hover:bg-white/[0.12] hover:text-black'
-            }`}
+          className={`w-full rounded-lg py-2.5 text-sm font-medium leading-5 ring-white ring-opacity-60 ring-offset-2 ring-offset-blue-400 focus:outline-none focus:ring-2 ${
+            activeTab === tab
+              ? "bg-white text-blue-700 shadow"
+              : "text-gray-500 hover:bg-white/[0.12] hover:text-black"
+          }`}
         >
           {tab.charAt(0).toUpperCase() + tab.slice(1)}
         </button>
@@ -109,8 +114,12 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
               <div className="flex items-center gap-3">
                 <TrendingUp className="w-8 h-8 text-green-600" />
                 <div>
-                  <p className="text-sm text-green-700 font-medium">Ingresos Totales</p>
-                  <p className="text-2xl font-bold text-green-800">{formatCurrency(totalIncome)}</p>
+                  <p className="text-sm text-green-700 font-medium">
+                    Ingresos Totales
+                  </p>
+                  <p className="text-2xl font-bold text-green-800">
+                    {formatCurrency(totalIncome)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -118,8 +127,12 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
               <div className="flex items-center gap-3">
                 <TrendingDown className="w-8 h-8 text-red-600" />
                 <div>
-                  <p className="text-sm text-red-700 font-medium">Egresos Totales</p>
-                  <p className="text-2xl font-bold text-red-800">{formatCurrency(totalExpenses)}</p>
+                  <p className="text-sm text-red-700 font-medium">
+                    Egresos Totales
+                  </p>
+                  <p className="text-2xl font-bold text-red-800">
+                    {formatCurrency(totalExpenses)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -127,8 +140,12 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
               <div className="flex items-center gap-3">
                 <DollarSign className="w-8 h-8 text-blue-600" />
                 <div>
-                  <p className="text-sm text-blue-700 font-medium">Balance Neto</p>
-                  <p className={`text-2xl font-bold ${netCashFlow >= 0 ? 'text-blue-800' : 'text-red-800'}`}>
+                  <p className="text-sm text-blue-700 font-medium">
+                    Balance Neto
+                  </p>
+                  <p
+                    className={`text-2xl font-bold ${netCashFlow >= 0 ? "text-blue-800" : "text-red-800"}`}
+                  >
                     {formatCurrency(netCashFlow)}
                   </p>
                 </div>
@@ -137,23 +154,43 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
 
             {/* Flujo de Caja (Simple List Summary) */}
             <div className="col-span-1 md:col-span-3 mt-4">
-              <h3 className="font-semibold text-lg mb-4">Ultimos Movimientos</h3>
+              <h3 className="font-semibold text-lg mb-4">
+                Ultimos Movimientos
+              </h3>
               <div className="space-y-3">
                 {records.slice(0, 5).map((r) => (
-                  <div key={r.id} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-100"
+                  >
                     <div className="flex items-center gap-3">
-                      {r.isSell ? <TrendingUp className="w-5 h-5 text-green-500" /> : <TrendingDown className="w-5 h-5 text-red-500" />}
+                      {r.isSell ? (
+                        <TrendingUp className="w-5 h-5 text-green-500" />
+                      ) : (
+                        <TrendingDown className="w-5 h-5 text-red-500" />
+                      )}
                       <div>
-                        <p className="font-medium text-gray-900">{r.description || (r.isSell ? "Ingreso" : "Gasto")}</p>
-                        <p className="text-xs text-gray-500">{formatDate(r.date)}</p>
+                        <p className="font-medium text-gray-900">
+                          {r.description || (r.isSell ? "Ingreso" : "Gasto")}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {formatDate(r.date)}
+                        </p>
                       </div>
                     </div>
-                    <span className={`font-semibold ${r.isSell ? "text-green-600" : "text-red-600"}`}>
-                      {r.isSell ? "+" : "-"}{formatCurrency(r.amount)}
+                    <span
+                      className={`font-semibold ${r.isSell ? "text-green-600" : "text-red-600"}`}
+                    >
+                      {r.isSell ? "+" : "-"}
+                      {formatCurrency(r.amount)}
                     </span>
                   </div>
                 ))}
-                {records.length === 0 && <p className="text-gray-500 text-sm">No hay movimientos recientes.</p>}
+                {records.length === 0 && (
+                  <p className="text-gray-500 text-sm">
+                    No hay movimientos recientes.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -164,8 +201,12 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
             {/* Transactions Table - Historial de Movimientos */}
             <div className="rounded-md border border-gray-200 overflow-hidden bg-white">
               <div className="p-4 border-b border-gray-200">
-                <h3 className="font-semibold text-lg">Historial de Movimientos</h3>
-                <p className="text-sm text-gray-500 mt-1">Transacciones de ingresos y egresos del proyecto</p>
+                <h3 className="font-semibold text-lg">
+                  Historial de Movimientos
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Transacciones de ingresos y egresos del proyecto
+                </p>
               </div>
               <Table>
                 <TableHeader className="bg-gray-50">
@@ -181,7 +222,10 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
                 <TableBody>
                   {records.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                      <TableCell
+                        colSpan={6}
+                        className="text-center text-gray-500 py-8"
+                      >
                         No hay movimientos registrados.
                       </TableCell>
                     </TableRow>
@@ -190,17 +234,31 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
                       <TableRow key={r.id} className="hover:bg-gray-50/50">
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            {r.isSell ? <TrendingUp className="w-4 h-4 text-green-600" /> : <TrendingDown className="w-4 h-4 text-red-600" />}
-                            <Badge variant={r.isSell ? "default" : "destructive"}>
+                            {r.isSell ? (
+                              <TrendingUp className="w-4 h-4 text-green-600" />
+                            ) : (
+                              <TrendingDown className="w-4 h-4 text-red-600" />
+                            )}
+                            <Badge
+                              variant={r.isSell ? "default" : "destructive"}
+                            >
                               {r.isSell ? "Ingreso" : "Egreso"}
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="font-medium text-gray-900">{r.description || (r.isSell ? "Pago recibido" : "Gasto")}</TableCell>
-                        <TableCell className={`text-right font-medium ${r.isSell ? "text-green-600" : "text-red-600"}`}>
-                          {r.isSell ? "+" : "-"}{formatCurrency(r.amount)}
+                        <TableCell className="font-medium text-gray-900">
+                          {r.description ||
+                            (r.isSell ? "Pago recibido" : "Gasto")}
                         </TableCell>
-                        <TableCell className="text-gray-600">{formatDate(r.date)}</TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${r.isSell ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {r.isSell ? "+" : "-"}
+                          {formatCurrency(r.amount)}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {formatDate(r.date)}
+                        </TableCell>
                         <TableCell className="text-gray-600">
                           <div className="flex items-center gap-2">
                             <DollarSign className="w-4 h-4 text-gray-400" />
@@ -208,8 +266,25 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={r.state === "PAID" ? "default" : r.state === "OVERDUE" ? "destructive" : "secondary"} className={r.state === "PAID" ? "bg-green-600 hover:bg-green-700" : ""}>
-                            {r.state === "PAID" ? "Pagado" : r.state === "PENDING" ? "Pendiente" : r.state}
+                          <Badge
+                            variant={
+                              r.state === "PAID"
+                                ? "default"
+                                : r.state === "OVERDUE"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className={
+                              r.state === "PAID"
+                                ? "bg-green-600 hover:bg-green-700"
+                                : ""
+                            }
+                          >
+                            {r.state === "PAID"
+                              ? "Pagado"
+                              : r.state === "PENDING"
+                                ? "Pendiente"
+                                : r.state}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -262,8 +337,12 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
             <div className="rounded-md border border-gray-200 overflow-hidden bg-white">
               <div className="p-4 border-b border-gray-200 flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-lg">Facturas del Proyecto</h3>
-                  <p className="text-sm text-gray-500 mt-1">{filteredRecords.length} documentos encontrados</p>
+                  <h3 className="font-semibold text-lg">
+                    Facturas del Proyecto
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {filteredRecords.length} documentos encontrados
+                  </p>
                 </div>
                 <CustomButton onClick={() => setIsInvoiceDialogOpen(true)}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -286,7 +365,10 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
                 <TableBody>
                   {filteredRecords.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-gray-500 py-8">
+                      <TableCell
+                        colSpan={8}
+                        className="text-center text-gray-500 py-8"
+                      >
                         {searchTerm || selectedType !== "all"
                           ? "No se encontraron documentos con los filtros aplicados"
                           : "No hay facturas para este proyecto"}
@@ -295,21 +377,51 @@ export function FinancesModule({ projectId, records = [] }: FinancesModuleProps)
                   ) : (
                     filteredRecords.map((r) => (
                       <TableRow key={r.id} className="hover:bg-gray-50/50">
-                        <TableCell className="font-medium text-gray-900">{r.reference || `#${r.id}`}</TableCell>
+                        <TableCell className="font-medium text-gray-900">
+                          {r.reference || `#${r.id}`}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={r.isSell ? "default" : "secondary"}>
                             {r.isSell ? "Venta" : "Compra"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-gray-600">{r.description || "N/A"}</TableCell>
-                        <TableCell className="text-gray-600">{formatDate(r.date)}</TableCell>
-                        <TableCell className="text-gray-600">{r.dueDate ? formatDate(r.dueDate) : "N/A"}</TableCell>
-                        <TableCell className={`text-right font-medium ${r.isSell ? "text-green-600" : "text-red-600"}`}>
-                          {r.isSell ? "+" : "-"}{formatCurrency(r.amount)}
+                        <TableCell className="text-gray-600">
+                          {r.description || "N/A"}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {formatDate(r.date)}
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          {r.dueDate ? formatDate(r.dueDate) : "N/A"}
+                        </TableCell>
+                        <TableCell
+                          className={`text-right font-medium ${r.isSell ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {r.isSell ? "+" : "-"}
+                          {formatCurrency(r.amount)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={r.state === "PAID" ? "default" : r.state === "OVERDUE" ? "destructive" : "secondary"} className={r.state === "PAID" ? "bg-green-600 hover:bg-green-700" : ""}>
-                            {r.state === "PAID" ? "Pagada" : r.state === "PENDING" ? "Pendiente" : r.state === "OVERDUE" ? "Vencida" : r.state}
+                          <Badge
+                            variant={
+                              r.state === "PAID"
+                                ? "default"
+                                : r.state === "OVERDUE"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className={
+                              r.state === "PAID"
+                                ? "bg-green-600 hover:bg-green-700"
+                                : ""
+                            }
+                          >
+                            {r.state === "PAID"
+                              ? "Pagada"
+                              : r.state === "PENDING"
+                                ? "Pendiente"
+                                : r.state === "OVERDUE"
+                                  ? "Vencida"
+                                  : r.state}
                           </Badge>
                         </TableCell>
                         <TableCell>

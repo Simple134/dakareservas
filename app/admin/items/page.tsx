@@ -17,7 +17,7 @@ import { CategoryPieChart } from "@/src/components/charts/CategoryPieChart";
 import { V2GetResourcesResponse } from "@/src/types/gestiono";
 
 const ItemsPage = () => {
-  const [items, setItems] = useState<V2GetResourcesResponse['items']>([]);
+  const [items, setItems] = useState<V2GetResourcesResponse["items"]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [itemSearchQuery, setItemSearchQuery] = useState("");
@@ -48,22 +48,24 @@ const ItemsPage = () => {
           elementsPerPage: itemsPerPage.toString(),
         });
 
-        const response = await fetch(`/api/gestiono/resource?${params.toString()}`);
+        const response = await fetch(
+          `/api/gestiono/resource?${params.toString()}`,
+        );
 
         if (!response.ok) {
-          throw new Error('Failed to fetch items');
+          throw new Error("Failed to fetch items");
         }
 
         const data: V2GetResourcesResponse = await response.json();
-        console.log('📦 Resources fetched:', data);
+        console.log("📦 Resources fetched:", data);
 
         setItems(data.items || []);
         setTotalPages(data.totalPages || 1);
         setTotalItems(data.totalItems || 0);
         setError(null);
       } catch (err) {
-        console.error('Error fetching items:', err);
-        setError(err instanceof Error ? err.message : 'Error desconocido');
+        console.error("Error fetching items:", err);
+        setError(err instanceof Error ? err.message : "Error desconocido");
       } finally {
         setLoading(false);
       }
@@ -74,18 +76,18 @@ const ItemsPage = () => {
 
   // Filter items
   const filteredItems = items.filter((item) => {
-    const itemCategory = typeof item.clientdata === 'object' && item.clientdata !== null
-      ? (item.clientdata as any).category
-      : item.type;
-    const itemSubcategory = typeof item.clientdata === 'object' && item.clientdata !== null
-      ? (item.clientdata as any).subcategory
-      : item.relation;
+    const itemCategory =
+      typeof item.clientdata === "object" && item.clientdata !== null
+        ? (item.clientdata as any).category
+        : item.type;
+    const itemSubcategory =
+      typeof item.clientdata === "object" && item.clientdata !== null
+        ? (item.clientdata as any).subcategory
+        : item.relation;
 
     const matchesSearch =
-      (item.name || '')
-        .toLowerCase()
-        .includes(itemSearchQuery.toLowerCase()) ||
-      (item.description || '')
+      (item.name || "").toLowerCase().includes(itemSearchQuery.toLowerCase()) ||
+      (item.description || "")
         .toLowerCase()
         .includes(itemSearchQuery.toLowerCase());
     const matchesCategory =
@@ -94,41 +96,46 @@ const ItemsPage = () => {
     const matchesSubcategory =
       itemSubcategoryFilter === "Todas las subcategorías" ||
       itemSubcategory === itemSubcategoryFilter;
-    return (
-      matchesSearch &&
-      matchesCategory &&
-      matchesSubcategory
-    );
+    return matchesSearch && matchesCategory && matchesSubcategory;
   });
 
   // Get unique categories from items
-  const uniqueCategories = Array.from(new Set(
-    items.map(item =>
-      typeof item.clientdata === 'object' && item.clientdata !== null
-        ? (item.clientdata as any).category || item.type
-        : item.type
-    ).filter(Boolean)
-  ));
+  const uniqueCategories = Array.from(
+    new Set(
+      items
+        .map((item) =>
+          typeof item.clientdata === "object" && item.clientdata !== null
+            ? (item.clientdata as any).category || item.type
+            : item.type,
+        )
+        .filter(Boolean),
+    ),
+  );
 
   // Get unique subcategories from items
-  const uniqueSubcategories = Array.from(new Set(
-    items.map(item =>
-      typeof item.clientdata === 'object' && item.clientdata !== null
-        ? (item.clientdata as any).subcategory || item.relation
-        : item.relation
-    ).filter(Boolean)
-  ));
+  const uniqueSubcategories = Array.from(
+    new Set(
+      items
+        .map((item) =>
+          typeof item.clientdata === "object" && item.clientdata !== null
+            ? (item.clientdata as any).subcategory || item.relation
+            : item.relation,
+        )
+        .filter(Boolean),
+    ),
+  );
 
   const categoryData = items.reduce(
     (acc, item) => {
-      const category = typeof item.clientdata === 'object' && item.clientdata !== null
-        ? (item.clientdata as any).category || item.type
-        : item.type;
+      const category =
+        typeof item.clientdata === "object" && item.clientdata !== null
+          ? (item.clientdata as any).category || item.type
+          : item.type;
       const existing = acc.find((c) => c.name === category);
       if (existing) {
         existing.count++;
       } else {
-        acc.push({ name: category || 'Otros', count: 1 });
+        acc.push({ name: category || "Otros", count: 1 });
       }
       return acc;
     },
@@ -204,20 +211,22 @@ const ItemsPage = () => {
               <div className="flex items-center gap-4 border-b border-gray-200">
                 <button
                   onClick={() => setCurrentView("lista")}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${currentView === "lista"
-                    ? "border-[#07234B] text-[#07234B] font-medium"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                    currentView === "lista"
+                      ? "border-[#07234B] text-[#07234B] font-medium"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
                 >
                   <List className="w-4 h-4" />
                   Lista de Items
                 </button>
                 <button
                   onClick={() => setCurrentView("analytics")}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${currentView === "analytics"
-                    ? "border-[#07234B] text-[#07234B] font-medium"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                    currentView === "analytics"
+                      ? "border-[#07234B] text-[#07234B] font-medium"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
                 >
                   <BarChart3 className="w-4 h-4" />
                   Analíticas
@@ -251,18 +260,24 @@ const ItemsPage = () => {
                         className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
                       >
                         <option>Todas las categorías</option>
-                        {uniqueCategories.map(cat => (
-                          <option key={cat} value={cat}>{cat}</option>
+                        {uniqueCategories.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
                         ))}
                       </select>
                       <select
                         value={itemSubcategoryFilter}
-                        onChange={(e) => setItemSubcategoryFilter(e.target.value)}
+                        onChange={(e) =>
+                          setItemSubcategoryFilter(e.target.value)
+                        }
                         className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
                       >
                         <option>Todas las subcategorías</option>
-                        {uniqueSubcategories.map(subcat => (
-                          <option key={subcat} value={subcat}>{subcat}</option>
+                        {uniqueSubcategories.map((subcat) => (
+                          <option key={subcat} value={subcat}>
+                            {subcat}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -303,9 +318,11 @@ const ItemsPage = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                           {filteredItems.map((item) => {
-                            const clientData = typeof item.clientdata === 'object' && item.clientdata !== null
-                              ? item.clientdata as any
-                              : {};
+                            const clientData =
+                              typeof item.clientdata === "object" &&
+                              item.clientdata !== null
+                                ? (item.clientdata as any)
+                                : {};
 
                             return (
                               <tr
@@ -318,7 +335,7 @@ const ItemsPage = () => {
                                       {item.name}
                                     </span>
                                     <span className="text-xs text-gray-500">
-                                      {item.description || 'Sin descripción'}
+                                      {item.description || "Sin descripción"}
                                     </span>
                                   </div>
                                 </td>
@@ -334,12 +351,13 @@ const ItemsPage = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm text-gray-700">
-                                    {clientData.supplier || 'N/A'}
+                                    {clientData.supplier || "N/A"}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm font-medium text-gray-900">
-                                    {item.sellPriceCurrency || 'DOP'} {item.sellPrice?.toFixed(2) || '0.00'}
+                                    {item.sellPriceCurrency || "DOP"}{" "}
+                                    {item.sellPrice?.toFixed(2) || "0.00"}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">
@@ -349,7 +367,7 @@ const ItemsPage = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm text-gray-600">
-                                    {item.unit || 'N/A'}
+                                    {item.unit || "N/A"}
                                   </span>
                                 </td>
                               </tr>
@@ -371,12 +389,16 @@ const ItemsPage = () => {
                   <div className="flex items-center justify-between bg-white px-6 py-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span>
-                        Mostrando {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, totalItems)} de {totalItems} items
+                        Mostrando {(currentPage - 1) * itemsPerPage + 1} -{" "}
+                        {Math.min(currentPage * itemsPerPage, totalItems)} de{" "}
+                        {totalItems} items
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) => Math.max(1, prev - 1))
+                        }
                         disabled={currentPage === 1}
                         className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -384,21 +406,29 @@ const ItemsPage = () => {
                         Anterior
                       </button>
                       <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        {Array.from(
+                          { length: totalPages },
+                          (_, i) => i + 1,
+                        ).map((page) => (
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === page
-                              ? 'bg-[#07234B] text-white'
-                              : 'text-gray-700 hover:bg-gray-100'
-                              }`}
+                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                              currentPage === page
+                                ? "bg-[#07234B] text-white"
+                                : "text-gray-700 hover:bg-gray-100"
+                            }`}
                           >
                             {page}
                           </button>
                         ))}
                       </div>
                       <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        onClick={() =>
+                          setCurrentPage((prev) =>
+                            Math.min(totalPages, prev + 1),
+                          )
+                        }
                         disabled={currentPage === totalPages}
                         className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -414,15 +444,21 @@ const ItemsPage = () => {
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="bg-white p-6 rounded-lg border border-gray-200">
-                      <h3 className="text-sm text-gray-600 mb-2">Total Items</h3>
+                      <h3 className="text-sm text-gray-600 mb-2">
+                        Total Items
+                      </h3>
                       <p className="text-3xl font-bold text-gray-900">
                         {totalItems}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">En todas las páginas</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        En todas las páginas
+                      </p>
                     </div>
 
                     <div className="bg-white p-6 rounded-lg border border-gray-200">
-                      <h3 className="text-sm text-gray-600 mb-2">Items en Esta Página</h3>
+                      <h3 className="text-sm text-gray-600 mb-2">
+                        Items en Esta Página
+                      </h3>
                       <p className="text-3xl font-bold text-gray-900">
                         {items.length}
                       </p>
@@ -436,7 +472,11 @@ const ItemsPage = () => {
                         Stock Total
                       </h3>
                       <p className="text-3xl font-bold text-gray-900">
-                        {items.reduce((sum, item) => sum + (item.totalAvailableQuantity || 0), 0)}
+                        {items.reduce(
+                          (sum, item) =>
+                            sum + (item.totalAvailableQuantity || 0),
+                          0,
+                        )}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         Unidades disponibles
@@ -444,9 +484,14 @@ const ItemsPage = () => {
                     </div>
 
                     <div className="bg-white p-6 rounded-lg border border-gray-200">
-                      <h3 className="text-sm text-gray-600 mb-2">Valor Total</h3>
+                      <h3 className="text-sm text-gray-600 mb-2">
+                        Valor Total
+                      </h3>
                       <p className="text-3xl font-bold text-gray-900">
-                        $ {items.reduce((sum, item) => sum + (item.sellPrice || 0), 0).toFixed(2)}
+                        ${" "}
+                        {items
+                          .reduce((sum, item) => sum + (item.sellPrice || 0), 0)
+                          .toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         Precio base de ítems
@@ -536,7 +581,8 @@ const ItemsPage = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-bold text-gray-900">
-                                {item.sellPriceCurrency || 'DOP'} {item.sellPrice?.toFixed(2) || '0.00'}
+                                {item.sellPriceCurrency || "DOP"}{" "}
+                                {item.sellPrice?.toFixed(2) || "0.00"}
                               </p>
                               <p className="text-xs text-gray-600">
                                 Stock: {item.totalAvailableQuantity || 0}

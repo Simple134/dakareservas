@@ -1,75 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { addResource, v2GetResources } from '@/src/lib/gestiono/endpoints';
+import { NextRequest, NextResponse } from "next/server";
+import { addResource, v2GetResources } from "@/src/lib/gestiono/endpoints";
 
 export async function GET(request: NextRequest) {
-    try {
-        const searchParams = request.nextUrl.searchParams;
-        const query: any = {};
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const query: any = {};
 
-        searchParams.forEach((value, key) => {
-            if (value === 'true') {
-                query[key] = true;
-            } else if (value === 'false') {
-                query[key] = false;
-            } else if (!isNaN(Number(value)) && !['month', 'year', 'taxId', 'phone', 'reference'].includes(key)) {
-                query[key] = Number(value);
-            } else if (value.startsWith('[') || value.startsWith('{')) {
-                try {
-                    query[key] = JSON.parse(value);
-                } catch {
-                    query[key] = value;
-                }
-            } else {
-                query[key] = value;
-            }
-        });
+    searchParams.forEach((value, key) => {
+      if (value === "true") {
+        query[key] = true;
+      } else if (value === "false") {
+        query[key] = false;
+      } else if (
+        !isNaN(Number(value)) &&
+        !["month", "year", "taxId", "phone", "reference"].includes(key)
+      ) {
+        query[key] = Number(value);
+      } else if (value.startsWith("[") || value.startsWith("{")) {
+        try {
+          query[key] = JSON.parse(value);
+        } catch {
+          query[key] = value;
+        }
+      } else {
+        query[key] = value;
+      }
+    });
 
-        console.log('📍 Calling v2GetPendingRecords with params:', query);
+    console.log("📍 Calling v2GetPendingRecords with params:", query);
 
-        const pendingRecords = await v2GetResources(query);
-        console.log('✅ v2GetPendingRecords obtenidas:', pendingRecords);
-        return NextResponse.json(pendingRecords);
-    } catch (error: any) {
-        console.error('❌ Error fetching v2GetPendingRecords:', error);
-        console.error('📋 Error details:', {
-            message: error.message,
-            statusCode: error.statusCode,
-            msg: error.msg,
-            details: error.details,
-        });
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch v2GetPendingRecords',
-                details: error.message || error.msg,
-                gestionoError: error
-            },
-            { status: 500 }
-        );
-    }
+    const pendingRecords = await v2GetResources(query);
+    console.log("✅ v2GetPendingRecords obtenidas:", pendingRecords);
+    return NextResponse.json(pendingRecords);
+  } catch (error: any) {
+    console.error("❌ Error fetching v2GetPendingRecords:", error);
+    console.error("📋 Error details:", {
+      message: error.message,
+      statusCode: error.statusCode,
+      msg: error.msg,
+      details: error.details,
+    });
+    return NextResponse.json(
+      {
+        error: "Failed to fetch v2GetPendingRecords",
+        details: error.message || error.msg,
+        gestionoError: error,
+      },
+      { status: 500 },
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const body = await request.json();
-        const pendingRecords = await addResource(body);
-        return NextResponse.json(pendingRecords);
-    } catch (error: any) {
-        console.error('❌ Error fetching v2GetPendingRecords:', error);
-        console.error('📋 Error details:', {
-            message: error.message,
-            statusCode: error.statusCode,
-            msg: error.msg,
-            details: error.details,
-        });
-        return NextResponse.json(
-            {
-                error: 'Failed to fetch v2GetPendingRecords',
-                details: error.message || error.msg,
-                gestionoError: error
-            },
-            { status: 500 }
-        );
-    }
+  try {
+    const body = await request.json();
+    const pendingRecords = await addResource(body);
+    return NextResponse.json(pendingRecords);
+  } catch (error: any) {
+    console.error("❌ Error fetching v2GetPendingRecords:", error);
+    console.error("📋 Error details:", {
+      message: error.message,
+      statusCode: error.statusCode,
+      msg: error.msg,
+      details: error.details,
+    });
+    return NextResponse.json(
+      {
+        error: "Failed to fetch v2GetPendingRecords",
+        details: error.message || error.msg,
+        gestionoError: error,
+      },
+      { status: 500 },
+    );
+  }
 }
-
-

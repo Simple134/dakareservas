@@ -23,7 +23,12 @@ import {
   CustomBadge,
   CustomButton,
 } from "@/src/components/project/CustomCard";
-import type { GestionoInvoiceItem, GestionoInvoicesResponse, GestionoBeneficiary, GestionoDivision } from "@/src/types/gestiono";
+import type {
+  GestionoInvoiceItem,
+  GestionoInvoicesResponse,
+  GestionoBeneficiary,
+  GestionoDivision,
+} from "@/src/types/gestiono";
 import { useGestiono } from "@/src/context/Gestiono";
 
 // Tipo para factura en el componente
@@ -45,36 +50,38 @@ interface InvoiceDisplay {
 function mapGestionoToInvoice(
   gestionoInvoice: GestionoInvoiceItem,
   beneficiariesMap: Record<number, string> = {},
-  divisions: GestionoDivision[] = []
+  divisions: GestionoDivision[] = [],
 ): InvoiceDisplay {
   // Mapear estado
   const statusMap: Record<string, string> = {
-    'COMPLETED': 'paid',
-    'PENDING': 'pending',
-    'PAST_DUE': 'overdue',
-    'DRAFT': 'draft',
+    COMPLETED: "paid",
+    PENDING: "pending",
+    PAST_DUE: "overdue",
+    DRAFT: "draft",
   };
 
-  const beneficiaryName = beneficiariesMap[gestionoInvoice.beneficiaryId] || `Beneficiario ${gestionoInvoice.beneficiaryId}`;
-  const division = divisions.find(d => d.id === gestionoInvoice.divisionId);
+  const beneficiaryName =
+    beneficiariesMap[gestionoInvoice.beneficiaryId] ||
+    `Beneficiario ${gestionoInvoice.beneficiaryId}`;
+  const division = divisions.find((d) => d.id === gestionoInvoice.divisionId);
 
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
-    projectName: division?.name || gestionoInvoice.description || 'Sin proyecto',
+    projectName:
+      division?.name || gestionoInvoice.description || "Sin proyecto",
     clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
     supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
-    date: new Date(gestionoInvoice.date).toISOString().split('T')[0],
+    date: new Date(gestionoInvoice.date).toISOString().split("T")[0],
     dueDate: gestionoInvoice.dueDate
-      ? new Date(gestionoInvoice.dueDate).toISOString().split('T')[0]
-      : new Date(gestionoInvoice.date).toISOString().split('T')[0],
+      ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
+      : new Date(gestionoInvoice.date).toISOString().split("T")[0],
     amount: gestionoInvoice.amount,
-    status: statusMap[gestionoInvoice.state] || 'draft',
-    type: gestionoInvoice.isSell === 1 ? 'sale' : 'purchase',
-    documentType: 'invoice', // Gestiono solo devuelve INVOICE en este endpoint
+    status: statusMap[gestionoInvoice.state] || "draft",
+    type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
+    documentType: "invoice", // Gestiono solo devuelve INVOICE en este endpoint
   };
 }
-
 
 export default function InvoicesPage() {
   const { divisions, isLoading: isLoadingContext } = useGestiono();
@@ -92,23 +99,25 @@ export default function InvoicesPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const [beneficiariesMap, setBeneficiariesMap] = useState<Record<number, string>>({});
+  const [beneficiariesMap, setBeneficiariesMap] = useState<
+    Record<number, string>
+  >({});
 
   useEffect(() => {
     const fetchBeneficiaries = async () => {
       setIsLoadingBeneficiaries(true);
       try {
-        const response = await fetch('/api/gestiono/beneficiaries');
+        const response = await fetch("/api/gestiono/beneficiaries");
         if (response.ok) {
           const beneficiaries: GestionoBeneficiary[] = await response.json();
           const map: Record<number, string> = {};
-          beneficiaries.forEach(b => {
+          beneficiaries.forEach((b) => {
             map[b.id] = b.name;
           });
           setBeneficiariesMap(map);
         }
       } catch (error) {
-        console.error('Error fetching beneficiaries:', error);
+        console.error("Error fetching beneficiaries:", error);
       } finally {
         setIsLoadingBeneficiaries(false);
       }
@@ -121,7 +130,7 @@ export default function InvoicesPage() {
       setIsLoadingInvoices(true);
       try {
         const response = await fetch(
-          `/api/gestiono/invoices?elementsPerPage=${itemsPerPage}&page=${currentPage}`
+          `/api/gestiono/invoices?elementsPerPage=${itemsPerPage}&page=${currentPage}`,
         );
 
         if (!response.ok) {
@@ -133,7 +142,7 @@ export default function InvoicesPage() {
         setTotalPages(data.totalPages || 1);
         setTotalItems(data.totalItems || 0);
       } catch (error) {
-        console.error('❌ Error fetching invoices:', error);
+        console.error("❌ Error fetching invoices:", error);
       } finally {
         setIsLoadingInvoices(false);
       }
@@ -143,18 +152,23 @@ export default function InvoicesPage() {
   }, [currentPage, itemsPerPage]);
 
   useEffect(() => {
-    const mapped = rawInvoices.map(item => mapGestionoToInvoice(item, beneficiariesMap, divisions));
+    const mapped = rawInvoices.map((item) =>
+      mapGestionoToInvoice(item, beneficiariesMap, divisions),
+    );
     setInvoices(mapped);
   }, [rawInvoices, beneficiariesMap, divisions]);
 
-  const isLoading = isLoadingInvoices || isLoadingBeneficiaries || isLoadingContext;
+  const isLoading =
+    isLoadingInvoices || isLoadingBeneficiaries || isLoadingContext;
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (invoice.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-      (invoice.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      (invoice.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ??
+        false) ||
+      (invoice.supplierName?.toLowerCase().includes(searchTerm.toLowerCase()) ??
+        false);
 
     const matchesType = selectedType === "all" || invoice.type === selectedType;
     const matchesDocumentType =
@@ -299,7 +313,11 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-medium">Ventas Totales</h3>
             </div>
             <div className="text-2xl font-bold text-green-600">
-              {isLoading ? <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" /> : `RD$ ${totalSales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {isLoading ? (
+                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                `RD$ ${totalSales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              )}
             </div>
             <p className="text-xs text-gray-600">Facturas de venta pagadas</p>
           </div>
@@ -311,7 +329,11 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-medium">Compras Totales</h3>
             </div>
             <div className="text-2xl font-bold text-red-600">
-              {isLoading ? <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" /> : `RD$ ${totalPurchases.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              {isLoading ? (
+                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                `RD$ ${totalPurchases.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              )}
             </div>
             <p className="text-xs text-gray-600">Facturas de compra pagadas</p>
           </div>
@@ -323,7 +345,11 @@ export default function InvoicesPage() {
               <h3 className="text-sm font-medium">Pendientes</h3>
             </div>
             <div className="text-2xl font-bold text-yellow-600">
-              {isLoading ? <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" /> : pendingInvoices}
+              {isLoading ? (
+                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                pendingInvoices
+              )}
             </div>
             <p className="text-xs text-gray-600">Facturas por cobrar/pagar</p>
           </div>
@@ -429,8 +455,7 @@ export default function InvoicesPage() {
                 >
                   <option value="all">Todas ({invoices.length})</option>
                   <option value="sale">
-                    Ventas (
-                    {invoices.filter((i) => i.type === "sale").length})
+                    Ventas ({invoices.filter((i) => i.type === "sale").length})
                   </option>
                   <option value="purchase">
                     Compras (
@@ -452,19 +477,11 @@ export default function InvoicesPage() {
                   <option value="all">Todos ({invoices.length})</option>
                   <option value="quote">
                     Cotizaciones (
-                    {
-                      invoices.filter((i) => i.documentType === "quote")
-                        .length
-                    }
-                    )
+                    {invoices.filter((i) => i.documentType === "quote").length})
                   </option>
                   <option value="order">
                     Órdenes (
-                    {
-                      invoices.filter((i) => i.documentType === "order")
-                        .length
-                    }
-                    )
+                    {invoices.filter((i) => i.documentType === "order").length})
                   </option>
                   <option value="invoice">
                     Facturas (
@@ -489,8 +506,8 @@ export default function InvoicesPage() {
                     className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${selectedStatuses.includes("paid") ? "bg-blue-50 border-blue-500 text-blue-700" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Pagada (
-                    {invoices.filter((i) => i.status === "paid").length})
+                    Pagada ({invoices.filter((i) => i.status === "paid").length}
+                    )
                   </button>
                   <button
                     onClick={() => toggleStatus("pending")}
@@ -577,16 +594,37 @@ export default function InvoicesPage() {
               <tbody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, idx) => (
-                    <tr key={idx} className="border-b border-gray-100 animate-pulse">
-                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-6 w-20 bg-gray-200 rounded-full" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-32 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-40 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-20 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-6 w-24 bg-gray-200 rounded-full" /></td>
-                      <td className="py-3 px-4"><div className="h-8 w-24 bg-gray-200 rounded" /></td>
+                    <tr
+                      key={idx}
+                      className="border-b border-gray-100 animate-pulse"
+                    >
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-6 w-20 bg-gray-200 rounded-full" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-32 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-40 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-20 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-6 w-24 bg-gray-200 rounded-full" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-8 w-24 bg-gray-200 rounded" />
+                      </td>
                     </tr>
                   ))
                 ) : filteredInvoices.length === 0 ? (
@@ -631,7 +669,10 @@ export default function InvoicesPage() {
                           className={`py-3 px-4 text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
                         >
                           {invoice.type === "sale" ? "+" : "-"}RD${" "}
-                          {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {invoice.amount.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="py-3 px-4">
                           <CustomBadge className={statusBadge.className}>
@@ -699,12 +740,15 @@ export default function InvoicesPage() {
 
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
                   disabled={currentPage === 1 || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === 1 || isLoading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    currentPage === 1 || isLoading
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   Anterior
                 </button>
@@ -732,10 +776,11 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => setCurrentPage(page)}
                             disabled={isLoading}
-                            className={`px-3 py-1 text-sm rounded transition-colors ${page === currentPage
-                              ? "bg-blue-600 text-white border border-blue-600"
-                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                              } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
+                            className={`px-3 py-1 text-sm rounded transition-colors ${
+                              page === currentPage
+                                ? "bg-blue-600 text-white border border-blue-600"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                            } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
                           >
                             {page}
                           </button>
@@ -749,10 +794,11 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                   }
                   disabled={currentPage === totalPages || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === totalPages || isLoading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    currentPage === totalPages || isLoading
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   Siguiente
                 </button>

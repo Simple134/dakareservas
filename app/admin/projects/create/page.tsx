@@ -43,13 +43,15 @@ const CreateProject = () => {
   // Parse CSV file and populate budget categories
   const parseCSVFile = async (file: File) => {
     const text = await file.text();
-    const lines = text.split('\n').filter(line => line.trim());
+    const lines = text.split("\n").filter((line) => line.trim());
 
     // Skip header line
     const dataLines = lines.slice(1);
 
     const categories: BudgetCategory[] = dataLines.map((line, index) => {
-      const [name, percentage, amount] = line.split(',').map(item => item.trim());
+      const [name, percentage, amount] = line
+        .split(",")
+        .map((item) => item.trim());
       return {
         id: Date.now().toString() + index,
         name: name || `Categoría ${index + 1}`,
@@ -75,7 +77,7 @@ const CreateProject = () => {
       setBudgetDocument(file);
 
       // If it's a CSV file, parse it
-      if (file.name.endsWith('.csv')) {
+      if (file.name.endsWith(".csv")) {
         await parseCSVFile(file);
       }
     }
@@ -100,18 +102,22 @@ const CreateProject = () => {
       const file = e.dataTransfer.files[0];
 
       // Check file type
-      const validTypes = ['.pdf', '.xlsx', '.xls', '.doc', '.docx', '.csv'];
-      const isValid = validTypes.some(type => file.name.toLowerCase().endsWith(type));
+      const validTypes = [".pdf", ".xlsx", ".xls", ".doc", ".docx", ".csv"];
+      const isValid = validTypes.some((type) =>
+        file.name.toLowerCase().endsWith(type),
+      );
 
       if (isValid) {
         setBudgetDocument(file);
 
         // If it's a CSV file, parse it
-        if (file.name.endsWith('.csv')) {
+        if (file.name.endsWith(".csv")) {
           await parseCSVFile(file);
         }
       } else {
-        alert('Tipo de archivo no válido. Por favor, suba PDF, Excel, Word o CSV.');
+        alert(
+          "Tipo de archivo no válido. Por favor, suba PDF, Excel, Word o CSV.",
+        );
       }
     }
   };
@@ -133,10 +139,10 @@ const CreateProject = () => {
       prev.map((cat) =>
         cat.id === id
           ? {
-            ...cat,
-            amount,
-            percentage: budget > 0 ? (amount / budget) * 100 : 0,
-          }
+              ...cat,
+              amount,
+              percentage: budget > 0 ? (amount / budget) * 100 : 0,
+            }
           : cat,
       ),
     );
@@ -172,7 +178,7 @@ const CreateProject = () => {
     try {
       const payload: GestionoDivisionPayload = {
         name: projectName,
-        type: 'PROJECT',
+        type: "PROJECT",
         subDivisionOf: 183,
         metadata: {
           client,
@@ -185,14 +191,14 @@ const CreateProject = () => {
           endDate,
           description: projectDescription,
           budgetCategories,
-          budgetFileName: budgetDocument?.name
-        }
+          budgetFileName: budgetDocument?.name,
+        },
       };
 
-      await fetch('/api/gestiono/divisions', {
-        method: 'POST',
+      await fetch("/api/gestiono/divisions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
@@ -385,12 +391,13 @@ const CreateProject = () => {
               Subir Documento de Presupuesto
             </label>
             <div
-              className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${isDragging
-                ? 'border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg'
-                : budgetDocument
-                  ? 'border-green-500 bg-green-50 shadow-md'
-                  : 'border-gray-300 hover:border-[#224397] hover:bg-gray-50'
-                }`}
+              className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${
+                isDragging
+                  ? "border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg"
+                  : budgetDocument
+                    ? "border-green-500 bg-green-50 shadow-md"
+                    : "border-gray-300 hover:border-[#224397] hover:bg-gray-50"
+              }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
@@ -419,7 +426,7 @@ const CreateProject = () => {
                       <p className="text-sm text-gray-700 font-medium bg-white px-4 py-2 rounded-lg inline-block shadow-sm">
                         📄 {budgetDocument.name}
                       </p>
-                      {budgetDocument.name.endsWith('.csv') && (
+                      {budgetDocument.name.endsWith(".csv") && (
                         <p className="text-xs text-green-600 mt-2 font-medium">
                           ✨ Tabla actualizada automáticamente
                         </p>
@@ -596,13 +603,13 @@ const CreateProject = () => {
             className="px-6 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5f] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
           >
-            <span>{loading ? '⏳' : '📋'}</span>
-            {loading ? 'Creando...' : 'Crear Proyecto'}
+            <span>{loading ? "⏳" : "📋"}</span>
+            {loading ? "Creando..." : "Crear Proyecto"}
           </button>
         </div>
       </div>
     </div>
   );
-}
+};
 
 export default CreateProject;

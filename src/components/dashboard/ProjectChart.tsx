@@ -15,9 +15,10 @@ export function ProjectChart() {
   // Transform pendingRecords for BudgetChart
   // Map items to: Name (Reference/Desc), Budget (Amount), Executed (Paid)
   const castedPendingRecords = pendingRecords as unknown;
-  const data: any = (Array.isArray(castedPendingRecords) && castedPendingRecords.length === 0)
-    ? null
-    : castedPendingRecords;
+  const data: any =
+    Array.isArray(castedPendingRecords) && castedPendingRecords.length === 0
+      ? null
+      : castedPendingRecords;
 
   const items = data?.items || [];
 

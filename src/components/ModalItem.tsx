@@ -21,7 +21,10 @@ interface ModalItemProps {
   onSuccess?: () => void;
 }
 
-export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) => {
+export const ModalItem = ({
+  setShowNewItemModal,
+  onSuccess,
+}: ModalItemProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,11 +145,14 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                       message: "El nombre debe tener al menos 2 caracteres",
                     },
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.name ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.name ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
                 {errors.name && (
-                  <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -171,8 +177,9 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                   {...register("category", {
                     required: "La categoría es obligatoria",
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.category ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.category ? "border-red-500" : "border-gray-300"
+                  }`}
                 >
                   <option value="">Seleccionar categoría</option>
                   <option value="Materiales">Materiales</option>
@@ -182,7 +189,9 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                   <option value="Servicios">Servicios</option>
                 </select>
                 {errors.category && (
-                  <p className="text-xs text-red-500 mt-1">{errors.category.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.category.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -193,8 +202,9 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                   {...register("subcategory", {
                     required: "La subcategoría es obligatoria",
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.subcategory ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.subcategory ? "border-red-500" : "border-gray-300"
+                  }`}
                 >
                   <option value="">Seleccionar subcategoría</option>
                   <option value="Cemento">Cemento</option>
@@ -205,7 +215,9 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                   <option value="Eléctricos">Eléctricos</option>
                 </select>
                 {errors.subcategory && (
-                  <p className="text-xs text-red-500 mt-1">{errors.subcategory.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.subcategory.message}
+                  </p>
                 )}
               </div>
             </div>
@@ -239,11 +251,14 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                     },
                     valueAsNumber: true,
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.variation ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.variation ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
                 {errors.variation && (
-                  <p className="text-xs text-red-500 mt-1">{errors.variation.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.variation.message}
+                  </p>
                 )}
               </div>
               <div>
@@ -254,8 +269,9 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                   {...register("unit", {
                     required: "La unidad es obligatoria",
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.unit ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.unit ? "border-red-500" : "border-gray-300"
+                  }`}
                 >
                   <option value="Unidad">Unidad</option>
                   <option value="Metro">Metro</option>
@@ -269,7 +285,9 @@ export const ModalItem = ({ setShowNewItemModal, onSuccess }: ModalItemProps) =>
                   <option value="Rollo">Rollo</option>
                 </select>
                 {errors.unit && (
-                  <p className="text-xs text-red-500 mt-1">{errors.unit.message}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.unit.message}
+                  </p>
                 )}
               </div>
               <div>

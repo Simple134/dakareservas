@@ -23,22 +23,37 @@ export function DashboardView() {
 
   const activeProjectsList: Project[] = divisions
     .filter((div) => {
-      if ((div.type as string) === "ROOT" || div.subDivisionOf !== 183 || !div.metadata) return false;
+      if (
+        (div.type as string) === "ROOT" ||
+        div.subDivisionOf !== 183 ||
+        !div.metadata
+      )
+        return false;
       let meta: any = div.metadata;
-      if (typeof meta === 'string') {
-        try { meta = JSON.parse(meta); } catch { return false; }
+      if (typeof meta === "string") {
+        try {
+          meta = JSON.parse(meta);
+        } catch {
+          return false;
+        }
       }
       return meta && meta.budget !== undefined && meta.status !== undefined;
     })
     .map((div) => {
       let meta: any = div.metadata || {};
-      if (typeof meta === 'string') {
-        try { meta = JSON.parse(meta); } catch { meta = {}; }
+      if (typeof meta === "string") {
+        try {
+          meta = JSON.parse(meta);
+        } catch {
+          meta = {};
+        }
       }
       let status: Project["status"] = "planning";
       const metaStatus = String(meta.status || "").toLowerCase();
-      if (metaStatus.includes("ejecuci") || metaStatus === "execution") status = "execution";
-      if (metaStatus.includes("complete") || metaStatus === "completed") status = "completed";
+      if (metaStatus.includes("ejecuci") || metaStatus === "execution")
+        status = "execution";
+      if (metaStatus.includes("complete") || metaStatus === "completed")
+        status = "completed";
       return {
         id: div.id,
         name: div.name,
@@ -53,11 +68,11 @@ export function DashboardView() {
         completionPercentage: 0,
         project_type: meta.projectType || "General",
         permitting_category: meta.permissionCategory || "General",
-        ownerProfileId: undefined
+        ownerProfileId: undefined,
       };
     });
 
-  const resume = pendingRecords?.resume
+  const resume = pendingRecords?.resume;
 
   const totalCharged = resume?.totalCharged || 0;
   const toCharge = resume?.toCharge || 0;
@@ -88,13 +103,15 @@ export function DashboardView() {
 
     revenueValues.push(item.amount);
 
-    const itemMargin = item.amount > 0 ? ((item.grossProfit) / item.amount) * 100 : 0;
+    const itemMargin =
+      item.amount > 0 ? (item.grossProfit / item.amount) * 100 : 0;
     marginValues.push(itemMargin);
 
     paymentValues.push(item.paid);
   });
 
-  const calculatedMargin = totalItemsAmount > 0 ? (totalGrossProfit / totalItemsAmount) * 100 : 20;
+  const calculatedMargin =
+    totalItemsAmount > 0 ? (totalGrossProfit / totalItemsAmount) * 100 : 20;
   const averageMargin = calculatedMargin;
 
   const netProfit = totalRevenue * (averageMargin / 100);
@@ -115,7 +132,7 @@ export function DashboardView() {
     },
     {
       title: "Ingresos Totales",
-      value: `USD $${(totalRevenue).toLocaleString('en-US')}`,
+      value: `USD $${totalRevenue.toLocaleString("en-US")}`,
       change: Number(revenueTrend.toFixed(1)),
       changeType: revenueTrend >= 0 ? "positive" : "negative",
       icon: "TrendingUp",
@@ -131,7 +148,7 @@ export function DashboardView() {
     },
     {
       title: "Flujo de Caja",
-      value: `USD $${(cashFlow).toLocaleString('en-US')}`,
+      value: `USD $${cashFlow.toLocaleString("en-US")}`,
       change: Number(cashFlowTrend.toFixed(1)),
       changeType: cashFlowTrend >= 0 ? "positive" : "negative",
       icon: "Wallet",

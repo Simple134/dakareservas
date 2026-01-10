@@ -19,17 +19,18 @@ export const ProjectStatusChart = ({ records }: ProjectStatusChartProps) => {
   const statusData = [
     {
       name: "Pendiente",
-      value: records.filter((r) => r.state === 'PENDING').length,
+      value: records.filter((r) => r.state === "PENDING").length,
       color: "#f59e0b", // amber-500
     },
     {
       name: "En Proceso", // Covers PARTIALLY_PAID, DRAFT, etc if needed, or mapped logic
-      value: records.filter((r) => r.state !== 'PENDING' && r.state !== 'PAID').length,
+      value: records.filter((r) => r.state !== "PENDING" && r.state !== "PAID")
+        .length,
       color: "#3b82f6", // blue-500
     },
     {
       name: "Pagado",
-      value: records.filter((r) => r.state === 'PAID').length,
+      value: records.filter((r) => r.state === "PAID").length,
       color: "#10b981", // green-500
     },
   ].filter((item) => item.value > 0);

@@ -57,7 +57,9 @@ export default function ProjectOverview() {
   const projectId = params?.id as string;
   const router = useRouter();
 
-  const [division, setDivision] = useState<GestionoDivisionWithBalance | null>(null);
+  const [division, setDivision] = useState<GestionoDivisionWithBalance | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState("presupuesto-general");
   const selectRef = useRef<HTMLDivElement>(null);
@@ -86,20 +88,21 @@ export default function ProjectOverview() {
     fetchDivision();
   }, [projectId]);
 
-
-  const project = division ? {
-    id: division.id,
-    name: division.name,
-    client: division.metadata?.client || "Cliente Desconocido",
-    location: division.metadata?.location || "Ubicación desconocida",
-    status: division.metadata?.status || "planning",
-    totalBudget: division.metadata?.budget || 0,
-    executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-    completionPercentage: division.metadata?.completionPercentage || 0,
-    profitMargin: division.metadata?.profitMargin || 0,
-    startDate: division.metadata?.startDate || new Date().toISOString(),
-    endDate: division.metadata?.endDate || new Date().toISOString(),
-  } : null;
+  const project = division
+    ? {
+        id: division.id,
+        name: division.name,
+        client: division.metadata?.client || "Cliente Desconocido",
+        location: division.metadata?.location || "Ubicación desconocida",
+        status: division.metadata?.status || "planning",
+        totalBudget: division.metadata?.budget || 0,
+        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+        completionPercentage: division.metadata?.completionPercentage || 0,
+        profitMargin: division.metadata?.profitMargin || 0,
+        startDate: division.metadata?.startDate || new Date().toISOString(),
+        endDate: division.metadata?.endDate || new Date().toISOString(),
+      }
+    : null;
 
   if (isLoading) {
     return (
@@ -112,7 +115,9 @@ export default function ProjectOverview() {
   if (!project) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">Proyecto no encontrado</h1>
+        <h1 className="text-2xl font-bold text-gray-800">
+          Proyecto no encontrado
+        </h1>
         <CustomButton onClick={() => router.back()}>Volver</CustomButton>
       </div>
     );
@@ -174,14 +179,10 @@ export default function ProjectOverview() {
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">
               {project?.name}
             </h1>
-            <p className="text-gray-500 mt-1">
-              Cliente: {project?.client}
-            </p>
+            <p className="text-gray-500 mt-1">Cliente: {project?.client}</p>
             <div className="flex items-center gap-2 mt-2">
               <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-500">
-                {project?.location}
-              </span>
+              <span className="text-sm text-gray-500">{project?.location}</span>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -280,9 +281,13 @@ export default function ProjectOverview() {
               </div>
               <div className="flex justify-between text-sm text-gray-500">
                 <span>
-                  Inicio: {formatDate(project?.startDate || new Date().toISOString())}
+                  Inicio:{" "}
+                  {formatDate(project?.startDate || new Date().toISOString())}
                 </span>
-                <span>Fin: {formatDate(project?.endDate || new Date().toISOString())}</span>
+                <span>
+                  Fin:{" "}
+                  {formatDate(project?.endDate || new Date().toISOString())}
+                </span>
               </div>
             </div>
           </div>

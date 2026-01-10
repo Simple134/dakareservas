@@ -27,19 +27,18 @@ interface BudgetChartProps {
 }
 
 export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
-  const budgetData = records
-    .map((record) => {
-      const division = divisions.find(d => d.id === record.divisionId);
-      const name = division
-        ? division.name
-        : (record.description || `Record #${record.id}`);
+  const budgetData = records.map((record) => {
+    const division = divisions.find((d) => d.id === record.divisionId);
+    const name = division
+      ? division.name
+      : record.description || `Record #${record.id}`;
 
-      return {
-        name: name.slice(0, 8) + (name.length > 8 ? "..." : ""),
-        facturado: record.amount,
-        cobrado: record.paid,
-      };
-    })
+    return {
+      name: name.slice(0, 8) + (name.length > 8 ? "..." : ""),
+      facturado: record.amount,
+      cobrado: record.paid,
+    };
+  });
 
   const data = {
     labels: budgetData.map((p) => p.name),

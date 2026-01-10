@@ -33,7 +33,9 @@ export function CreateInvoiceDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [gestionoBeneficiaries, setGestionoBeneficiaries] = useState<GestionoBeneficiary[]>([]);
+  const [gestionoBeneficiaries, setGestionoBeneficiaries] = useState<
+    GestionoBeneficiary[]
+  >([]);
   // Usar el contexto global para las divisiones
   const { divisions: gestionoDivisions } = useGestiono();
   const [selectedDivisionId, setSelectedDivisionId] = useState<number>(183); // División por defecto
@@ -95,13 +97,15 @@ export function CreateInvoiceDialog({
       if (!isOpen) return;
 
       try {
-        console.log('🔄 Obteniendo beneficiarios de Gestiono...');
+        console.log("🔄 Obteniendo beneficiarios de Gestiono...");
         const params = new URLSearchParams({
-          withContacts: 'true',
-          withTaxData: 'false',
+          withContacts: "true",
+          withTaxData: "false",
         });
 
-        const response = await fetch(`/api/gestiono/beneficiaries?${params.toString()}`);
+        const response = await fetch(
+          `/api/gestiono/beneficiaries?${params.toString()}`,
+        );
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -109,22 +113,24 @@ export function CreateInvoiceDialog({
 
         const data = await response.json();
 
-        console.log('✅ Beneficiarios de Gestiono:', data);
+        console.log("✅ Beneficiarios de Gestiono:", data);
         setGestionoBeneficiaries(data || []);
       } catch (error) {
-        console.error('❌ Error obteniendo beneficiarios:', error);
+        console.error("❌ Error obteniendo beneficiarios:", error);
       }
     };
 
     fetchGestionoBeneficiaries();
   }, [isOpen]);
 
-  console.log('Gestiono Beneficiaries:', gestionoBeneficiaries);
+  console.log("Gestiono Beneficiaries:", gestionoBeneficiaries);
 
   useEffect(() => {
     if (isOpen && gestionoDivisions.length > 0) {
       setSelectedDivisionId(gestionoDivisions[0].id);
-      console.log(`🏢 División seleccionada desde contexto: ${gestionoDivisions[0].name} (ID: ${gestionoDivisions[0].id})`);
+      console.log(
+        `🏢 División seleccionada desde contexto: ${gestionoDivisions[0].name} (ID: ${gestionoDivisions[0].id})`,
+      );
     }
   }, [isOpen, gestionoDivisions]);
 
@@ -164,12 +170,18 @@ export function CreateInvoiceDialog({
 
   const handleClientSelect = (clientId: string) => {
     const selectedBeneficiary = gestionoBeneficiaries.find(
-      (b) => String(b.id) === clientId
+      (b) => String(b.id) === clientId,
     );
     if (selectedBeneficiary) {
-      const phone = selectedBeneficiary.contacts?.find((c) => c.type === 'phone')?.data || '';
-      const email = selectedBeneficiary.contacts?.find((c) => c.type === 'email')?.data || '';
-      const address = selectedBeneficiary.contacts?.find((c) => c.type === 'address')?.data || '';
+      const phone =
+        selectedBeneficiary.contacts?.find((c) => c.type === "phone")?.data ||
+        "";
+      const email =
+        selectedBeneficiary.contacts?.find((c) => c.type === "email")?.data ||
+        "";
+      const address =
+        selectedBeneficiary.contacts?.find((c) => c.type === "address")?.data ||
+        "";
 
       setValue("clientId", clientId);
       setValue("clientName", selectedBeneficiary.name);
@@ -196,7 +208,7 @@ export function CreateInvoiceDialog({
     };
 
     try {
-      console.log('📤 Enviando factura a Gestiono...');
+      console.log("📤 Enviando factura a Gestiono...");
 
       // Preparar datos para enviar al API route
       const invoiceData = {
@@ -223,10 +235,10 @@ export function CreateInvoiceDialog({
       };
 
       // Llamar a la API Route (servidor)
-      const response = await fetch('/api/gestiono/invoices', {
-        method: 'POST',
+      const response = await fetch("/api/gestiono/invoices", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(invoiceData),
       });
@@ -235,7 +247,7 @@ export function CreateInvoiceDialog({
 
       // Si Gestiono no está configurado, continuar sin integración
       if (!result.configured) {
-        console.warn('⚠️ Gestiono no está configurado:', result.details);
+        console.warn("⚠️ Gestiono no está configurado:", result.details);
         onCreateInvoice?.(invoice);
         onClose();
         return;
@@ -243,10 +255,10 @@ export function CreateInvoiceDialog({
 
       // Si hubo error en la API
       if (!result.success) {
-        throw new Error(result.error || 'Error al crear factura');
+        throw new Error(result.error || "Error al crear factura");
       }
 
-      console.log('✅ Factura creada en Gestiono:', {
+      console.log("✅ Factura creada en Gestiono:", {
         id: result.invoice.id,
         number: result.invoice.invoiceNumber,
         pdfUrl: result.invoice.pdfUrl,
@@ -270,13 +282,12 @@ export function CreateInvoiceDialog({
       setTimeout(() => {
         onClose();
       }, 1500);
-
     } catch (error: any) {
-      console.error('❌ Error creando factura:', error);
-      console.error('📋 Error completo:', JSON.stringify(error, null, 2));
+      console.error("❌ Error creando factura:", error);
+      console.error("📋 Error completo:", JSON.stringify(error, null, 2));
 
       // Handle specific errors
-      let errorMessage = 'Error al crear factura';
+      let errorMessage = "Error al crear factura";
 
       if (error.message) {
         errorMessage = error.message;
@@ -284,14 +295,13 @@ export function CreateInvoiceDialog({
 
       // If it's a response error, try to get more details
       if (error.response) {
-        console.error('📡 Response error:', error.response);
+        console.error("📡 Response error:", error.response);
       }
 
       setSubmitError(errorMessage);
 
       // Still save locally even if Gestiono fails
       onCreateInvoice?.(invoice);
-
     } finally {
       setIsSubmitting(false);
     }
@@ -488,7 +498,9 @@ export function CreateInvoiceDialog({
 
             <div className="bg-blue-50 text-center mt-2 rounded-lg pt-1">
               <p className="text-sm font-bold text-blue-900">
-                Proyecto Seleccionado: {gestionoDivisions.find(d => d.id === selectedDivisionId)?.name || 'N/A'}
+                Proyecto Seleccionado:{" "}
+                {gestionoDivisions.find((d) => d.id === selectedDivisionId)
+                  ?.name || "N/A"}
               </p>
             </div>
           </div>
@@ -509,27 +521,28 @@ export function CreateInvoiceDialog({
                   onChange={(e) => handleClientSelect(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 >
-
                   {/* Beneficiarios de Gestiono (TODOS los tipos) */}
                   {gestionoBeneficiaries.map((beneficiary) => {
                     // Icono según tipo
                     const iconMap: Record<string, string> = {
-                      'CLIENT': '🌐',
-                      'PROVIDER': '📦',
-                      'SELLER': '💼',
-                      'ORGANIZATION': '🏢',
-                      'BOTH': '🔄',
-                      'EMPLOYEE': '👨‍💼',
-                      'OTHER': '📋'
+                      CLIENT: "🌐",
+                      PROVIDER: "📦",
+                      SELLER: "💼",
+                      ORGANIZATION: "🏢",
+                      BOTH: "🔄",
+                      EMPLOYEE: "👨‍💼",
+                      OTHER: "📋",
                     };
-                    const icon = iconMap[beneficiary.type] || '📋';
+                    const icon = iconMap[beneficiary.type] || "📋";
 
                     return (
                       <option
                         key={`gestiono-${beneficiary.id}`}
                         value={String(beneficiary.id)}
                       >
-                        {icon} {beneficiary.name} {beneficiary.taxId ? `(${beneficiary.taxId})` : ''} - {beneficiary.type}
+                        {icon} {beneficiary.name}{" "}
+                        {beneficiary.taxId ? `(${beneficiary.taxId})` : ""} -{" "}
+                        {beneficiary.type}
                       </option>
                     );
                   })}
@@ -841,9 +854,7 @@ export function CreateInvoiceDialog({
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-green-600">
-                    ITBIS ({watchTax}%):
-                  </span>
+                  <span className="text-green-600">ITBIS ({watchTax}%):</span>
                   <span className="font-medium text-green-600">
                     RD${" "}
                     {taxAmount.toLocaleString("es-DO", {
@@ -916,7 +927,7 @@ export function CreateInvoiceDialog({
                   Creando factura...
                 </>
               ) : (
-                'Crear Factura de Venta'
+                "Crear Factura de Venta"
               )}
             </button>
           </div>
