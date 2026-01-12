@@ -1,9 +1,16 @@
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export const formatCedula = (value: string) => {
   // Strip all non-numeric characters
-  const digits = value.replace(/\D/g, '').slice(0, 11);
-  
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+
   let res = "";
-  
+
   if (digits.length > 0) {
     res = digits.slice(0, 3);
   }
@@ -13,6 +20,6 @@ export const formatCedula = (value: string) => {
   if (digits.length > 10) {
     res += "-" + digits.slice(10, 11);
   }
-  
+
   return res;
 };
