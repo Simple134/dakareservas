@@ -78,11 +78,11 @@ const ItemsPage = () => {
   const filteredItems = items.filter((item) => {
     const itemCategory =
       typeof item.clientdata === "object" && item.clientdata !== null
-        ? (item.clientdata as any).category
+        ? item.clientdata.category
         : item.type;
     const itemSubcategory =
       typeof item.clientdata === "object" && item.clientdata !== null
-        ? (item.clientdata as any).subcategory
+        ? item.clientdata.subcategory
         : item.relation;
 
     const matchesSearch =
@@ -105,7 +105,7 @@ const ItemsPage = () => {
       items
         .map((item) =>
           typeof item.clientdata === "object" && item.clientdata !== null
-            ? (item.clientdata as any).category || item.type
+            ? item.clientdata.category || item.type
             : item.type,
         )
         .filter(Boolean),
@@ -118,7 +118,7 @@ const ItemsPage = () => {
       items
         .map((item) =>
           typeof item.clientdata === "object" && item.clientdata !== null
-            ? (item.clientdata as any).subcategory || item.relation
+            ? item.clientdata.subcategory || item.relation
             : item.relation,
         )
         .filter(Boolean),
@@ -129,7 +129,7 @@ const ItemsPage = () => {
     (acc, item) => {
       const category =
         typeof item.clientdata === "object" && item.clientdata !== null
-          ? (item.clientdata as any).category || item.type
+          ? item.clientdata.category || item.type
           : item.type;
       const existing = acc.find((c) => c.name === category);
       if (existing) {
@@ -321,7 +321,7 @@ const ItemsPage = () => {
                             const clientData =
                               typeof item.clientdata === "object" &&
                               item.clientdata !== null
-                                ? (item.clientdata as any)
+                                ? item.clientdata
                                 : {};
 
                             return (

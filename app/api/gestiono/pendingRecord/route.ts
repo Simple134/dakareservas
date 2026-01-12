@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v2GetPendingRecords } from "@/src/lib/gestiono/endpoints";
+import { V2GetPendingRecordsQuery } from "@/src/types/gestiono";
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     searchParams.forEach((value, key) => {
       if (value === "true") {
@@ -29,21 +30,15 @@ export async function GET(request: NextRequest) {
 
     console.log("📍 Calling v2GetPendingRecords with params:", query);
 
-    const pendingRecords = await v2GetPendingRecords(query);
+    const pendingRecords = await v2GetPendingRecords(query as unknown as V2GetPendingRecordsQuery);
     console.log("✅ v2GetPendingRecords obtenidas:", pendingRecords);
     return NextResponse.json(pendingRecords);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching v2GetPendingRecords:", error);
-    console.error("📋 Error details:", {
-      message: error.message,
-      statusCode: error.statusCode,
-      msg: error.msg,
-      details: error.details,
-    });
     return NextResponse.json(
       {
         error: "Failed to fetch v2GetPendingRecords",
-        details: error.message || error.msg,
+        details: error instanceof Error ? error.message : "Error desconocido",
         gestionoError: error,
       },
       { status: 500 },

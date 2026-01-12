@@ -16,12 +16,12 @@ export async function GET(
     const divisionData = await getDivisionById(id);
     console.log("✅ Division fetched:", divisionData);
     return NextResponse.json(divisionData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching division:", error);
     return NextResponse.json(
       {
         error: "Failed to fetch division",
-        details: error.message || "Unknown error",
+        details: error instanceof Error ? error.message : "Error desconocido",
         gestionoError: error,
       },
       { status: 500 },

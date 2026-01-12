@@ -4,7 +4,7 @@ import { addResource, v2GetResources } from "@/src/lib/gestiono/endpoints";
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     searchParams.forEach((value, key) => {
       if (value === "true") {
@@ -32,18 +32,12 @@ export async function GET(request: NextRequest) {
     const pendingRecords = await v2GetResources(query);
     console.log("✅ v2GetPendingRecords obtenidas:", pendingRecords);
     return NextResponse.json(pendingRecords);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching v2GetPendingRecords:", error);
-    console.error("📋 Error details:", {
-      message: error.message,
-      statusCode: error.statusCode,
-      msg: error.msg,
-      details: error.details,
-    });
     return NextResponse.json(
       {
         error: "Failed to fetch v2GetPendingRecords",
-        details: error.message || error.msg,
+        details: error instanceof Error ? error.message : "Error desconocido",
         gestionoError: error,
       },
       { status: 500 },
@@ -56,18 +50,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const pendingRecords = await addResource(body);
     return NextResponse.json(pendingRecords);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching v2GetPendingRecords:", error);
-    console.error("📋 Error details:", {
-      message: error.message,
-      statusCode: error.statusCode,
-      msg: error.msg,
-      details: error.details,
-    });
     return NextResponse.json(
       {
         error: "Failed to fetch v2GetPendingRecords",
-        details: error.message || error.msg,
+        details: error instanceof Error ? error.message : "Error desconocido",
         gestionoError: error,
       },
       { status: 500 },

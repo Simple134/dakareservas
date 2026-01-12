@@ -31,6 +31,8 @@ import {
   CustomCard,
 } from "@/src/components/project/CustomCard";
 import { GestionoDivisionWithBalance } from "@/src/types/gestiono";
+import { MaterialsModule } from "@/src/components/project/MaterialsModule";
+import { PersonnelModule } from "@/src/components/project/PersonnelModule";
 
 const sections = [
   {
@@ -394,6 +396,129 @@ export default function ProjectOverview() {
                       </span>
                     </div>
                   </div>
+                </div>
+              </div>
+            </CustomCard>
+          )}
+          {selectedSection === "gastos" && (
+            <CustomCard className="p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-gray-500" />
+                <h3 className="font-semibold text-gray-900">Gastos</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-100">
+                  <span className="text-gray-700">Total de Gastos</span>
+                  <span className="font-bold text-red-600">
+                    {formatCurrency(project?.executedBudget || 0)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Materiales</p>
+                    <p className="font-bold text-gray-900">
+                      {formatCurrency((project?.executedBudget || 0) * 0.6)}
+                    </p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Mano de obra</p>
+                    <p className="font-bold text-gray-900">
+                      {formatCurrency((project?.executedBudget || 0) * 0.3)}
+                    </p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Equipos</p>
+                    <p className="font-bold text-gray-900">
+                      {formatCurrency((project?.executedBudget || 0) * 0.1)}
+                    </p>
+                  </div>
+                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
+                    <p className="text-sm text-gray-500 mb-1">Otros</p>
+                    <p className="font-bold text-gray-900">
+                      {formatCurrency((project?.executedBudget || 0) * 0.05)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CustomCard>
+          )}
+          {selectedSection === "materiales" && (
+            <MaterialsModule projectId={projectId} />
+          )}
+          {selectedSection === "contrataciones" && (
+            <CustomCard className="p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-gray-500" />
+                <h3 className="font-semibold text-gray-900">Contrataciones</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-4 border rounded-lg bg-white">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      Constructora ABC
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Estructura principal
+                    </p>
+                  </div>
+                  <CustomBadge className="bg-green-100 text-green-700">
+                    Activo
+                  </CustomBadge>
+                </div>
+                <div className="flex justify-between items-center p-4 border rounded-lg bg-white">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      Instalaciones XYZ
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Electricidad y plomería
+                    </p>
+                  </div>
+                  <CustomBadge className="bg-yellow-100 text-yellow-700">
+                    Pendiente
+                  </CustomBadge>
+                </div>
+              </div>
+            </CustomCard>
+          )}
+
+          {selectedSection === "mano-obra" && (
+            <PersonnelModule projectId={project?.id ?? ""} />
+          )}
+
+          {selectedSection === "retiro-comercial" && (
+            <CustomCard className="p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-gray-500" />
+                <h3 className="font-semibold text-gray-900">
+                  Retiro Comercial
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
+                  <p className="text-sm text-gray-500">Ganancia Estimada</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {formatCurrency(
+                      (project?.totalBudget || 0) *
+                        ((project?.profitMargin || 0) / 100),
+                    )}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-sm text-gray-500">Retiros Realizados</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {formatCurrency((project?.totalBudget || 0) * 0.05)}
+                  </p>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-100">
+                  <p className="text-sm text-gray-500">Disponible</p>
+                  <p className="text-xl font-bold text-purple-600">
+                    {formatCurrency(
+                      (project?.totalBudget || 0) *
+                        ((project?.profitMargin || 0) / 100) -
+                        (project?.totalBudget || 0) * 0.05,
+                    )}
+                  </p>
                 </div>
               </div>
             </CustomCard>

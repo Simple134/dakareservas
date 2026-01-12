@@ -10,7 +10,7 @@ import type { GestionoApiError } from "@/src/types/gestiono";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const params: Record<string, any> = {};
+    const params: Record<string, unknown> = {};
 
     if (searchParams.has("type")) params.type = searchParams.get("type");
     if (searchParams.has("divisionId"))
@@ -30,12 +30,12 @@ export async function GET(request: NextRequest) {
     console.log("✅ Facturas obtenidas:", invoices);
 
     return NextResponse.json(invoices);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching invoices:", error);
     return NextResponse.json(
       {
         error: "Failed to fetch invoices",
-        details: error.message || error.msg,
+        details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },
     );
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       data: result,
       configured: true,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error creando factura:", error);
 
     const gestionoError = error as GestionoApiError;
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: gestionoError.error || "Error al crear factura",
-        message: gestionoError.message || error.message,
+        message: gestionoError.message || error instanceof Error ? error : "Error desconocido",
         details: gestionoError.details,
         configured: true,
       },

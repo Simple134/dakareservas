@@ -282,20 +282,20 @@ export function CreateInvoiceDialog({
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("❌ Error creando factura:", error);
       console.error("📋 Error completo:", JSON.stringify(error, null, 2));
 
       // Handle specific errors
       let errorMessage = "Error al crear factura";
 
-      if (error.message) {
+      if (error instanceof Error) {
         errorMessage = error.message;
       }
 
       // If it's a response error, try to get more details
-      if (error.response) {
-        console.error("📡 Response error:", error.response);
+      if (error instanceof Response) {
+        console.error("📡 Response error:", error);
       }
 
       setSubmitError(errorMessage);

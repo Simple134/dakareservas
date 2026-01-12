@@ -10,10 +10,10 @@ export async function POST(request: NextRequest) {
     const body: CreateBeneficiaryBody = await request.json();
     const beneficiaries = await addBeneficiary(body as CreateBeneficiaryBody);
     return NextResponse.json(beneficiaries);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error adding beneficiary:", error);
     return NextResponse.json(
-      { error: "Failed to add beneficiary", details: error.message },
+      { error: "Failed to add beneficiary", details: error instanceof Error ? error.message : "Error desconocido" },
       { status: 500 },
     );
   }
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const params: BeneficiaryQueryParams = {};
 
     if (searchParams.has("search")) params.search = searchParams.get("search")!;
-    if (searchParams.has("type")) params.type = searchParams.get("type") as any;
+    if (searchParams.has("type")) params.type = searchParams.get("type") as BeneficiaryQueryParams["type"] ;
     if (searchParams.has("minId")) params.minId = searchParams.get("minId")!;
     if (searchParams.has("elementsPerPage"))
       params.elementsPerPage = searchParams.get("elementsPerPage")!;
@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
     const beneficiaries = await getBeneficiaries(params);
 
     return NextResponse.json(beneficiaries);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching beneficiaries:", error);
     return NextResponse.json(
-      { error: "Failed to fetch beneficiaries", details: error.message },
+      { error: "Failed to fetch beneficiaries", details: error instanceof Error ? error.message : "Error desconocido" },
       { status: 500 },
     );
   }

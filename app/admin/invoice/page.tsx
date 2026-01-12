@@ -30,6 +30,7 @@ import type {
   GestionoDivision,
 } from "@/src/types/gestiono";
 import { useGestiono } from "@/src/context/Gestiono";
+import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 
 // Tipo para factura en el componente
 interface InvoiceDisplay {
@@ -102,6 +103,16 @@ export default function InvoicesPage() {
   const [beneficiariesMap, setBeneficiariesMap] = useState<
     Record<number, string>
   >({});
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [createDialogState, setCreateDialogState] = useState<{
+    isOpen: boolean;
+    documentType: "invoice" | "quote" | "order";
+    transactionType: "sale" | "purchase";
+  }>({
+    isOpen: false,
+    documentType: "invoice",
+    transactionType: "sale",
+  });
 
   useEffect(() => {
     const fetchBeneficiaries = async () => {
@@ -149,7 +160,7 @@ export default function InvoicesPage() {
     };
 
     fetchInvoices();
-  }, [currentPage, itemsPerPage]);
+  }, [currentPage, itemsPerPage, refreshKey]);
 
   useEffect(() => {
     const mapped = rawInvoices.map((item) =>
@@ -251,6 +262,22 @@ export default function InvoicesPage() {
     setSelectedStatuses([]);
   };
 
+  const handleCreateInvoice = (
+    transactionType: "sale" | "purchase",
+    documentType: "invoice" | "quote" | "order",
+  ) => {
+    setCreateDialogState({
+      isOpen: true,
+      transactionType,
+      documentType,
+    });
+    setIsCreateMenuOpen(false);
+  };
+
+  const handleInvoiceCreated = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -275,28 +302,46 @@ export default function InvoicesPage() {
           {isCreateMenuOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
               <div className="py-1">
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
+                <button
+                  onClick={() => handleCreateInvoice("sale", "quote")}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <TrendingUp className="w-4 h-4 text-green-600" />
                   Nueva Cotización de Venta
                 </button>
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4" />
+                <button
+                  onClick={() => handleCreateInvoice("purchase", "quote")}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <ShoppingCart className="w-4 h-4 text-red-600" />
                   Nueva Cotización de Compra
                 </button>
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
+                <button
+                  onClick={() => handleCreateInvoice("sale", "order")}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <TrendingUp className="w-4 h-4 text-green-600" />
                   Nueva Orden de Venta
                 </button>
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4" />
+                <button
+                  onClick={() => handleCreateInvoice("purchase", "order")}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <ShoppingCart className="w-4 h-4 text-red-600" />
                   Nueva Orden de Compra
                 </button>
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4" />
+                <button
+                  onClick={() => handleCreateInvoice("sale", "invoice")}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <TrendingUp className="w-4 h-4 text-green-600" />
                   Nueva Factura de Venta
                 </button>
-                <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4" />
+                <button
+                  onClick={() => handleCreateInvoice("purchase", "invoice")}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <ShoppingCart className="w-4 h-4 text-red-600" />
                   Nueva Factura de Compra
                 </button>
               </div>
@@ -806,6 +851,15 @@ export default function InvoicesPage() {
             </div>
           )}
         </div>
+        <CreateInvoiceDialog
+          isOpen={createDialogState.isOpen}
+          onClose={() =>
+            setCreateDialogState((prev) => ({ ...prev, isOpen: false }))
+          }
+          documentType={createDialogState.documentType}
+          transactionType={createDialogState.transactionType}
+          onCreateInvoice={handleInvoiceCreated}
+        />
       </CustomCard>
     </div>
   );

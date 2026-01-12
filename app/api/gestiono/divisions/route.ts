@@ -8,18 +8,12 @@ export async function GET(request: NextRequest) {
     const divisions = await getDivisions();
     console.log("✅ Divisiones obtenidas:", divisions);
     return NextResponse.json(divisions);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching divisions:", error);
-    console.error("📋 Error details:", {
-      message: error.message,
-      statusCode: error.statusCode,
-      msg: error.msg,
-      details: error.details,
-    });
     return NextResponse.json(
       {
         error: "Failed to fetch divisions",
-        details: error.message || error.msg,
+        details: error instanceof Error ? error.message : "Error desconocido",
         gestionoError: error,
       },
       { status: 500 },
@@ -32,18 +26,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const divisions = await postDivision(body as GestionoDivisionPayload);
     return NextResponse.json(divisions);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("❌ Error fetching divisions:", error);
-    console.error("📋 Error details:", {
-      message: error.message,
-      statusCode: error.statusCode,
-      msg: error.msg,
-      details: error.details,
-    });
     return NextResponse.json(
       {
         error: "Failed to fetch divisions",
-        details: error.message || error.msg,
+        details: error instanceof Error ? error.message : "Error desconocido",
         gestionoError: error,
       },
       { status: 500 },

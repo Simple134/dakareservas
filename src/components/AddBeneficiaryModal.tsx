@@ -96,8 +96,8 @@ export default function AddBeneficiaryModal({
       reset();
       onSuccess?.();
       onClose();
-    } catch (err: any) {
-      setError(err.message || "Ocurrió un error desconocido");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Ocurrió un error desconocido");
     } finally {
       setIsSubmitting(false);
     }
@@ -196,7 +196,7 @@ export default function AddBeneficiaryModal({
                     type="text"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
                     placeholder="0.00"
-                    value={(value as any) || ""}
+                    value={(value as unknown as string) || ""}
                     onChange={(e) => {
                       let val = e.target.value.replace(/[^\d.]/g, "");
                       const parts = val.split(".");
