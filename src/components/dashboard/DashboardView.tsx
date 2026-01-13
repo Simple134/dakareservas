@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useProjects, Project } from "@/src/hooks/useProjects";
 import { useAuth } from "@/src/hooks/useAuth";
@@ -110,9 +109,8 @@ export function DashboardView() {
     paymentValues.push(item.paid);
   });
 
-  const calculatedMargin =
-    totalItemsAmount > 0 ? (totalGrossProfit / totalItemsAmount) * 100 : 20;
-  const averageMargin = calculatedMargin;
+  const averageMargin =
+    totalItemsAmount > 0 ? (totalGrossProfit / totalItemsAmount) * 100 : 0;
 
   const netProfit = totalRevenue * (averageMargin / 100);
   const cashFlow = resume?.totalPaid || 0;
