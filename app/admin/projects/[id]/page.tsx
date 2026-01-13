@@ -92,18 +92,19 @@ export default function ProjectOverview() {
 
   const project = division
     ? {
-        id: division.id,
-        name: division.name,
-        client: division.metadata?.client || "Cliente Desconocido",
-        location: division.metadata?.location || "Ubicación desconocida",
-        status: division.metadata?.status || "planning",
-        totalBudget: division.metadata?.budget || 0,
-        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-        completionPercentage: division.metadata?.completionPercentage || 0,
-        profitMargin: division.metadata?.profitMargin || 0,
-        startDate: division.metadata?.startDate || new Date().toISOString(),
-        endDate: division.metadata?.endDate || new Date().toISOString(),
-      }
+      id: division.id,
+      name: division.name,
+      client: division.metadata?.client || "Cliente Desconocido",
+      location: division.metadata?.location || "Ubicación desconocida",
+      status: division.metadata?.status || "planning",
+      totalBudget: division.metadata?.budget || 0,
+      executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+      completionPercentage: division.metadata?.completionPercentage || 0,
+      profitMargin: division.metadata?.profitMargin || 0,
+      startDate: division.metadata?.startDate || new Date().toISOString(),
+      endDate: division.metadata?.endDate || new Date().toISOString(),
+      budgetCategories: division.metadata?.budgetCategories || [],
+    }
     : null;
 
   if (isLoading) {
@@ -314,7 +315,10 @@ export default function ProjectOverview() {
         {/* Dynamic Content */}
         <div className="space-y-6">
           {selectedSection === "presupuesto-general" && (
-            <BudgetModule projectId={project?.id ?? 0} />
+            <BudgetModule
+              projectId={project?.id ?? 0}
+              categories={project?.budgetCategories}
+            />
           )}
 
           {selectedSection === "costos-indirectos" && (
@@ -500,7 +504,7 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-green-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                        ((project?.profitMargin || 0) / 100),
+                      ((project?.profitMargin || 0) / 100),
                     )}
                   </p>
                 </div>
@@ -515,8 +519,8 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-purple-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                        ((project?.profitMargin || 0) / 100) -
-                        (project?.totalBudget || 0) * 0.05,
+                      ((project?.profitMargin || 0) / 100) -
+                      (project?.totalBudget || 0) * 0.05,
                     )}
                   </p>
                 </div>

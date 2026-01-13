@@ -1,61 +1,26 @@
 import { Plus, Check } from "lucide-react";
 
-interface BudgetModuleProps {
-  projectId: string | number;
+interface BudgetCategory {
+  id: string;
+  name: string;
+  amount: number;
+  percentage: number;
 }
 
-export function BudgetModule({ projectId }: BudgetModuleProps) {
-  // Mock data
-  const budgetItems = [
-    {
-      id: 1,
-      category: "Preparación",
-      description: "Demolición y Preparación",
-      budgeted: 5000,
-      executed: 5000,
-      status: "completed",
-    },
-    {
-      id: 2,
-      category: "Construcción",
-      description: "Divisiones y Drywall",
-      budgeted: 8000,
-      executed: 8000,
-      status: "completed",
-    },
-    {
-      id: 3,
-      category: "Electricidad",
-      description: "Sistema Eléctrico",
-      budgeted: 10000,
-      executed: 10000,
-      status: "completed",
-    },
-    {
-      id: 4,
-      category: "HVAC",
-      description: "Aire Acondicionado",
-      budgeted: 12000,
-      executed: 8750,
-      status: "in-progress",
-    },
-    {
-      id: 5,
-      category: "Acabados",
-      description: "Pintura y Acabados",
-      budgeted: 6000,
-      executed: 2000,
-      status: "in-progress",
-    },
-    {
-      id: 6,
-      category: "Mobiliario",
-      description: "Mobiliario",
-      budgeted: 4000,
-      executed: 0,
-      status: "pending",
-    },
-  ];
+interface BudgetModuleProps {
+  projectId: string | number;
+  categories?: BudgetCategory[];
+}
+
+export function BudgetModule({ projectId, categories = [] }: BudgetModuleProps) {
+  // Map categories to budget items format
+  const budgetItems = categories.map((cat, index) => ({
+    id: cat.id || index,
+    category: cat.name,
+    budgeted: cat.amount,
+    executed: 0, // Not tracked in metadata currently
+    status: "pending", // Default status
+  }));
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-DO", {
@@ -118,22 +83,16 @@ export function BudgetModule({ projectId }: BudgetModuleProps) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left py-3 font-medium text-gray-500 text-sm">
+                <th className="text-left py-3 font-medium text-gray-500 text-sm w-[30%]">
                   Categoría
                 </th>
-                <th className="text-left py-3 font-medium text-gray-500 text-sm">
-                  Descripción
-                </th>
-                <th className="text-right py-3 font-medium text-gray-500 text-sm">
+                <th className="text-left py-3 font-medium text-gray-500 text-sm w-[20%]">
                   Presupuestado
                 </th>
-                <th className="text-right py-3 font-medium text-gray-500 text-sm">
-                  Ejecutado
-                </th>
-                <th className="text-left py-3 font-medium text-gray-500 text-sm pl-6">
+                <th className="text-left py-3 font-medium text-gray-500 text-sm w-[30%]">
                   Progreso
                 </th>
-                <th className="text-right py-3 font-medium text-gray-500 text-sm">
+                <th className="text-left py-3 font-medium text-gray-500 text-sm w-[20%]">
                   Estado
                 </th>
               </tr>
@@ -147,16 +106,10 @@ export function BudgetModule({ projectId }: BudgetModuleProps) {
                   <td className="py-4 font-medium text-gray-900 text-sm">
                     {item.category}
                   </td>
-                  <td className="py-4 text-gray-500 text-sm">
-                    {item.description}
-                  </td>
-                  <td className="py-4 text-right font-medium text-gray-900 text-sm">
+                  <td className="py-4 text-left font-medium text-gray-900 text-sm">
                     {formatCurrency(item.budgeted)}
                   </td>
-                  <td className="py-4 text-right text-gray-900 text-sm">
-                    {formatCurrency(item.executed)}
-                  </td>
-                  <td className="py-4 pl-6 w-32">
+                  <td className="py-4 w-[30%]">
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
                         <div
@@ -171,7 +124,7 @@ export function BudgetModule({ projectId }: BudgetModuleProps) {
                       </span>
                     </div>
                   </td>
-                  <td className="py-4 text-right">
+                  <td className="py-4 text-left">
                     {getStatusBadge(item.status)}
                   </td>
                 </tr>

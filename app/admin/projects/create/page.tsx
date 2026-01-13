@@ -1,9 +1,9 @@
 "use client";
 import { ArrowLeft, Upload, Plus, X, FileCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, DragEvent } from "react";
+import { useState, useEffect, DragEvent } from "react";
 
-import { GestionoDivisionPayload } from "@/src/types/gestiono";
+import { GestionoDivisionPayload, GestionoBeneficiary } from "@/src/types/gestiono";
 
 interface BudgetCategory {
   id: string;
@@ -15,6 +15,22 @@ interface BudgetCategory {
 const CreateProject = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<GestionoBeneficiary[]>([]);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await fetch("/api/gestiono/beneficiaries?type=CLIENT");
+        if (response.ok) {
+          const data = await response.json();
+          setClients(Array.isArray(data) ? data : data.items || []);
+        }
+      } catch (error) {
+        console.error("Error loading clients:", error);
+      }
+    };
+    fetchClients();
+  }, []);
 
   const [projectName, setProjectName] = useState("");
   const [client, setClient] = useState("");
@@ -66,7 +82,8 @@ const CreateProject = () => {
       // Calculate total budget from amounts
       const total = categories.reduce((sum, cat) => sum + cat.amount, 0);
       if (total > 0) {
-        setTotalBudget(total.toString());
+        const formattedTotal = total.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        setTotalBudget(formattedTotal);
       }
     }
   };
@@ -123,7 +140,7 @@ const CreateProject = () => {
   };
 
   const updateCategoryPercentage = (id: string, percentage: number) => {
-    const budget = parseFloat(totalBudget) || 0;
+    const budget = parseFloat(totalBudget.replace(/,/g, "")) || 0;
     setBudgetCategories((prev) =>
       prev.map((cat) =>
         cat.id === id
@@ -134,15 +151,15 @@ const CreateProject = () => {
   };
 
   const updateCategoryAmount = (id: string, amount: number) => {
-    const budget = parseFloat(totalBudget) || 0;
+    const budget = parseFloat(totalBudget.replace(/,/g, "")) || 0;
     setBudgetCategories((prev) =>
       prev.map((cat) =>
         cat.id === id
           ? {
-              ...cat,
-              amount,
-              percentage: budget > 0 ? (amount / budget) * 100 : 0,
-            }
+            ...cat,
+            amount,
+            percentage: budget > 0 ? (amount / budget) * 100 : 0,
+          }
           : cat,
       ),
     );
@@ -186,7 +203,7 @@ const CreateProject = () => {
           status: initialStatus,
           projectType,
           permissionCategory,
-          budget: parseFloat(totalBudget) || 0,
+          budget: parseFloat(totalBudget.replace(/,/g, "")) || 0,
           startDate,
           endDate,
           description: projectDescription,
@@ -261,13 +278,18 @@ const CreateProject = () => {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Cliente *
                 </label>
-                <input
-                  type="text"
-                  placeholder="Nombre del cliente"
+                <select
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                />
+                >
+                  <option value="">Seleccione un cliente</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -344,10 +366,20 @@ const CreateProject = () => {
                   Presupuesto Total (RD$) *
                 </label>
                 <input
-                  type="number"
-                  placeholder="2500000"
+                  type="text"
+                  placeholder="2,500,000"
                   value={totalBudget}
-                  onChange={(e) => setTotalBudget(e.target.value)}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/[^\d.]/g, "");
+                    const parts = val.split(".");
+                    if (parts.length > 2) val = parts[0] + "." + parts.slice(1).join("");
+                    if (val) {
+                      const parts = val.split(".");
+                      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                      val = parts.join(".");
+                    }
+                    setTotalBudget(val);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
                 />
               </div>
@@ -391,13 +423,12 @@ const CreateProject = () => {
               Subir Documento de Presupuesto
             </label>
             <div
-              className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${
-                isDragging
-                  ? "border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg"
-                  : budgetDocument
-                    ? "border-green-500 bg-green-50 shadow-md"
-                    : "border-gray-300 hover:border-[#224397] hover:bg-gray-50"
-              }`}
+              className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${isDragging
+                ? "border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg"
+                : budgetDocument
+                  ? "border-green-500 bg-green-50 shadow-md"
+                  : "border-gray-300 hover:border-[#224397] hover:bg-gray-50"
+                }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
