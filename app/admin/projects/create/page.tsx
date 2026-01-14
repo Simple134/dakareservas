@@ -20,7 +20,7 @@ const CreateProject = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/gestiono/beneficiaries?type=CLIENT");
+        const response = await fetch("/api/gestiono/beneficiaries?withContacts=true&withTaxData=false");
         if (response.ok) {
           const data = await response.json();
           setClients(Array.isArray(data) ? data : data.items || []);
