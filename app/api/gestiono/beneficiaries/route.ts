@@ -12,9 +12,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(beneficiaries);
   } catch (error: unknown) {
     console.error("Error adding beneficiary:", error);
+
+    // Check if it's a Gestiono API error with 'msg' property
+    if (error && typeof error === 'object' && 'msg' in error) {
+      const gestionoError = error as { msg: string; statusCode?: number };
+      return NextResponse.json(
+        { msg: gestionoError.msg },
+        { status: gestionoError.statusCode || 500 }
+      );
+    }
+
+    // Fallback for other errors
     return NextResponse.json(
-      { error: "Failed to add beneficiary", details: error instanceof Error ? error.message : "Error desconocido" },
-      { status: 500 },
+      { msg: error instanceof Error ? error.message : "Error desconocido" },
+      { status: 500 }
     );
   }
 }
@@ -27,7 +38,7 @@ export async function GET(request: NextRequest) {
     const params: BeneficiaryQueryParams = {};
 
     if (searchParams.has("search")) params.search = searchParams.get("search")!;
-    if (searchParams.has("type")) params.type = searchParams.get("type") as BeneficiaryQueryParams["type"] ;
+    if (searchParams.has("type")) params.type = searchParams.get("type") as BeneficiaryQueryParams["type"];
     if (searchParams.has("minId")) params.minId = searchParams.get("minId")!;
     if (searchParams.has("elementsPerPage"))
       params.elementsPerPage = searchParams.get("elementsPerPage")!;

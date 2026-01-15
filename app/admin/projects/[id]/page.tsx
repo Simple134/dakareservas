@@ -317,7 +317,27 @@ export default function ProjectOverview() {
           {selectedSection === "presupuesto-general" && (
             <BudgetModule
               projectId={project?.id ?? 0}
+              divisionId={division?.id ?? 0}
               categories={project?.budgetCategories}
+              totalBudget={project?.totalBudget}
+              divisionData={division}
+              onUpdate={() => {
+                // Refresh division data after updating budget categories
+                const fetchDivision = async () => {
+                  if (!projectId) return;
+                  try {
+                    const res = await fetch(`/api/gestiono/divisions/${projectId}`);
+                    if (res.ok) {
+                      const data = await res.json();
+                      const divData = Array.isArray(data) ? data[0] : data;
+                      setDivision(divData);
+                    }
+                  } catch (error) {
+                    console.error("Error refreshing division:", error);
+                  }
+                };
+                fetchDivision();
+              }}
             />
           )}
 

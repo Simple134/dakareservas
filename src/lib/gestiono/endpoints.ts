@@ -20,7 +20,7 @@ import type {
   V2GetResourcesResponse,
 } from "@/src/types/gestiono";
 
-export async function createInvoice(
+export async function createPendingRecord(
   invoiceData: GestionoRecordPayload,
 ): Promise<GestionoInvoiceResponse> {
   return gestionoRequest<GestionoInvoiceResponse>("/v1/record/pending", {
@@ -29,31 +29,8 @@ export async function createInvoice(
   });
 }
 
-export async function getInvoice(
-  invoiceId: string,
-): Promise<GestionoInvoiceResponse> {
-  return gestionoRequest<GestionoInvoiceResponse>(`/v1/invoices/${invoiceId}`, {
-    method: "GET",
-  });
-}
 
-export async function updateInvoice(
-  invoiceId: string,
-  updates: Partial<GestionoRecordPayload>,
-): Promise<GestionoInvoiceResponse> {
-  return gestionoRequest<GestionoInvoiceResponse>(`/v1/invoices/${invoiceId}`, {
-    method: "PATCH",
-    body: JSON.stringify(updates),
-  });
-}
 
-export async function deleteInvoice(
-  invoiceId: string,
-): Promise<{ success: boolean }> {
-  return gestionoRequest<{ success: boolean }>(`/v1/invoices/${invoiceId}`, {
-    method: "DELETE",
-  });
-}
 
 export async function payPendingRecord(
   data: PayPendingRecordBody,
@@ -230,10 +207,57 @@ export async function postDivision(
   });
 }
 
+export async function updateDivision(
+  data: GestionoDivisionPayload,
+): Promise<GestionoDivision> {
+  return gestionoRequest<GestionoDivision>("/v1/division", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
 export async function addResource(data: CreateResourceBody): Promise<any> {
   return gestionoRequest<any>("/v1/resource", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function updateResource(data: CreateResourceBody): Promise<any> {
+  return gestionoRequest<any>("/v1/resource", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// Archive functions - soft delete by setting metadata.disabled to true
+export async function archiveDivision(id: number): Promise<GestionoDivision> {
+  return gestionoRequest<GestionoDivision>("/v1/division", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { disabled: true },
+    }),
+  });
+}
+
+export async function archiveBeneficiary(id: number): Promise<any> {
+  return gestionoRequest<any>("/v1/beneficiary", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { disabled: true },
+    }),
+  });
+}
+
+export async function archiveResource(id: number): Promise<any> {
+  return gestionoRequest<any>("/v1/resource", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { disabled: true },
+    }),
   });
 }
 
@@ -253,4 +277,14 @@ export async function v2GetPendingRecords(
     method: "GET",
     query: data,
   });
+}
+
+export async function deletePendingRecord(
+  recordId: number,
+): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>(
+    `/v2/record/pending/${recordId}`,
+    {
+      method: "DELETE",
+    });
 }

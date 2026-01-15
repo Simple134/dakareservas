@@ -90,7 +90,13 @@ export default function AddBeneficiaryModal({
       });
 
       if (!response.ok) {
-        throw new Error("Error al crear el beneficiario");
+        // Extract the actual error message from the API response
+        const errorData = await response.json().catch(() => null);
+        const errorMessage =
+          errorData?.msg ||
+          errorData?.message ||
+          `Error al crear el beneficiario (${response.status})`;
+        throw new Error(errorMessage);
       }
 
       reset();

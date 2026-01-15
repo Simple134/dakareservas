@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getPendingRecords,
-  createInvoice,
+  createPendingRecord,
   transformToGestionoFormat,
   validateGestionoConfig,
 } from "@/src/lib/gestiono";
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       JSON.stringify(gestionoPayload, null, 2),
     );
 
-    const result = await createInvoice(gestionoPayload);
+    const result = await createPendingRecord(gestionoPayload);
 
     console.log("✅ Factura creada exitosamente:", result);
 
