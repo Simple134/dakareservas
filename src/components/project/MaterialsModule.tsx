@@ -41,30 +41,6 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchMaterials();
-  }, [projectId]);
-
-  const fetchMaterials = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(
-        `/api/gestiono/materials?project_id=${projectId}`,
-      );
-      if (!response.ok) throw new Error("Failed to fetch materials");
-      const data = await response.json();
-      setMaterials(data || []);
-    } catch (error) {
-      console.error("Error fetching materials:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCreateMaterial = async (newMaterial: any) => {
-    await fetchMaterials();
-  };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-DO", {
       style: "currency",
@@ -121,13 +97,13 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className="flex items-center justify-center p-12">
+  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="space-y-6">
@@ -259,12 +235,12 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
         </CardContent>
       </Card>
 
-      <CreateMaterialDialog
+      {/* <CreateMaterialDialog
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         projectId={projectId}
         onCreateMaterial={handleCreateMaterial}
-      />
+      /> */}
     </div>
   );
 }

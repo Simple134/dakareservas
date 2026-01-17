@@ -3,7 +3,10 @@ import { ArrowLeft, Upload, Plus, X, FileCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, DragEvent } from "react";
 
-import { GestionoDivisionPayload, GestionoBeneficiary } from "@/src/types/gestiono";
+import {
+  GestionoDivisionPayload,
+  GestionoBeneficiary,
+} from "@/src/types/gestiono";
 
 interface BudgetCategory {
   id: string;
@@ -20,7 +23,9 @@ const CreateProject = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch("/api/gestiono/beneficiaries?withContacts=true&withTaxData=false");
+        const response = await fetch(
+          "/api/gestiono/beneficiaries?withContacts=true&withTaxData=false",
+        );
         if (response.ok) {
           const data = await response.json();
           setClients(Array.isArray(data) ? data : data.items || []);
@@ -82,7 +87,9 @@ const CreateProject = () => {
       // Calculate total budget from amounts
       const total = categories.reduce((sum, cat) => sum + cat.amount, 0);
       if (total > 0) {
-        const formattedTotal = total.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        const formattedTotal = total
+          .toString()
+          .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         setTotalBudget(formattedTotal);
       }
     }
@@ -156,10 +163,10 @@ const CreateProject = () => {
       prev.map((cat) =>
         cat.id === id
           ? {
-            ...cat,
-            amount,
-            percentage: budget > 0 ? (amount / budget) * 100 : 0,
-          }
+              ...cat,
+              amount,
+              percentage: budget > 0 ? (amount / budget) * 100 : 0,
+            }
           : cat,
       ),
     );
@@ -372,7 +379,8 @@ const CreateProject = () => {
                   onChange={(e) => {
                     let val = e.target.value.replace(/[^\d.]/g, "");
                     const parts = val.split(".");
-                    if (parts.length > 2) val = parts[0] + "." + parts.slice(1).join("");
+                    if (parts.length > 2)
+                      val = parts[0] + "." + parts.slice(1).join("");
                     if (val) {
                       const parts = val.split(".");
                       parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -423,12 +431,13 @@ const CreateProject = () => {
               Subir Documento de Presupuesto
             </label>
             <div
-              className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${isDragging
-                ? "border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg"
-                : budgetDocument
-                  ? "border-green-500 bg-green-50 shadow-md"
-                  : "border-gray-300 hover:border-[#224397] hover:bg-gray-50"
-                }`}
+              className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${
+                isDragging
+                  ? "border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg"
+                  : budgetDocument
+                    ? "border-green-500 bg-green-50 shadow-md"
+                    : "border-gray-300 hover:border-[#224397] hover:bg-gray-50"
+              }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}

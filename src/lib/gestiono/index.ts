@@ -1,12 +1,10 @@
 export { gestionoRequest, validateGestionoConfig } from "./client";
 export {
-  // Invoices
-  createInvoice,
-  getInvoice,
-  updateInvoice,
-  deleteInvoice,
+  // Pending Records
+  createPendingRecord,
   getPendingRecords,
   payPendingRecord,
+  deletePendingRecord,
   // Events
   fetchOrganizationEvents,
   getInvoiceEvents,
@@ -16,10 +14,12 @@ export {
   updateBeneficiary,
   getBeneficiaryById,
   createBeneficiary,
+  archiveBeneficiary,
   // Divisions
   getDivisionById,
   getDivisions,
   postDivision,
+  updateDivision,
   // Utils
   transformToGestionoFormat,
   addResource,

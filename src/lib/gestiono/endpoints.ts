@@ -18,40 +18,15 @@ import type {
   CreateResourceBody,
   GetResourcesQuery,
   V2GetResourcesResponse,
+  GestionoBeneficiary,
 } from "@/src/types/gestiono";
 
-export async function createInvoice(
+export async function createPendingRecord(
   invoiceData: GestionoRecordPayload,
 ): Promise<GestionoInvoiceResponse> {
   return gestionoRequest<GestionoInvoiceResponse>("/v1/record/pending", {
     method: "POST",
     body: JSON.stringify(invoiceData),
-  });
-}
-
-export async function getInvoice(
-  invoiceId: string,
-): Promise<GestionoInvoiceResponse> {
-  return gestionoRequest<GestionoInvoiceResponse>(`/v1/invoices/${invoiceId}`, {
-    method: "GET",
-  });
-}
-
-export async function updateInvoice(
-  invoiceId: string,
-  updates: Partial<GestionoRecordPayload>,
-): Promise<GestionoInvoiceResponse> {
-  return gestionoRequest<GestionoInvoiceResponse>(`/v1/invoices/${invoiceId}`, {
-    method: "PATCH",
-    body: JSON.stringify(updates),
-  });
-}
-
-export async function deleteInvoice(
-  invoiceId: string,
-): Promise<{ success: boolean }> {
-  return gestionoRequest<{ success: boolean }>(`/v1/invoices/${invoiceId}`, {
-    method: "DELETE",
   });
 }
 
@@ -65,8 +40,8 @@ export async function payPendingRecord(
 }
 
 export async function getPendingRecords(
-  params: Record<string, any> = {},
-): Promise<any> {
+  params: Record<string, unknown> = {},
+): Promise<V2GetPendingRecordsResponse> {
   const queryParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
@@ -79,7 +54,7 @@ export async function getPendingRecords(
     ? `/v2/record/pending?${queryString}`
     : "/v2/record/pending";
 
-  return gestionoRequest<any>(path, {
+  return gestionoRequest<V2GetPendingRecordsResponse>(path, {
     method: "GET",
   });
 }
@@ -129,19 +104,22 @@ export async function getInvoiceEvents(
 
 export async function getBeneficiaries(
   params: BeneficiaryQueryParams = {},
-): Promise<any> {
+): Promise<GestionoBeneficiary[]> {
   const queryParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined) queryParams.append(key, value as string);
   });
-  return gestionoRequest<any>(`/v1/beneficiary?${queryParams.toString()}`, {
-    method: "GET",
-  });
+  return gestionoRequest<GestionoBeneficiary[]>(
+    `/v1/beneficiary?${queryParams.toString()}`,
+    {
+      method: "GET",
+    },
+  );
 }
 export async function addBeneficiary(
   params: CreateBeneficiaryBody,
-): Promise<any> {
-  return gestionoRequest<any>(`/v1/beneficiary`, {
+): Promise<BeneficiaryContactResponse> {
+  return gestionoRequest<BeneficiaryContactResponse>(`/v1/beneficiary`, {
     method: "POST",
     body: JSON.stringify(params),
   });
@@ -149,8 +127,8 @@ export async function addBeneficiary(
 
 export async function updateBeneficiary(
   params: BeneficiaryContactResponse,
-): Promise<any> {
-  return gestionoRequest<any>(`/v1/beneficiary/`, {
+): Promise<BeneficiaryContactResponse> {
+  return gestionoRequest<BeneficiaryContactResponse>(`/v1/beneficiary/`, {
     method: "PATCH",
     body: JSON.stringify(params), //pasarle dentro del data el id del beneficiario y los campos que se quieren actualizar
   });
@@ -158,30 +136,47 @@ export async function updateBeneficiary(
 
 export async function getBeneficiaryById(
   beneficiaryId: string | number,
-): Promise<any> {
-  return gestionoRequest<any>(`/v1/beneficiary/${beneficiaryId}`, {
-    method: "GET",
-  });
+): Promise<GestionoBeneficiary> {
+  return gestionoRequest<GestionoBeneficiary>(
+    `/v1/beneficiary/${beneficiaryId}`,
+    {
+      method: "GET",
+    },
+  );
 }
 
 export async function createBeneficiary(
   data: GestionoBeneficiaryPayload,
-): Promise<any> {
-  return gestionoRequest<any>("/v1/beneficiary", {
+): Promise<BeneficiaryContactResponse> {
+  return gestionoRequest<BeneficiaryContactResponse>("/v1/beneficiary", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
+interface InvoiceInput {
+  transactionType?: string;
+  clientId?: string | number;
+  currency?: string;
+  invoiceDate: string;
+  dueDate: string;
+  items: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+  notes?: string;
+}
+
 export function transformToGestionoFormat(
-  invoice: any,
+  invoice: InvoiceInput,
   divisionId: number = 1,
 ): GestionoRecordPayload {
   const formatDate = (dateStr: string) => {
     try {
       const date = new Date(dateStr);
       return date.toISOString();
-    } catch (e) {
+    } catch {
       return new Date().toISOString();
     }
   };
@@ -190,16 +185,16 @@ export function transformToGestionoFormat(
     type: "INVOICE",
     isSell: invoice.transactionType === "purchase" ? false : true,
     divisionId: divisionId,
-    beneficiaryId: invoice.clientId ? parseInt(invoice.clientId) : 0,
+    beneficiaryId: invoice.clientId ? parseInt(String(invoice.clientId)) : 0,
     currency: invoice.currency || "DOP",
     isInstantDelivery: true,
     date: formatDate(invoice.invoiceDate),
     dueDate: formatDate(invoice.dueDate),
-    elements: invoice.items.map((item: any) => ({
+    elements: invoice.items.map((item) => ({
       description: item.description,
       quantity: item.quantity,
       price: item.unitPrice,
-      unit: "UNIT",
+      unit: "UNIT" as const,
       variation: 0,
       taxes: [],
     })),
@@ -230,10 +225,63 @@ export async function postDivision(
   });
 }
 
-export async function addResource(data: CreateResourceBody): Promise<any> {
-  return gestionoRequest<any>("/v1/resource", {
+export async function updateDivision(
+  data: GestionoDivisionPayload,
+): Promise<GestionoDivision> {
+  return gestionoRequest<GestionoDivision>("/v1/division", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function addResource(
+  data: CreateResourceBody,
+): Promise<CreateResourceBody> {
+  return gestionoRequest<CreateResourceBody>("/v1/resource", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function updateResource(
+  data: CreateResourceBody,
+): Promise<CreateResourceBody> {
+  return gestionoRequest<CreateResourceBody>("/v1/resource", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+// Archive functions - soft delete by setting metadata.disabled to true
+export async function archiveDivision(id: number): Promise<GestionoDivision> {
+  return gestionoRequest<GestionoDivision>("/v1/division", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { disabled: true },
+    }),
+  });
+}
+
+export async function archiveBeneficiary(
+  id: number,
+): Promise<BeneficiaryContactResponse> {
+  return gestionoRequest<BeneficiaryContactResponse>("/v1/beneficiary", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { disabled: true },
+    }),
+  });
+}
+
+export async function archiveResource(id: number): Promise<CreateResourceBody> {
+  return gestionoRequest<CreateResourceBody>("/v1/resource", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { disabled: true },
+    }),
   });
 }
 
@@ -253,4 +301,15 @@ export async function v2GetPendingRecords(
     method: "GET",
     query: data,
   });
+}
+
+export async function deletePendingRecord(
+  recordId: number,
+): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>(
+    `/v2/record/pending/${recordId}`,
+    {
+      method: "DELETE",
+    },
+  );
 }

@@ -113,6 +113,16 @@ export default function InvoicesPage() {
     documentType: "invoice",
     transactionType: "sale",
   });
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    invoiceId: string | null;
+    invoiceNumber: string | null;
+  }>({
+    isOpen: false,
+    invoiceId: null,
+    invoiceNumber: null,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchBeneficiaries = async () => {
@@ -141,7 +151,7 @@ export default function InvoicesPage() {
       setIsLoadingInvoices(true);
       try {
         const response = await fetch(
-          `/api/gestiono/invoices?elementsPerPage=${itemsPerPage}&page=${currentPage}`,
+          `/api/gestiono/pendingRecord?elementsPerPage=${itemsPerPage}&page=${currentPage}`,
         );
 
         if (!response.ok) {
@@ -276,6 +286,53 @@ export default function InvoicesPage() {
 
   const handleInvoiceCreated = () => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleDeleteClick = (invoiceId: string, invoiceNumber: string) => {
+    setDeleteModalState({
+      isOpen: true,
+      invoiceId,
+      invoiceNumber,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalState.invoiceId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `/api/gestiono/pendingRecord?recordId=${deleteModalState.invoiceId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al eliminar la factura");
+      }
+
+      // Cerrar modal y refrescar lista
+      setDeleteModalState({
+        isOpen: false,
+        invoiceId: null,
+        invoiceNumber: null,
+      });
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("❌ Error deleting invoice:", error);
+      alert("Error al eliminar la factura. Por favor, intenta de nuevo.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalState({
+      isOpen: false,
+      invoiceId: null,
+      invoiceNumber: null,
+    });
   };
 
   return (
@@ -753,6 +810,12 @@ export default function InvoicesPage() {
                               <Download className="w-4 h-4 text-gray-600" />
                             </button>
                             <button
+                              onClick={() =>
+                                handleDeleteClick(
+                                  invoice.id,
+                                  invoice.invoiceNumber,
+                                )
+                              }
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Eliminar"
                             >
@@ -861,6 +924,43 @@ export default function InvoicesPage() {
           onCreateInvoice={handleInvoiceCreated}
         />
       </CustomCard>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalState.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-semibold">Confirmar Eliminación</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro que quieres eliminar la factura{" "}
+              <span className="font-semibold">
+                {deleteModalState.invoiceNumber}
+              </span>
+              ? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <CustomButton
+                onClick={handleDeleteCancel}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </CustomButton>
+              <CustomButton
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? "Eliminando..." : "Eliminar"}
+              </CustomButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

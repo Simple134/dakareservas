@@ -34,27 +34,6 @@ interface Labor {
 
 export function PersonnelModule({ projectId }: PersonnelModuleProps) {
   const [personnel, setPersonnel] = useState<Labor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    fetchLabor();
-  }, [projectId]);
-
-  const fetchLabor = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(
-        `/api/gestiono/labor?project_id=${projectId}`,
-      );
-      if (!response.ok) throw new Error("Failed to fetch labor");
-      const data = await response.json();
-      setPersonnel(data || []);
-    } catch (error) {
-      console.error("Error fetching labor:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-DO", {
@@ -82,14 +61,6 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
   const pendingCount = personnel.filter(
     (p) => p.payment_status === "pending",
   ).length;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">

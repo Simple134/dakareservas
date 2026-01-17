@@ -235,7 +235,7 @@ export function CreateInvoiceDialog({
       };
 
       // Llamar a la API Route (servidor)
-      const response = await fetch("/api/gestiono/invoices", {
+      const response = await fetch("/api/gestiono/pendingRecord", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

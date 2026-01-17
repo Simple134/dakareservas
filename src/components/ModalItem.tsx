@@ -94,7 +94,11 @@ export const ModalItem = ({
       }
     } catch (err: unknown) {
       console.error("❌ Error al crear item:", err);
-      setError(err instanceof Error ? err.message : "Error desconocido al crear el item");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al crear el item",
+      );
     } finally {
       setIsSubmitting(false);
     }

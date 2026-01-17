@@ -12,6 +12,8 @@ import {
   X,
   Globe,
   Loader2,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { GestionoBeneficiary } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
@@ -24,6 +26,16 @@ const ContactsPage = () => {
   >([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    beneficiaryId: number | null;
+    beneficiaryName: string | null;
+  }>({
+    isOpen: false,
+    beneficiaryId: null,
+    beneficiaryName: null,
+  });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchGestionoBeneficiaries = async () => {
     setIsLoading(true);
@@ -93,6 +105,56 @@ const ContactsPage = () => {
   };
 
   const stats = getStats();
+
+  const handleDeleteClick = (
+    beneficiaryId: number,
+    beneficiaryName: string,
+  ) => {
+    setDeleteModalState({
+      isOpen: true,
+      beneficiaryId,
+      beneficiaryName,
+    });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModalState.beneficiaryId) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(
+        `/api/gestiono/beneficiaries?beneficiaryId=${deleteModalState.beneficiaryId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al archivar el contacto");
+      }
+
+      // Cerrar modal y refrescar lista
+      setDeleteModalState({
+        isOpen: false,
+        beneficiaryId: null,
+        beneficiaryName: null,
+      });
+      fetchGestionoBeneficiaries();
+    } catch (error) {
+      console.error("❌ Error archiving contact:", error);
+      alert("Error al eliminar el contacto. Por favor, intenta de nuevo.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalState({
+      isOpen: false,
+      beneficiaryId: null,
+      beneficiaryName: null,
+    });
+  };
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -256,7 +318,7 @@ const ContactsPage = () => {
                 return (
                   <div
                     key={contact.id || index}
-                    className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                    className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-shadow"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -288,9 +350,20 @@ const ContactsPage = () => {
                           </span>
                         </div>
                       </div>
-                      <span className="px-2.5 py-1 bg-[#22C55E]/10 text-[#22C55E] text-xs font-medium rounded-full">
-                        Activo
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-1 bg-[#22C55E]/10 text-[#22C55E] text-xs font-medium rounded-full">
+                          Activo
+                        </span>
+                        <button
+                          onClick={() =>
+                            handleDeleteClick(contact.id, contact.name)
+                          }
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Eliminar contacto"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2.5">
@@ -343,6 +416,43 @@ const ContactsPage = () => {
           onClose={() => setIsModalOpen(false)}
           onSuccess={fetchGestionoBeneficiaries}
         />
+
+        {/* Delete Confirmation Modal */}
+        {deleteModalState.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-xl font-semibold">Confirmar Eliminación</h3>
+              </div>
+              <p className="text-gray-600 mb-6">
+                ¿Estás seguro que quieres eliminar el contacto{" "}
+                <span className="font-semibold">
+                  {deleteModalState.beneficiaryName}
+                </span>
+                ? Este contacto será archivado y no aparecerá en la lista.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleDeleteCancel}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isDeleting ? "Eliminando..." : "Eliminar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -30,7 +30,10 @@ import {
   CustomButton,
   CustomCard,
 } from "@/src/components/project/CustomCard";
-import { GestionoDivisionWithBalance } from "@/src/types/gestiono";
+import {
+  GestionoDivision,
+  GestionoDivisionWithBalance,
+} from "@/src/types/gestiono";
 import { MaterialsModule } from "@/src/components/project/MaterialsModule";
 import { PersonnelModule } from "@/src/components/project/PersonnelModule";
 
@@ -92,19 +95,19 @@ export default function ProjectOverview() {
 
   const project = division
     ? {
-      id: division.id,
-      name: division.name,
-      client: division.metadata?.client || "Cliente Desconocido",
-      location: division.metadata?.location || "Ubicación desconocida",
-      status: division.metadata?.status || "planning",
-      totalBudget: division.metadata?.budget || 0,
-      executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-      completionPercentage: division.metadata?.completionPercentage || 0,
-      profitMargin: division.metadata?.profitMargin || 0,
-      startDate: division.metadata?.startDate || new Date().toISOString(),
-      endDate: division.metadata?.endDate || new Date().toISOString(),
-      budgetCategories: division.metadata?.budgetCategories || [],
-    }
+        id: division.id,
+        name: division.name,
+        client: division.metadata?.client || "Cliente Desconocido",
+        location: division.metadata?.location || "Ubicación desconocida",
+        status: division.metadata?.status || "planning",
+        totalBudget: division.metadata?.budget || 0,
+        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+        completionPercentage: division.metadata?.completionPercentage || 0,
+        profitMargin: division.metadata?.profitMargin || 0,
+        startDate: division.metadata?.startDate || new Date().toISOString(),
+        endDate: division.metadata?.endDate || new Date().toISOString(),
+        budgetCategories: division.metadata?.budgetCategories || [],
+      }
     : null;
 
   if (isLoading) {
@@ -317,7 +320,29 @@ export default function ProjectOverview() {
           {selectedSection === "presupuesto-general" && (
             <BudgetModule
               projectId={project?.id ?? 0}
+              divisionId={division?.id ?? 0}
               categories={project?.budgetCategories}
+              totalBudget={project?.totalBudget}
+              divisionData={division as GestionoDivision}
+              onUpdate={() => {
+                // Refresh division data after updating budget categories
+                const fetchDivision = async () => {
+                  if (!projectId) return;
+                  try {
+                    const res = await fetch(
+                      `/api/gestiono/divisions/${projectId}`,
+                    );
+                    if (res.ok) {
+                      const data = await res.json();
+                      const divData = Array.isArray(data) ? data[0] : data;
+                      setDivision(divData);
+                    }
+                  } catch (error) {
+                    console.error("Error refreshing division:", error);
+                  }
+                };
+                fetchDivision();
+              }}
             />
           )}
 
@@ -504,7 +529,7 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-green-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                      ((project?.profitMargin || 0) / 100),
+                        ((project?.profitMargin || 0) / 100),
                     )}
                   </p>
                 </div>
@@ -519,8 +544,8 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-purple-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                      ((project?.profitMargin || 0) / 100) -
-                      (project?.totalBudget || 0) * 0.05,
+                        ((project?.profitMargin || 0) / 100) -
+                        (project?.totalBudget || 0) * 0.05,
                     )}
                   </p>
                 </div>

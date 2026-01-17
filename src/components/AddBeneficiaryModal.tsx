@@ -90,14 +90,22 @@ export default function AddBeneficiaryModal({
       });
 
       if (!response.ok) {
-        throw new Error("Error al crear el beneficiario");
+        // Extract the actual error message from the API response
+        const errorData = await response.json().catch(() => null);
+        const errorMessage =
+          errorData?.msg ||
+          errorData?.message ||
+          `Error al crear el beneficiario (${response.status})`;
+        throw new Error(errorMessage);
       }
 
       reset();
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ocurrió un error desconocido");
+      setError(
+        err instanceof Error ? err.message : "Ocurrió un error desconocido",
+      );
     } finally {
       setIsSubmitting(false);
     }
