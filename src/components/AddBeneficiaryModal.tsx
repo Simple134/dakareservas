@@ -103,7 +103,9 @@ export default function AddBeneficiaryModal({
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Ocurrió un error desconocido");
+      setError(
+        err instanceof Error ? err.message : "Ocurrió un error desconocido",
+      );
     } finally {
       setIsSubmitting(false);
     }

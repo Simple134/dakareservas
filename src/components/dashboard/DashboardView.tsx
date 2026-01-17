@@ -28,7 +28,7 @@ export function DashboardView() {
         !div.metadata
       )
         return false;
-      let meta: any = div.metadata;
+      let meta = div.metadata;
       if (typeof meta === "string") {
         try {
           meta = JSON.parse(meta);
@@ -39,7 +39,7 @@ export function DashboardView() {
       return meta && meta.budget !== undefined && meta.status !== undefined;
     })
     .map((div) => {
-      let meta: any = div.metadata || {};
+      let meta = div.metadata || {};
       if (typeof meta === "string") {
         try {
           meta = JSON.parse(meta);

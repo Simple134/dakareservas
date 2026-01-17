@@ -1,5 +1,6 @@
 "use client";
 
+import { GestionoDivision } from "@/src/types/gestiono";
 import { Plus, X, Save, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -15,7 +16,7 @@ interface BudgetModuleProps {
   divisionId: number;
   categories?: BudgetCategory[];
   totalBudget?: number;
-  divisionData?: any;
+  divisionData?: GestionoDivision;
   onUpdate?: () => void;
 }
 
@@ -25,9 +26,10 @@ export function BudgetModule({
   categories = [],
   totalBudget = 0,
   divisionData,
-  onUpdate
+  onUpdate,
 }: BudgetModuleProps) {
-  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>(categories);
+  const [budgetCategories, setBudgetCategories] =
+    useState<BudgetCategory[]>(categories);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export function BudgetModule({
 
   const updateCategoryName = (id: string, name: string) => {
     setBudgetCategories((prev) =>
-      prev.map((cat) => (cat.id === id ? { ...cat, name } : cat))
+      prev.map((cat) => (cat.id === id ? { ...cat, name } : cat)),
     );
   };
 
@@ -101,8 +103,8 @@ export function BudgetModule({
       prev.map((cat) =>
         cat.id === id
           ? { ...cat, percentage, amount: (totalBudget * percentage) / 100 }
-          : cat
-      )
+          : cat,
+      ),
     );
   };
 
@@ -111,12 +113,12 @@ export function BudgetModule({
       prev.map((cat) =>
         cat.id === id
           ? {
-            ...cat,
-            amount,
-            percentage: totalBudget > 0 ? (amount / totalBudget) * 100 : 0,
-          }
-          : cat
-      )
+              ...cat,
+              amount,
+              percentage: totalBudget > 0 ? (amount / totalBudget) * 100 : 0,
+            }
+          : cat,
+      ),
     );
   };
 
@@ -169,7 +171,7 @@ export function BudgetModule({
 
   const totalPercentage = budgetCategories.reduce(
     (sum, cat) => sum + cat.percentage,
-    0
+    0,
   );
 
   // Map categories to budget items format for display
@@ -286,99 +288,97 @@ export function BudgetModule({
               </tr>
             </thead>
             <tbody>
-              {isEditing ? (
-                budgetCategories.map((category) => (
-                  <tr
-                    key={category.id}
-                    className="border-b border-gray-50 last:border-0"
-                  >
-                    <td className="py-3">
-                      <input
-                        type="text"
-                        value={category.name}
-                        onChange={(e) =>
-                          updateCategoryName(category.id, e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                      />
-                    </td>
-                    <td className="py-3">
-                      <input
-                        type="number"
-                        value={category.percentage || ""}
-                        onChange={(e) =>
-                          updateCategoryPercentage(
-                            category.id,
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        placeholder="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                      />
-                    </td>
-                    <td className="py-3">
-                      <input
-                        type="number"
-                        value={category.amount || ""}
-                        onChange={(e) =>
-                          updateCategoryAmount(
-                            category.id,
-                            parseFloat(e.target.value) || 0
-                          )
-                        }
-                        placeholder="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                      />
-                    </td>
-                    <td className="py-3 text-center">
-                      <button
-                        onClick={() => removeCategory(category.id)}
-                        className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                budgetItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
-                  >
-                    <td className="py-4 font-medium text-gray-900 text-sm">
-                      {item.category}
-                    </td>
-                    <td className="py-4 text-left text-gray-600 text-sm">
-                      {budgetCategories
-                        .find((c) => c.id === item.id)
-                        ?.percentage.toFixed(1)}
-                      %
-                    </td>
-                    <td className="py-4 text-left font-medium text-gray-900 text-sm">
-                      {formatCurrency(item.budgeted)}
-                    </td>
-                    <td className="py-4 w-[25%]">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-[#131E29] rounded-full"
-                            style={{
-                              width: `${getProgress(item.budgeted, item.executed)}%`,
-                            }}
-                          />
+              {isEditing
+                ? budgetCategories.map((category) => (
+                    <tr
+                      key={category.id}
+                      className="border-b border-gray-50 last:border-0"
+                    >
+                      <td className="py-3">
+                        <input
+                          type="text"
+                          value={category.name}
+                          onChange={(e) =>
+                            updateCategoryName(category.id, e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                        />
+                      </td>
+                      <td className="py-3">
+                        <input
+                          type="number"
+                          value={category.percentage || ""}
+                          onChange={(e) =>
+                            updateCategoryPercentage(
+                              category.id,
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                        />
+                      </td>
+                      <td className="py-3">
+                        <input
+                          type="number"
+                          value={category.amount || ""}
+                          onChange={(e) =>
+                            updateCategoryAmount(
+                              category.id,
+                              parseFloat(e.target.value) || 0,
+                            )
+                          }
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                        />
+                      </td>
+                      <td className="py-3 text-center">
+                        <button
+                          onClick={() => removeCategory(category.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                : budgetItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
+                    >
+                      <td className="py-4 font-medium text-gray-900 text-sm">
+                        {item.category}
+                      </td>
+                      <td className="py-4 text-left text-gray-600 text-sm">
+                        {budgetCategories
+                          .find((c) => c.id === item.id)
+                          ?.percentage.toFixed(1)}
+                        %
+                      </td>
+                      <td className="py-4 text-left font-medium text-gray-900 text-sm">
+                        {formatCurrency(item.budgeted)}
+                      </td>
+                      <td className="py-4 w-[25%]">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-[#131E29] rounded-full"
+                              style={{
+                                width: `${getProgress(item.budgeted, item.executed)}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-500 min-w-[2rem]">
+                            {getProgress(item.budgeted, item.executed)}%
+                          </span>
                         </div>
-                        <span className="text-xs text-gray-500 min-w-[2rem]">
-                          {getProgress(item.budgeted, item.executed)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 text-left">
-                      {getStatusBadge(item.status)}
-                    </td>
-                  </tr>
-                ))
-              )}
+                      </td>
+                      <td className="py-4 text-left">
+                        {getStatusBadge(item.status)}
+                      </td>
+                    </tr>
+                  ))}
             </tbody>
           </table>
 
@@ -394,8 +394,8 @@ export function BudgetModule({
 
           {budgetCategories.length === 0 && !isEditing && (
             <div className="text-center py-8 text-gray-500">
-              No hay partidas presupuestarias definidas. Haga clic en "Nueva
-              Partida" para agregar una.
+              No hay partidas presupuestarias definidas. Haga clic &quot;Nueva
+              Partida&quot; para agregar una.
             </div>
           )}
         </div>

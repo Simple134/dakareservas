@@ -14,6 +14,7 @@ export {
   updateBeneficiary,
   getBeneficiaryById,
   createBeneficiary,
+  archiveBeneficiary,
   // Divisions
   getDivisionById,
   getDivisions,

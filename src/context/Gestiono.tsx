@@ -40,9 +40,13 @@ export const GestionoProvider = ({ children }: { children: ReactNode }) => {
       }
       const data = await response.json();
       setDivisions(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching Gestiono divisions:", err);
-      setError(err.message || "Error desconocido al cargar divisiones");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al cargar divisiones",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -58,10 +62,12 @@ export const GestionoProvider = ({ children }: { children: ReactNode }) => {
       }
       const data = await response.json();
       setPendingRecords(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching Gestiono pending records:", err);
       setError(
-        err.message || "Error desconocido al cargar registros pendientes",
+        err instanceof Error
+          ? err.message
+          : "Error desconocido al cargar registros pendientes",
       );
     } finally {
       setIsLoading(false);

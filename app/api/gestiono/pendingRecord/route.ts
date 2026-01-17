@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { v2GetPendingRecords, deletePendingRecord } from "@/src/lib/gestiono/endpoints";
-import { V2GetPendingRecordsQuery } from "@/src/types/gestiono";
+import {
+  v2GetPendingRecords,
+  deletePendingRecord,
+  createPendingRecord,
+  transformToGestionoFormat,
+} from "@/src/lib/gestiono/endpoints";
+import {
+  GestionoApiError,
+  V2GetPendingRecordsQuery,
+} from "@/src/types/gestiono";
+import { validateGestionoConfig } from "@/src/lib/gestiono";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +39,9 @@ export async function GET(request: NextRequest) {
 
     console.log("📍 Calling v2GetPendingRecords with params:", query);
 
-    const pendingRecords = await v2GetPendingRecords(query as unknown as V2GetPendingRecordsQuery);
+    const pendingRecords = await v2GetPendingRecords(
+      query as unknown as V2GetPendingRecordsQuery,
+    );
     console.log("✅ v2GetPendingRecords obtenidas:", pendingRecords);
     return NextResponse.json(pendingRecords);
   } catch (error: unknown) {
@@ -46,6 +57,64 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function POST(request: NextRequest) {
+  try {
+    const config = validateGestionoConfig();
+    if (!config.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Gestiono no está configurado",
+          details: config.errors,
+          configured: false,
+        },
+        { status: 200 },
+      );
+    }
+
+    const body = await request.json();
+
+    console.log("📤 API Route: Creando factura en Gestiono...");
+
+    const divisionId = body.divisionId || 183;
+    console.log(`🏢 Usando división ID: ${divisionId}`);
+
+    const gestionoPayload = transformToGestionoFormat(body, divisionId);
+
+    console.log(
+      "📦 Payload a enviar:",
+      JSON.stringify(gestionoPayload, null, 2),
+    );
+
+    const result = await createPendingRecord(gestionoPayload);
+
+    console.log("✅ Factura creada exitosamente:", result);
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      configured: true,
+    });
+  } catch (error: unknown) {
+    console.error("❌ Error creando factura:", error);
+
+    const gestionoError = error as GestionoApiError;
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: gestionoError.error || "Error al crear factura",
+        message:
+          gestionoError.message || error instanceof Error
+            ? error
+            : "Error desconocido",
+        details: gestionoError.details,
+        configured: true,
+      },
+      { status: gestionoError.statusCode || 500 },
+    );
+  }
+}
 
 export async function DELETE(request: NextRequest) {
   try {
