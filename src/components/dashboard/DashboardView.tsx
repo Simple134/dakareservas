@@ -183,14 +183,14 @@ export function DashboardView() {
             <LogOut className="w-4 h-4 mr-2" />
             <span className="text-sm lg:text-base">Cerrar Sesión</span>
           </button>
-          <button
+          {/* <button
             style={{ borderRadius: "8px" }}
             className="bg-white flex items-center gap-2 border shadow-sm rounded-md p-2"
             onClick={() => setIsInvoiceDialogOpen(true)}
           >
             <Receipt className="w-4 h-4 mr-2" />
             <span className="text-sm lg:text-base">Nueva Factura</span>
-          </button>
+          </button> */}
           <button
             className="bg-gradient-to-r from-[#224397] to-blue-500 text-white font-bold flex items-center gap-2 rounded-md p-2"
             onClick={() => router.push("/admin/projects/create")}

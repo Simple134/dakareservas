@@ -8,6 +8,7 @@ import {
   Home,
   Package,
   Receipt,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/src/lib/utils";
@@ -54,9 +55,11 @@ const mainMenuItems = [
 interface AppSidebarProps {
   currentView?: string;
   onNavigate?: (view: string) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
+export function AppSidebar({ currentView, onNavigate, isOpen = true, onClose }: AppSidebarProps) {
   const router = useRouter();
 
   const handleNav = (viewId: string, url: string) => {
@@ -65,11 +68,20 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
     } else {
       router.push(url);
     }
+    // Close mobile menu after navigation
+    if (onClose) {
+      onClose();
+    }
   };
 
   return (
-    <aside className="w-64 h-screen bg-[#07234B] text-white flex flex-col border-r border-[#1a3a5c] fixed left-0 top-0 z-50">
-      <div className="h-16 flex items-center px-4 border-b border-[#1a3a5c]">
+    <aside className={cn(
+      "w-64 h-screen bg-[#07234B] text-white flex flex-col border-r border-[#1a3a5c] fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out",
+      // Mobile: slide in/out
+      "lg:translate-x-0",
+      isOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
+      <div className="h-16 flex items-center px-4 border-b border-[#1a3a5c] justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
             <Building2 className="w-5 h-5 text-[#0F2744]" />
@@ -81,6 +93,16 @@ export function AppSidebar({ currentView, onNavigate }: AppSidebarProps) {
             </span>
           </div>
         </div>
+        {/* Close button for mobile */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-6">

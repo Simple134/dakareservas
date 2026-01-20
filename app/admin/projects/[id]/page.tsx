@@ -23,7 +23,10 @@ import {
 import { BudgetModule } from "@/src/components/project/BudgetModule";
 import { FinancesModule } from "@/src/components/project/FinancesModule";
 import { useState, useRef, useEffect } from "react";
-import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
+import { QuotationDialog } from "@/src/components/project/QuotationDialog";
+import { PurchaseOrderDialog } from "@/src/components/project/PurchaseOrderDialog";
+import { InvoiceDialog } from "@/src/components/project/InvoiceDialog";
+import { PurchaseDropdown } from "@/src/components/project/PurchaseDropdown";
 import { CustomSelect } from "@/src/components/project/CustomSelect";
 import {
   CustomBadge,
@@ -69,6 +72,9 @@ export default function ProjectOverview() {
   const [selectedSection, setSelectedSection] = useState("presupuesto-general");
   const selectRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
+  const [isPurchaseOrderDialogOpen, setIsPurchaseOrderDialogOpen] =
+    useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -95,19 +101,19 @@ export default function ProjectOverview() {
 
   const project = division
     ? {
-        id: division.id,
-        name: division.name,
-        client: division.metadata?.client || "Cliente Desconocido",
-        location: division.metadata?.location || "Ubicación desconocida",
-        status: division.metadata?.status || "planning",
-        totalBudget: division.metadata?.budget || 0,
-        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-        completionPercentage: division.metadata?.completionPercentage || 0,
-        profitMargin: division.metadata?.profitMargin || 0,
-        startDate: division.metadata?.startDate || new Date().toISOString(),
-        endDate: division.metadata?.endDate || new Date().toISOString(),
-        budgetCategories: division.metadata?.budgetCategories || [],
-      }
+      id: division.id,
+      name: division.name,
+      client: division.metadata?.client || "Cliente Desconocido",
+      location: division.metadata?.location || "Ubicación desconocida",
+      status: division.metadata?.status || "planning",
+      totalBudget: division.metadata?.budget || 0,
+      executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+      completionPercentage: division.metadata?.completionPercentage || 0,
+      profitMargin: division.metadata?.profitMargin || 0,
+      startDate: division.metadata?.startDate || new Date().toISOString(),
+      endDate: division.metadata?.endDate || new Date().toISOString(),
+      budgetCategories: division.metadata?.budgetCategories || [],
+    }
     : null;
 
   if (isLoading) {
@@ -179,7 +185,7 @@ export default function ProjectOverview() {
 
   return (
     <div className="flex min-h-screen bg-white">
-      <main className="flex-1 p-6 space-y-6 animate-fade-in">
+      <main className="flex-1 p-2 lg:p-6 space-y-6 animate-fade-in">
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">
@@ -191,18 +197,22 @@ export default function ProjectOverview() {
               <span className="text-sm text-gray-500">{project?.location}</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col lg:flex-row items-center gap-3">
             <CustomBadge
               className={getStatusColor(project?.status || "planning")}
             >
               {getStatusText(project?.status || "planning")}
             </CustomBadge>
+            <PurchaseDropdown
+              onQuotationClick={() => setIsQuotationDialogOpen(true)}
+              onPurchaseOrderClick={() => setIsPurchaseOrderDialogOpen(true)}
+            />
             <CustomButton
               onClick={() => setIsInvoiceDialogOpen(true)}
-              className="bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+              className="bg-green-600 text-white hover:bg-green-700 shadow-sm"
             >
               <Receipt className="w-4 h-4 mr-2" />
-              Nueva Factura
+              Venta
             </CustomButton>
           </div>
         </div>
@@ -529,7 +539,7 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-green-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                        ((project?.profitMargin || 0) / 100),
+                      ((project?.profitMargin || 0) / 100),
                     )}
                   </p>
                 </div>
@@ -544,17 +554,31 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-purple-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                        ((project?.profitMargin || 0) / 100) -
-                        (project?.totalBudget || 0) * 0.05,
+                      ((project?.profitMargin || 0) / 100) -
+                      (project?.totalBudget || 0) * 0.05,
                     )}
                   </p>
                 </div>
               </div>
             </CustomCard>
           )}
-          <CreateInvoiceDialog
+          <QuotationDialog
+            isOpen={isQuotationDialogOpen}
+            onClose={() => setIsQuotationDialogOpen(false)}
+            projectId={projectId}
+            projectName={project?.name}
+          />
+          <PurchaseOrderDialog
+            isOpen={isPurchaseOrderDialogOpen}
+            onClose={() => setIsPurchaseOrderDialogOpen(false)}
+            projectId={projectId}
+            projectName={project?.name}
+          />
+          <InvoiceDialog
             isOpen={isInvoiceDialogOpen}
             onClose={() => setIsInvoiceDialogOpen(false)}
+            projectId={projectId}
+            projectName={project?.name}
           />
         </div>
       </main>
