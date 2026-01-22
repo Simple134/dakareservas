@@ -6,7 +6,6 @@ import {
   MapPin,
   DollarSign,
   TrendingUp,
-  Receipt,
   FileText,
   Calculator,
   CreditCard,
@@ -16,17 +15,14 @@ import {
   Users,
   Briefcase,
   TrendingDown,
-  ChevronDown,
-  Check,
   Loader2,
 } from "lucide-react";
 import { BudgetModule } from "@/src/components/project/BudgetModule";
 import { FinancesModule } from "@/src/components/project/FinancesModule";
 import { useState, useRef, useEffect } from "react";
-import { QuotationDialog } from "@/src/components/project/QuotationDialog";
-import { PurchaseOrderDialog } from "@/src/components/project/PurchaseOrderDialog";
-import { InvoiceDialog } from "@/src/components/project/InvoiceDialog";
 import { PurchaseDropdown } from "@/src/components/project/PurchaseDropdown";
+import { SaleDropdown } from "@/src/components/project/SaleDropdown";
+import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { CustomSelect } from "@/src/components/project/CustomSelect";
 import {
   CustomBadge,
@@ -64,7 +60,6 @@ export default function ProjectOverview() {
   const params = useParams();
   const projectId = params?.id as string;
   const router = useRouter();
-
   const [division, setDivision] = useState<GestionoDivisionWithBalance | null>(
     null,
   );
@@ -72,10 +67,17 @@ export default function ProjectOverview() {
   const [selectedSection, setSelectedSection] = useState("presupuesto-general");
   const selectRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
-  const [isPurchaseOrderDialogOpen, setIsPurchaseOrderDialogOpen] =
-    useState(false);
-  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+
+  // Estado unificado para manejar todos los documentos
+  const [documentDialogState, setDocumentDialogState] = useState<{
+    isOpen: boolean;
+    documentType: "quote" | "order" | "invoice";
+    transactionType: "sale" | "purchase";
+  }>({
+    isOpen: false,
+    documentType: "quote",
+    transactionType: "sale",
+  });
 
   useEffect(() => {
     const fetchDivision = async () => {
@@ -101,19 +103,19 @@ export default function ProjectOverview() {
 
   const project = division
     ? {
-      id: division.id,
-      name: division.name,
-      client: division.metadata?.client || "Cliente Desconocido",
-      location: division.metadata?.location || "Ubicación desconocida",
-      status: division.metadata?.status || "planning",
-      totalBudget: division.metadata?.budget || 0,
-      executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-      completionPercentage: division.metadata?.completionPercentage || 0,
-      profitMargin: division.metadata?.profitMargin || 0,
-      startDate: division.metadata?.startDate || new Date().toISOString(),
-      endDate: division.metadata?.endDate || new Date().toISOString(),
-      budgetCategories: division.metadata?.budgetCategories || [],
-    }
+        id: division.id,
+        name: division.name,
+        client: division.metadata?.client || "Cliente Desconocido",
+        location: division.metadata?.location || "Ubicación desconocida",
+        status: division.metadata?.status || "planning",
+        totalBudget: division.metadata?.budget || 0,
+        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+        completionPercentage: division.metadata?.completionPercentage || 0,
+        profitMargin: division.metadata?.profitMargin || 0,
+        startDate: division.metadata?.startDate || new Date().toISOString(),
+        endDate: division.metadata?.endDate || new Date().toISOString(),
+        budgetCategories: division.metadata?.budgetCategories || [],
+      }
     : null;
 
   if (isLoading) {
@@ -204,16 +206,51 @@ export default function ProjectOverview() {
               {getStatusText(project?.status || "planning")}
             </CustomBadge>
             <PurchaseDropdown
-              onQuotationClick={() => setIsQuotationDialogOpen(true)}
-              onPurchaseOrderClick={() => setIsPurchaseOrderDialogOpen(true)}
+              onQuotationClick={() =>
+                setDocumentDialogState({
+                  isOpen: true,
+                  documentType: "quote",
+                  transactionType: "purchase",
+                })
+              }
+              onPurchaseOrderClick={() =>
+                setDocumentDialogState({
+                  isOpen: true,
+                  documentType: "order",
+                  transactionType: "purchase",
+                })
+              }
+              onInvoiceClick={() =>
+                setDocumentDialogState({
+                  isOpen: true,
+                  documentType: "invoice",
+                  transactionType: "purchase",
+                })
+              }
             />
-            <CustomButton
-              onClick={() => setIsInvoiceDialogOpen(true)}
-              className="bg-green-600 text-white hover:bg-green-700 shadow-sm"
-            >
-              <Receipt className="w-4 h-4 mr-2" />
-              Venta
-            </CustomButton>
+            <SaleDropdown
+              onQuotationClick={() =>
+                setDocumentDialogState({
+                  isOpen: true,
+                  documentType: "quote",
+                  transactionType: "sale",
+                })
+              }
+              onSaleOrderClick={() =>
+                setDocumentDialogState({
+                  isOpen: true,
+                  documentType: "order",
+                  transactionType: "sale",
+                })
+              }
+              onInvoiceClick={() =>
+                setDocumentDialogState({
+                  isOpen: true,
+                  documentType: "invoice",
+                  transactionType: "sale",
+                })
+              }
+            />
           </div>
         </div>
 
@@ -539,7 +576,7 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-green-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                      ((project?.profitMargin || 0) / 100),
+                        ((project?.profitMargin || 0) / 100),
                     )}
                   </p>
                 </div>
@@ -554,31 +591,26 @@ export default function ProjectOverview() {
                   <p className="text-xl font-bold text-purple-600">
                     {formatCurrency(
                       (project?.totalBudget || 0) *
-                      ((project?.profitMargin || 0) / 100) -
-                      (project?.totalBudget || 0) * 0.05,
+                        ((project?.profitMargin || 0) / 100) -
+                        (project?.totalBudget || 0) * 0.05,
                     )}
                   </p>
                 </div>
               </div>
             </CustomCard>
           )}
-          <QuotationDialog
-            isOpen={isQuotationDialogOpen}
-            onClose={() => setIsQuotationDialogOpen(false)}
-            projectId={projectId}
-            projectName={project?.name}
-          />
-          <PurchaseOrderDialog
-            isOpen={isPurchaseOrderDialogOpen}
-            onClose={() => setIsPurchaseOrderDialogOpen(false)}
-            projectId={projectId}
-            projectName={project?.name}
-          />
-          <InvoiceDialog
-            isOpen={isInvoiceDialogOpen}
-            onClose={() => setIsInvoiceDialogOpen(false)}
-            projectId={projectId}
-            projectName={project?.name}
+          {/* Diálogo unificado para crear documentos */}
+          <CreateInvoiceDialog
+            isOpen={documentDialogState.isOpen}
+            onClose={() =>
+              setDocumentDialogState((prev) => ({ ...prev, isOpen: false }))
+            }
+            documentType={documentDialogState.documentType}
+            transactionType={documentDialogState.transactionType}
+            onCreateInvoice={(invoice) => {
+              console.log("Documento creado:", invoice);
+              // Aquí puedes agregar lógica adicional si necesitas actualizar algo
+            }}
           />
         </div>
       </main>

@@ -20,6 +20,16 @@ export interface PendingRecord {
   beneficiaryId: number;
   projectId?: string; // UUID
 
+  // Record Type (Required by Gestiono API)
+  type?:
+    | "INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "INCOME"
+    | "OUTCOME"
+    | "PAYROLL";
+
   // Dates & Status
   date: AnyDate;
   dueDate?: AnyDate;

@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, FileText, ShoppingCart } from "lucide-react";
+import { ChevronDown, FileText, Receipt, TrendingUp } from "lucide-react";
 import { CustomButton } from "./CustomCard";
 
-interface PurchaseDropdownProps {
+interface SaleDropdownProps {
   onQuotationClick: () => void;
-  onPurchaseOrderClick: () => void;
+  onSaleOrderClick: () => void;
   onInvoiceClick: () => void;
 }
 
-export function PurchaseDropdown({
+export function SaleDropdown({
   onQuotationClick,
-  onPurchaseOrderClick,
+  onSaleOrderClick,
   onInvoiceClick,
-}: PurchaseDropdownProps) {
+}: SaleDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -37,8 +37,8 @@ export function PurchaseDropdown({
     setIsOpen(false);
   };
 
-  const handlePurchaseOrderClick = () => {
-    onPurchaseOrderClick();
+  const handleSaleOrderClick = () => {
+    onSaleOrderClick();
     setIsOpen(false);
   };
 
@@ -51,10 +51,10 @@ export function PurchaseDropdown({
     <div className="relative" ref={dropdownRef}>
       <CustomButton
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-purple-600 text-white hover:bg-purple-700 shadow-sm flex items-center gap-2"
+        className="bg-green-600 text-white hover:bg-green-700 shadow-sm flex items-center gap-2"
       >
-        <ShoppingCart className="w-4 h-4" />
-        Compra
+        <Receipt className="w-4 h-4" />
+        Venta
         <ChevronDown
           className={`w-4 h-4 transition-transform ${
             isOpen ? "rotate-180" : ""
@@ -66,32 +66,32 @@ export function PurchaseDropdown({
         <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
           <button
             onClick={handleQuotationClick}
-            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 border-b border-gray-100"
+            className="w-full px-4 py-3 text-left hover:bg-green-50 transition-colors flex items-center gap-3 border-b border-gray-100"
           >
-            <FileText className="w-4 h-4 text-purple-600" />
+            <FileText className="w-4 h-4 text-green-600" />
             <div>
               <p className="font-medium text-gray-900">Cotización</p>
               <p className="text-xs text-gray-500">Crear nueva cotización</p>
             </div>
           </button>
           <button
-            onClick={handlePurchaseOrderClick}
-            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 border-b border-gray-100"
+            onClick={handleSaleOrderClick}
+            className="w-full px-4 py-3 text-left hover:bg-green-50 transition-colors flex items-center gap-3 border-b border-gray-100"
           >
-            <ShoppingCart className="w-4 h-4 text-purple-600" />
+            <TrendingUp className="w-4 h-4 text-green-600" />
             <div>
-              <p className="font-medium text-gray-900">Orden de Compra</p>
-              <p className="text-xs text-gray-500">Crear orden de compra</p>
+              <p className="font-medium text-gray-900">Orden de Venta</p>
+              <p className="text-xs text-gray-500">Crear orden de venta</p>
             </div>
           </button>
           <button
             onClick={handleInvoiceClick}
-            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3"
+            className="w-full px-4 py-3 text-left hover:bg-green-50 transition-colors flex items-center gap-3"
           >
-            <FileText className="w-4 h-4 text-purple-600" />
+            <Receipt className="w-4 h-4 text-green-600" />
             <div>
               <p className="font-medium text-gray-900">Factura</p>
-              <p className="text-xs text-gray-500">Crear factura de compra</p>
+              <p className="text-xs text-gray-500">Crear factura de venta</p>
             </div>
           </button>
         </div>

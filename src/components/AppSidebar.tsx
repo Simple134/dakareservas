@@ -9,9 +9,11 @@ import {
   Package,
   Receipt,
   X,
+  ChevronRight,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/src/lib/utils";
+import { useGestiono } from "@/src/context/Gestiono";
 
 const mainMenuItems = [
   {
@@ -59,8 +61,14 @@ interface AppSidebarProps {
   onClose?: () => void;
 }
 
-export function AppSidebar({ currentView, onNavigate, isOpen = true, onClose }: AppSidebarProps) {
+export function AppSidebar({
+  currentView,
+  onNavigate,
+  isOpen = true,
+  onClose,
+}: AppSidebarProps) {
   const router = useRouter();
+  const { divisions, isLoading } = useGestiono();
 
   const handleNav = (viewId: string, url: string) => {
     if (onNavigate) {
@@ -75,12 +83,14 @@ export function AppSidebar({ currentView, onNavigate, isOpen = true, onClose }: 
   };
 
   return (
-    <aside className={cn(
-      "w-64 h-screen bg-[#07234B] text-white flex flex-col border-r border-[#1a3a5c] fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out",
-      // Mobile: slide in/out
-      "lg:translate-x-0",
-      isOpen ? "translate-x-0" : "-translate-x-full"
-    )}>
+    <aside
+      className={cn(
+        "w-64 h-screen bg-[#07234B] text-white flex flex-col border-r border-[#1a3a5c] fixed left-0 top-0 z-50 transition-transform duration-300 ease-in-out",
+        // Mobile: slide in/out
+        "lg:translate-x-0",
+        isOpen ? "translate-x-0" : "-translate-x-full",
+      )}
+    >
       <div className="h-16 flex items-center px-4 border-b border-[#1a3a5c] justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
@@ -140,24 +150,40 @@ export function AppSidebar({ currentView, onNavigate, isOpen = true, onClose }: 
             })}
           </nav>
         </div>
-
-        {/* Projects Section - Commented out but refactored structure kept for reference */}
-        {/* 
-                <div className="space-y-2">
-                    <h3 className="px-2 text-xs font-semibold text-white/50 uppercase tracking-wider">
-                        Proyectos
-                    </h3>
-                    <div className="space-y-1">
-                         <button className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-white/70 rounded-lg hover:bg-white/5 hover:text-white">
-                            <div className="flex items-center gap-3">
-                                <Building2 className="w-4 h-4" />
-                                <span>Mis Proyectos</span>
-                            </div>
-                            <ChevronRight className="w-4 h-4" />
-                         </button>
-                    </div>
-                </div> 
-                */}
+        <div className="space-y-2">
+          <h3 className="px-2 text-xs font-semibold text-white/50 uppercase tracking-wider">
+            Proyectos Activos
+          </h3>
+          <div className="space-y-1">
+            {isLoading ? (
+              <div className="px-3 py-2 text-sm text-white/50">
+                Cargando proyectos...
+              </div>
+            ) : divisions.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-white/50">
+                No hay proyectos activos
+              </div>
+            ) : (
+              divisions.slice(1, 5).map((division) => (
+                <button
+                  key={division.id}
+                  onClick={() => {
+                    router.push(`/admin/projects/${division.id}`);
+                    if (onClose) onClose();
+                  }}
+                  style={{ borderRadius: "10px" }}
+                  className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-white/70 rounded-lg hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Building2 className="w-4 h-4" />
+                    <span className="truncate">{division.name}</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
       </div>
       <div className="p-4 border-t border-[#1a3a5c]">
         <p className="text-xs text-white/40 text-center">
