@@ -20,16 +20,25 @@ export interface PendingRecord {
   beneficiaryId: number;
   projectId?: string; // UUID
 
+  // Record Type (Required by Gestiono API)
+  type?:
+    | "INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "INCOME"
+    | "OUTCOME"
+    | "PAYROLL";
+
   // Dates & Status
   date: AnyDate;
   dueDate?: AnyDate;
   state: InvoiceState;
-  status?: "PENDING" | "PROCESSING" | "DONE" | "FAILED" | "DISCARDED"; // Sometimes used for export status
+  status?: "PENDING" | "PROCESSING" | "DONE" | "FAILED" | "DISCARDED";
 
-  // Details
   description?: string;
   notes?: string;
-  note?: string; // Extended detailed view often uses 'note'
+  note?: string;
   reference?: string;
   isSell: boolean;
   isInstantDelivery: boolean;
@@ -40,12 +49,11 @@ export interface PendingRecord {
   taxExpirationDate?: AnyDate;
   salesTaxReduced?: boolean;
 
-  // Denormalized Financial Fields (Cached calculations)
-  amount: number; // Total amount
-  subTotal: number; // Amount before taxes
-  taxes: number; // Total taxes
-  paid: number; // Amount paid so far
-  dueToPay: number; // Remaining balance
+  amount: number;
+  subTotal: number;
+  taxes: number;
+  paid: number;
+  dueToPay: number;
 
   paymentsAmount: number;
   creditPayments: number;
@@ -62,7 +70,6 @@ export interface PendingRecord {
   resourceCost: number;
   grossProfit: number;
 
-  // Computed Fields (from Detailed View)
   subTotalWithoutDiscount: number;
   afterTaxesDiscount: number;
   preTaxesDiscount: number;
@@ -98,7 +105,7 @@ export interface PendingRecord {
     name: string;
     email?: string;
     phone?: string;
-    type: string; // CLIENT, PROVIDER, etc.
+    type: string;
     taxId?: string;
   };
 
@@ -112,7 +119,7 @@ export interface PendingRecord {
   returns?: Return[];
 
   // Logistics
-  deliveryTask?: any; // Matches ResourcesApi['delivery']['GET']['Res']
+  deliveryTask?: any;
   pendingToDeliver?: {
     quantity: number;
     resourceId: number;
@@ -125,7 +132,7 @@ export interface PendingRecord {
   metadata?: Record<string, any>;
 
   // Linked Items
-  invoices?: PendingRecord[]; // Recursively referenced if this is a parent record
+  invoices?: PendingRecord[];
   linkedCosts?: {
     id: number;
   }[];

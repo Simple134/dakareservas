@@ -3,7 +3,6 @@ import {
   v2GetPendingRecords,
   deletePendingRecord,
   createPendingRecord,
-  transformToGestionoFormat,
 } from "@/src/lib/gestiono/endpoints";
 import {
   GestionoApiError,
@@ -75,18 +74,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     console.log("📤 API Route: Creando factura en Gestiono...");
+    console.log("📦 Payload recibido:", JSON.stringify(body, null, 2));
 
-    const divisionId = body.divisionId || 183;
-    console.log(`🏢 Usando división ID: ${divisionId}`);
-
-    const gestionoPayload = transformToGestionoFormat(body, divisionId);
-
-    console.log(
-      "📦 Payload a enviar:",
-      JSON.stringify(gestionoPayload, null, 2),
-    );
-
-    const result = await createPendingRecord(gestionoPayload);
+    // El payload ya viene en el formato correcto de Gestiono desde CreateInvoice.tsx
+    // No necesitamos transformarlo
+    const result = await createPendingRecord(body);
 
     console.log("✅ Factura creada exitosamente:", result);
 

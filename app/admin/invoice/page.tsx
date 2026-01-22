@@ -93,10 +93,31 @@ export default function InvoicesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [resume, setResume] = useState<{
+    toCharge: number;
+    totalCharged: number;
+    toPay: number;
+    totalPaid: number;
+    toChargeRecordsCount: number;
+    toPayRecordsCount: number;
+  }>({
+    toCharge: 0,
+    totalCharged: 0,
+    toPay: 0,
+    totalPaid: 0,
+    toChargeRecordsCount: 0,
+    toPayRecordsCount: 0,
+  });
   const [itemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDocumentType, setSelectedDocumentType] = useState("all");
+  const [activeTab, setActiveTab] = useState<"QUOTE" | "INVOICE" | "ORDER">(
+    "QUOTE",
+  );
+  const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
+    "true",
+  );
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -150,8 +171,19 @@ export default function InvoicesPage() {
     const fetchInvoices = async () => {
       setIsLoadingInvoices(true);
       try {
+        // Construir los query params según el ejemplo de Gestiono
+        const params = new URLSearchParams({
+          search: "",
+          state: "PENDING", // Vacío para obtener todos los estados
+          amount: "0",
+          type: activeTab, // Usar el tab activo para filtrar
+          isSell: isSellFilter === "all" ? "" : isSellFilter,
+          elements: String(itemsPerPage),
+          page: String(currentPage),
+        });
+
         const response = await fetch(
-          `/api/gestiono/pendingRecord?elementsPerPage=${itemsPerPage}&page=${currentPage}`,
+          `/api/gestiono/pendingRecord?${params.toString()}`,
         );
 
         if (!response.ok) {
@@ -162,6 +194,18 @@ export default function InvoicesPage() {
         setRawInvoices(data.items || []);
         setTotalPages(data.totalPages || 1);
         setTotalItems(data.totalItems || 0);
+
+        // Guardar resume data del API
+        if (data.resume) {
+          setResume({
+            toCharge: data.resume.toCharge || 0,
+            totalCharged: data.resume.totalCharged || 0,
+            toPay: data.resume.toPay || 0,
+            totalPaid: data.resume.totalPaid || 0,
+            toChargeRecordsCount: data.resume.toChargeRecordsCount || 0,
+            toPayRecordsCount: data.resume.toPayRecordsCount || 0,
+          });
+        }
       } catch (error) {
         console.error("❌ Error fetching invoices:", error);
       } finally {
@@ -170,7 +214,7 @@ export default function InvoicesPage() {
     };
 
     fetchInvoices();
-  }, [currentPage, itemsPerPage, refreshKey]);
+  }, [currentPage, itemsPerPage, refreshKey, activeTab, isSellFilter]);
 
   useEffect(() => {
     const mapped = rawInvoices.map((item) =>
@@ -202,17 +246,11 @@ export default function InvoicesPage() {
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  const totalSales = invoices
-    .filter((inv) => inv.type === "sale" && inv.status === "paid")
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  const totalPurchases = invoices
-    .filter((inv) => inv.type === "purchase" && inv.status === "paid")
-    .reduce((sum, inv) => sum + inv.amount, 0);
-
-  const pendingInvoices = invoices.filter(
-    (inv) => inv.status === "pending",
-  ).length;
+  // Usar datos del API resume en lugar de cálculos locales
+  const totalSalesToCharge = resume.toCharge; // Monto pendiente a cobrar
+  const totalPurchasesToPay = resume.toPay; // Monto pendiente a pagar
+  const pendingRecordsCount =
+    resume.toChargeRecordsCount + resume.toPayRecordsCount; // Total de registros pendientes
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -302,9 +340,9 @@ export default function InvoicesPage() {
     setIsDeleting(true);
     try {
       const response = await fetch(
-        `/api/gestiono/pendingRecord?recordId=${deleteModalState.invoiceId}`,
+        `/api/gestiono/pendingRecord/${deleteModalState.invoiceId}`,
         {
-          method: "DELETE",
+          method: "PATCH",
         },
       );
 
@@ -407,6 +445,40 @@ export default function InvoicesPage() {
         </div>
       </div>
 
+      {/* Tabs for Document Types */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab("QUOTE")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "QUOTE"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
+        >
+          Cotizaciones
+        </button>
+        <button
+          onClick={() => setActiveTab("ORDER")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "ORDER"
+              ? "border-purple-600 text-purple-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
+        >
+          Órdenes
+        </button>
+        <button
+          onClick={() => setActiveTab("INVOICE")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "INVOICE"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
+        >
+          Facturas
+        </button>
+      </div>
+
       {/* KPIs */}
       <div className="grid gap-4 md:grid-cols-3">
         <CustomCard>
@@ -418,10 +490,10 @@ export default function InvoicesPage() {
               {isLoading ? (
                 <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
               ) : (
-                `RD$ ${totalSales.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                `RD$ ${totalSalesToCharge.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               )}
             </div>
-            <p className="text-xs text-gray-600">Facturas de venta pagadas</p>
+            <p className="text-xs text-gray-600">Pendiente a cobrar</p>
           </div>
         </CustomCard>
 
@@ -434,10 +506,10 @@ export default function InvoicesPage() {
               {isLoading ? (
                 <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
               ) : (
-                `RD$ ${totalPurchases.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                `RD$ ${totalPurchasesToPay.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               )}
             </div>
-            <p className="text-xs text-gray-600">Facturas de compra pagadas</p>
+            <p className="text-xs text-gray-600">Pendiente a pagar</p>
           </div>
         </CustomCard>
 
@@ -450,10 +522,10 @@ export default function InvoicesPage() {
               {isLoading ? (
                 <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
               ) : (
-                pendingInvoices
+                pendingRecordsCount
               )}
             </div>
-            <p className="text-xs text-gray-600">Facturas por cobrar/pagar</p>
+            <p className="text-xs text-gray-600">Registros pendientes</p>
           </div>
         </CustomCard>
       </div>
@@ -543,57 +615,47 @@ export default function InvoicesPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid gap-6 md:grid-cols-3">
-              {/* Tipo de Transacción */}
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Tipo de Transacción (Venta/Compra) */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium">
                   <TrendingUp className="w-4 h-4" />
                   Tipo de Transacción
                 </label>
-                <select
-                  value={selectedType}
-                  onChange={(e) => setSelectedType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">Todas ({invoices.length})</option>
-                  <option value="sale">
-                    Ventas ({invoices.filter((i) => i.type === "sale").length})
-                  </option>
-                  <option value="purchase">
-                    Compras (
-                    {invoices.filter((i) => i.type === "purchase").length})
-                  </option>
-                </select>
-              </div>
-
-              {/* Tipo de Documento */}
-              <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-medium">
-                  Tipo de Documento
-                </label>
-                <select
-                  value={selectedDocumentType}
-                  onChange={(e) => setSelectedDocumentType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">Todos ({invoices.length})</option>
-                  <option value="quote">
-                    Cotizaciones (
-                    {invoices.filter((i) => i.documentType === "quote").length})
-                  </option>
-                  <option value="order">
-                    Órdenes (
-                    {invoices.filter((i) => i.documentType === "order").length})
-                  </option>
-                  <option value="invoice">
-                    Facturas (
-                    {
-                      invoices.filter((i) => i.documentType === "invoice")
-                        .length
-                    }
-                    )
-                  </option>
-                </select>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setIsSellFilter("all")}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "all"
+                        ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  <button
+                    onClick={() => setIsSellFilter("true")}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "true"
+                        ? "bg-green-50 border-green-500 text-green-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    Ventas
+                  </button>
+                  <button
+                    onClick={() => setIsSellFilter("false")}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "false"
+                        ? "bg-red-50 border-red-500 text-red-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Compras
+                  </button>
+                </div>
               </div>
 
               {/* Estado */}

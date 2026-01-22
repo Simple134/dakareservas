@@ -285,6 +285,18 @@ export async function archiveResource(id: number): Promise<CreateResourceBody> {
   });
 }
 
+export async function archivePendingRecord(
+  id: number,
+): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>("/v1/record/pending", {
+    method: "PATCH",
+    body: JSON.stringify({
+      id,
+      metadata: { isArchived: true },
+    }),
+  });
+}
+
 export async function v2GetResources(
   data: GetResourcesQuery,
 ): Promise<V2GetResourcesResponse> {
@@ -306,10 +318,10 @@ export async function v2GetPendingRecords(
 export async function deletePendingRecord(
   recordId: number,
 ): Promise<V2GetPendingRecordsResponse> {
-  return gestionoRequest<V2GetPendingRecordsResponse>(
-    `/v2/record/pending/${recordId}`,
-    {
-      method: "DELETE",
-    },
-  );
+  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/`, {
+    method: "DELETE",
+    body: JSON.stringify({
+      id: recordId,
+    }),
+  });
 }
