@@ -33,6 +33,7 @@ interface CreateInvoiceDialogProps {
 export function CreateInvoiceDialog({
   isOpen,
   onClose,
+  projectId,
   documentType = "invoice",
   transactionType = "sale",
   onCreateInvoice,
@@ -80,7 +81,21 @@ export function CreateInvoiceDialog({
     watch,
     setValue,
     formState: { errors },
-  } = useForm<Partial<PendingRecord>>({
+  } = useForm<
+    Partial<
+      PendingRecord & {
+        conditions?: string;
+        shippingAddress?: string;
+        contactPerson?: string;
+        requestedFrom?: string;
+        sendTo?: string;
+        supplierPhone?: string;
+        authorizedBy?: string;
+        authorizedDate?: string;
+        preparedBy?: string;
+      }
+    >
+  >({
     defaultValues: {
       // Campos requeridos por Gestiono API
       type: getGestionoType(),
@@ -97,6 +112,16 @@ export function CreateInvoiceDialog({
       notes: "",
       // Arrays
       elements: [],
+      // Campos adicionales para cotización y orden
+      conditions: "",
+      shippingAddress: "",
+      contactPerson: "",
+      requestedFrom: "",
+      sendTo: "",
+      supplierPhone: "",
+      authorizedBy: "",
+      authorizedDate: "",
+      preparedBy: "",
     },
   });
 
@@ -133,13 +158,25 @@ export function CreateInvoiceDialog({
     fetchBeneficiaries();
   }, [isOpen]);
 
-  // Update division when context changes
+  // Update division when context changes or projectId is provided
   useEffect(() => {
     if (isOpen && gestionoDivisions.length > 0) {
+      // If projectId is provided, try to find and select that division
+      if (projectId) {
+        const matchingDivision = gestionoDivisions.find(
+          (div) => String(div.id) === projectId,
+        );
+        if (matchingDivision) {
+          setSelectedDivisionId(matchingDivision.id);
+          setValue("divisionId", matchingDivision.id);
+          return;
+        }
+      }
+      // Otherwise, use the first division
       setSelectedDivisionId(gestionoDivisions[0].id);
       setValue("divisionId", gestionoDivisions[0].id);
     }
-  }, [isOpen, gestionoDivisions, setValue]);
+  }, [isOpen, gestionoDivisions, projectId, setValue]);
 
   // Calculate totals
   const subtotal = (watchElements || []).reduce(
@@ -339,7 +376,11 @@ export function CreateInvoiceDialog({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Número de Referencia
+                  {documentType === "quote"
+                    ? "No. COTIZACIÓN"
+                    : documentType === "order"
+                      ? "No. ORDEN"
+                      : "Número de Factura"}
                 </label>
                 <input
                   type="text"
@@ -350,7 +391,7 @@ export function CreateInvoiceDialog({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Fecha del Documento
+                  Fecha
                 </label>
                 <input
                   type="date"
@@ -359,18 +400,96 @@ export function CreateInvoiceDialog({
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Fecha de Vencimiento
-                </label>
-                <input
-                  type="date"
-                  {...register("dueDate")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              {documentType !== "invoice" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Condiciones
+                  </label>
+                  <input
+                    type="text"
+                    {...register("conditions")}
+                    placeholder="Términos y condiciones"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Campos específicos para Cotización y Orden de Compra */}
+          {(documentType === "quote" || documentType === "order") && (
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Información de Envío
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Dirección Pedido
+                  </label>
+                  <input
+                    type="text"
+                    {...register("requestedFrom")}
+                    placeholder="De donde sale el pedido"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Enviar a
+                  </label>
+                  <input
+                    type="text"
+                    {...register("sendTo")}
+                    placeholder="Dirección de destino"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {documentType === "quote" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Persona Encargada
+                    </label>
+                    <input
+                      type="text"
+                      {...register("contactPerson")}
+                      placeholder="Nombre de la persona encargada"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {documentType === "order" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Proyecto
+                    </label>
+                    <input
+                      type="text"
+                      {...register("shippingAddress")}
+                      placeholder="Nombre del proyecto"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Tel.
+                  </label>
+                  <input
+                    type="tel"
+                    {...register("supplierPhone")}
+                    placeholder="Teléfono de contacto"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Asignación de Proyecto */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -383,7 +502,7 @@ export function CreateInvoiceDialog({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Proyecto (División)
+                Proyecto
               </label>
               <select
                 {...register("divisionId", { valueAsNumber: true })}
@@ -409,7 +528,7 @@ export function CreateInvoiceDialog({
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-medium text-gray-700">
-                  Beneficiario
+                  {transactionType === "sale" ? "Cliente" : "Proveedor"}
                 </label>
                 <button
                   type="button"
@@ -417,7 +536,8 @@ export function CreateInvoiceDialog({
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors"
                 >
                   <Plus className="w-3 h-3" />
-                  Añadir nuevo beneficiario
+                  Añadir nuevo{" "}
+                  {transactionType === "sale" ? "Cliente" : "Proveedor"}
                 </button>
               </div>
               <select
@@ -539,17 +659,29 @@ export function CreateInvoiceDialog({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Notas */}
+            {/* Notas / Observaciones */}
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Notas
+                {documentType === "invoice"
+                  ? "Notas"
+                  : "Observaciones / Instrucciones"}
               </h3>
               <textarea
                 {...register("notes")}
                 rows={4}
-                placeholder="Notas adicionales..."
+                placeholder={
+                  documentType === "invoice"
+                    ? "Notas adicionales..."
+                    : "Observaciones e instrucciones especiales..."
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none"
               />
+              {documentType === "quote" && (
+                <p className="text-xs text-gray-500 mt-2">
+                  Esta cotización está sujeta a cambios de precios sin previo
+                  aviso o validez por 3 días
+                </p>
+              )}
             </div>
 
             {/* Resumen de Totales */}
@@ -569,8 +701,19 @@ export function CreateInvoiceDialog({
                   </span>
                 </div>
 
+                {documentType !== "invoice" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Descuento:</span>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(discountAmount)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-sm">
-                  <span className="text-green-600">ITBIS (18%):</span>
+                  <span className="text-green-600">
+                    {documentType === "invoice" ? "ITBIS (18%)" : "Impuestos"}:
+                  </span>
                   <span className="font-medium text-green-600">
                     {formatCurrency(taxAmount)}
                   </span>
@@ -579,7 +722,7 @@ export function CreateInvoiceDialog({
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between">
                     <span className="text-lg font-bold text-gray-900">
-                      Total:
+                      Total {documentType === "invoice" ? "" : "RD$"}:
                     </span>
                     <span className="text-lg font-bold text-gray-900">
                       {formatCurrency(total)}
@@ -589,6 +732,84 @@ export function CreateInvoiceDialog({
               </div>
             </div>
           </div>
+
+          {/* Campos de autorización para Cotización y Orden de Compra */}
+          {(documentType === "quote" || documentType === "order") && (
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Autorización
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {documentType === "quote"
+                      ? "Realizado por"
+                      : "Firma Autorizada"}
+                  </label>
+                  <input
+                    type="text"
+                    {...register("preparedBy")}
+                    placeholder="Nombre"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {documentType === "quote" ? "Autorizado por" : "Fecha"}
+                  </label>
+                  {documentType === "quote" ? (
+                    <input
+                      type="text"
+                      {...register("authorizedBy")}
+                      placeholder="Nombre"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <input
+                      type="date"
+                      {...register("authorizedDate")}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Campo específico para Factura: RNC del cliente */}
+          {documentType === "invoice" && (
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Información Fiscal
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    RNC del Cliente
+                  </label>
+                  <input
+                    type="text"
+                    {...register("taxId")}
+                    placeholder="RNC o Cédula"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Realizado por
+                  </label>
+                  <input
+                    type="text"
+                    {...register("preparedBy")}
+                    placeholder="Nombre del emisor"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button

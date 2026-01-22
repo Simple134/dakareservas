@@ -607,6 +607,7 @@ export default function ProjectOverview() {
             }
             documentType={documentDialogState.documentType}
             transactionType={documentDialogState.transactionType}
+            projectId={projectId}
             onCreateInvoice={(invoice) => {
               console.log("Documento creado:", invoice);
               // Aquí puedes agregar lógica adicional si necesitas actualizar algo
