@@ -16,7 +16,6 @@ interface GestionoContextProps {
   isLoading: boolean;
   error: string | null;
   refreshDivisions: () => Promise<void>;
-  refreshPendingRecords: () => Promise<void>;
 }
 
 const GestionoContext = createContext<GestionoContextProps | undefined>(
@@ -52,39 +51,13 @@ export const GestionoProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const fetchPendingRecords = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/gestiono/pendingRecord");
-      if (!response.ok) {
-        throw new Error("Failed to fetch pending records");
-      }
-      const data = await response.json();
-      setPendingRecords(data);
-    } catch (err: unknown) {
-      console.error("Error fetching Gestiono pending records:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error desconocido al cargar registros pendientes",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   useEffect(() => {
     fetchDivisions();
-    fetchPendingRecords();
   }, []);
 
   const refreshDivisions = async () => {
     await fetchDivisions();
-  };
-
-  const refreshPendingRecords = async () => {
-    await fetchPendingRecords();
   };
 
   return (
@@ -95,7 +68,6 @@ export const GestionoProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         error,
         refreshDivisions,
-        refreshPendingRecords,
       }}
     >
       {children}

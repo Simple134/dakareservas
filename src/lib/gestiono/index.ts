@@ -6,6 +6,7 @@ export {
   payPendingRecord,
   deletePendingRecord,
   archivePendingRecord,
+  updatePendingRecord,
   // Events
   fetchOrganizationEvents,
   getInvoiceEvents,

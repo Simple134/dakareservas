@@ -318,10 +318,20 @@ export async function v2GetPendingRecords(
 export async function deletePendingRecord(
   recordId: number,
 ): Promise<V2GetPendingRecordsResponse> {
-  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/`, {
+  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending`, {
     method: "DELETE",
     body: JSON.stringify({
       id: recordId,
     }),
   });
 }
+
+export async function updatePendingRecord(
+  data: { id: number; type?: string;[key: string]: any }
+): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+

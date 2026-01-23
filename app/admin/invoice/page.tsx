@@ -31,6 +31,7 @@ import type {
 } from "@/src/types/gestiono";
 import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
+import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
 
 // Tipo para factura en el componente
 interface InvoiceDisplay {
@@ -80,7 +81,12 @@ function mapGestionoToInvoice(
     amount: gestionoInvoice.amount,
     status: statusMap[gestionoInvoice.state] || "draft",
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
-    documentType: "invoice", // Gestiono solo devuelve INVOICE en este endpoint
+    documentType:
+      gestionoInvoice.type === "QUOTE"
+        ? "QUOTE"
+        : gestionoInvoice.type === "ORDER"
+          ? "ORDER"
+          : "INVOICE",
   };
 }
 
@@ -138,12 +144,28 @@ export default function InvoicesPage() {
     isOpen: boolean;
     invoiceId: string | null;
     invoiceNumber: string | null;
+    documentType: string | null;
   }>({
     isOpen: false,
     invoiceId: null,
     invoiceNumber: null,
+    documentType: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewModalState, setViewModalState] = useState<{
+    isOpen: boolean;
+    invoice: InvoiceDisplay | null;
+  }>({
+    isOpen: false,
+    invoice: null,
+  });
+  const [editModalState, setEditModalState] = useState<{
+    isOpen: boolean;
+    record: GestionoInvoiceItem | null;
+  }>({
+    isOpen: false,
+    record: null,
+  });
 
   useEffect(() => {
     const fetchBeneficiaries = async () => {
@@ -174,12 +196,14 @@ export default function InvoicesPage() {
         // Construir los query params según el ejemplo de Gestiono
         const params = new URLSearchParams({
           search: "",
+          ignoreDetailedData: "false",
           state: "PENDING", // Vacío para obtener todos los estados
           amount: "0",
           type: activeTab, // Usar el tab activo para filtrar
           isSell: isSellFilter === "all" ? "" : isSellFilter,
           elements: String(itemsPerPage),
           page: String(currentPage),
+
         });
 
         const response = await fetch(
@@ -220,7 +244,15 @@ export default function InvoicesPage() {
     const mapped = rawInvoices.map((item) =>
       mapGestionoToInvoice(item, beneficiariesMap, divisions),
     );
-    setInvoices(mapped);
+
+    // Sort by date descending (newest first)
+    const sorted = mapped.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA; // Descending order
+    });
+
+    setInvoices(sorted);
   }, [rawInvoices, beneficiariesMap, divisions]);
 
   const isLoading =
@@ -326,11 +358,12 @@ export default function InvoicesPage() {
     setRefreshKey((prev) => prev + 1);
   };
 
-  const handleDeleteClick = (invoiceId: string, invoiceNumber: string) => {
+  const handleDeleteClick = (invoiceId: string, invoiceNumber: string, documentType: string) => {
     setDeleteModalState({
       isOpen: true,
       invoiceId,
       invoiceNumber,
+      documentType,
     });
   };
 
@@ -339,15 +372,20 @@ export default function InvoicesPage() {
 
     setIsDeleting(true);
     try {
+      const isQuote = activeTab === "QUOTE";
+      const method = isQuote ? "DELETE" : "PATCH";
+
       const response = await fetch(
         `/api/gestiono/pendingRecord/${deleteModalState.invoiceId}`,
         {
-          method: "PATCH",
+          method,
         },
       );
 
       if (!response.ok) {
-        throw new Error("Error al eliminar la factura");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Error response:", errorData);
+        throw new Error(errorData.details || "Error al eliminar el documento");
       }
 
       // Cerrar modal y refrescar lista
@@ -355,11 +393,16 @@ export default function InvoicesPage() {
         isOpen: false,
         invoiceId: null,
         invoiceNumber: null,
+        documentType: null,
       });
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("❌ Error deleting invoice:", error);
-      alert("Error al eliminar la factura. Por favor, intenta de nuevo.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al eliminar el documento. Por favor, intenta de nuevo.",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -370,7 +413,78 @@ export default function InvoicesPage() {
       isOpen: false,
       invoiceId: null,
       invoiceNumber: null,
+      documentType: null,
     });
+  };
+
+  const handleViewClick = (invoice: InvoiceDisplay) => {
+    setViewModalState({
+      isOpen: true,
+      invoice,
+    });
+  };
+
+  const handleViewClose = () => {
+    setViewModalState({
+      isOpen: false,
+      invoice: null,
+    });
+  };
+
+  const handleEditClick = (invoice: InvoiceDisplay) => {
+    // Find the full record from rawInvoices
+    const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
+    if (fullRecord) {
+      setEditModalState({
+        isOpen: true,
+        record: fullRecord,
+      });
+    }
+  };
+
+  const handleEditClose = () => {
+    setEditModalState({
+      isOpen: false,
+      record: null,
+    });
+    // Refresh list after edit
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleConvertRecord = async (
+    invoiceId: string,
+    newType: "ORDER" | "INVOICE",
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/gestiono/pendingRecord/update`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: parseInt(invoiceId),
+            type: newType,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || "Error al convertir el documento");
+      }
+
+      // Refresh list
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("❌ Error converting record:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al convertir el documento. Por favor, intenta de nuevo.",
+      );
+    }
   };
 
   return (
@@ -449,31 +563,28 @@ export default function InvoicesPage() {
       <div className="flex gap-2 border-b border-gray-200">
         <button
           onClick={() => setActiveTab("QUOTE")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "QUOTE"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "QUOTE"
+            ? "border-blue-600 text-blue-600"
+            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            }`}
         >
           Cotizaciones
         </button>
         <button
           onClick={() => setActiveTab("ORDER")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "ORDER"
-              ? "border-purple-600 text-purple-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "ORDER"
+            ? "border-purple-600 text-purple-600"
+            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            }`}
         >
           Órdenes
         </button>
         <button
           onClick={() => setActiveTab("INVOICE")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "INVOICE"
-              ? "border-indigo-600 text-indigo-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "INVOICE"
+            ? "border-indigo-600 text-indigo-600"
+            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            }`}
         >
           Facturas
         </button>
@@ -625,32 +736,29 @@ export default function InvoicesPage() {
                 <div className="space-y-2">
                   <button
                     onClick={() => setIsSellFilter("all")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                      isSellFilter === "all"
-                        ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
-                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "all"
+                      ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                      }`}
                   >
                     Todas
                   </button>
                   <button
                     onClick={() => setIsSellFilter("true")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                      isSellFilter === "true"
-                        ? "bg-green-50 border-green-500 text-green-700 font-medium"
-                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "true"
+                      ? "bg-green-50 border-green-500 text-green-700 font-medium"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                      }`}
                   >
                     <TrendingUp className="w-4 h-4" />
                     Ventas
                   </button>
                   <button
                     onClick={() => setIsSellFilter("false")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
-                      isSellFilter === "false"
-                        ? "bg-red-50 border-red-500 text-red-700 font-medium"
-                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "false"
+                      ? "bg-red-50 border-red-500 text-red-700 font-medium"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                      }`}
                   >
                     <ShoppingCart className="w-4 h-4" />
                     Compras
@@ -804,9 +912,6 @@ export default function InvoicesPage() {
                       invoice.type,
                       invoice.documentType,
                     );
-                    const canConvert =
-                      invoice.documentType === "quote" ||
-                      invoice.documentType === "order";
 
                     return (
                       <tr
@@ -846,28 +951,23 @@ export default function InvoicesPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1">
                             <button
+                              onClick={() => handleViewClick(invoice)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Ver"
                             >
                               <Eye className="w-4 h-4 text-gray-600" />
                             </button>
                             <button
+                              onClick={() => handleEditClick(invoice)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Editar"
                             >
                               <Edit2 className="w-4 h-4 text-gray-600" />
                             </button>
-                            {canConvert && (
-                              <button
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Convertir a Factura"
-                              >
-                                <ArrowRight className="w-4 h-4 text-gray-600" />
-                              </button>
-                            )}
                             <button
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Descargar"
+                              disabled
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors opacity-50 cursor-not-allowed"
+                              title="Descargar (Próximamente)"
                             >
                               <Download className="w-4 h-4 text-gray-600" />
                             </button>
@@ -876,6 +976,7 @@ export default function InvoicesPage() {
                                 handleDeleteClick(
                                   invoice.id,
                                   invoice.invoiceNumber,
+                                  invoice.documentType,
                                 )
                               }
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -914,11 +1015,10 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.max(prev - 1, 1))
                   }
                   disabled={currentPage === 1 || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${
-                    currentPage === 1 || isLoading
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === 1 || isLoading
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   Anterior
                 </button>
@@ -946,11 +1046,10 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => setCurrentPage(page)}
                             disabled={isLoading}
-                            className={`px-3 py-1 text-sm rounded transition-colors ${
-                              page === currentPage
-                                ? "bg-blue-600 text-white border border-blue-600"
-                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                            } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
+                            className={`px-3 py-1 text-sm rounded transition-colors ${page === currentPage
+                              ? "bg-blue-600 text-white border border-blue-600"
+                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                              } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
                           >
                             {page}
                           </button>
@@ -964,11 +1063,10 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                   }
                   disabled={currentPage === totalPages || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${
-                    currentPage === totalPages || isLoading
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === totalPages || isLoading
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   Siguiente
                 </button>
@@ -995,14 +1093,32 @@ export default function InvoicesPage() {
               <div className="p-2 bg-red-100 rounded-full">
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-xl font-semibold">Confirmar Eliminación</h3>
+              <h3 className="text-xl font-semibold">
+                {activeTab === "QUOTE"
+                  ? "Confirmar Eliminación"
+                  : "Confirmar Archivado"}
+              </h3>
             </div>
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro que quieres eliminar la factura{" "}
-              <span className="font-semibold">
-                {deleteModalState.invoiceNumber}
-              </span>
-              ? Esta acción no se puede deshacer.
+              {activeTab === "QUOTE" ? (
+                <>
+                  ¿Estás seguro que quieres eliminar permanentemente la
+                  cotización{" "}
+                  <span className="font-semibold">
+                    {deleteModalState.invoiceNumber}
+                  </span>
+                  ? Esta acción no se puede deshacer y el documento será
+                  eliminado completamente.
+                </>
+              ) : (
+                <>
+                  ¿Estás seguro que quieres archivar el documento{" "}
+                  <span className="font-semibold">
+                    {deleteModalState.invoiceNumber}
+                  </span>
+                  ? El documento será archivado pero no eliminado permanentemente.
+                </>
+              )}
             </p>
             <div className="flex gap-3 justify-end">
               <CustomButton
@@ -1017,11 +1133,193 @@ export default function InvoicesPage() {
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isDeleting ? "Eliminando..." : "Eliminar"}
+                {isDeleting
+                  ? activeTab === "QUOTE"
+                    ? "Eliminando..."
+                    : "Archivando..."
+                  : activeTab === "QUOTE"
+                    ? "Eliminar"
+                    : "Archivar"}
               </CustomButton>
             </div>
           </div>
         </div>
+      )}
+
+      {/* View Invoice Modal */}
+      {viewModalState.isOpen && viewModalState.invoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Detalles del Documento
+              </h2>
+              <button
+                onClick={handleViewClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Header Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Número</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.invoiceNumber}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Tipo</p>
+                  <div className="mt-1">
+                    <CustomBadge
+                      className={
+                        getTypeBadge(
+                          viewModalState.invoice.type,
+                          viewModalState.invoice.documentType,
+                        ).className
+                      }
+                    >
+                      {
+                        getTypeBadge(
+                          viewModalState.invoice.type,
+                          viewModalState.invoice.documentType,
+                        ).label
+                      }
+                    </CustomBadge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Proyecto</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.projectName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">
+                    {viewModalState.invoice.type === "sale"
+                      ? "Cliente"
+                      : "Proveedor"}
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.clientName ||
+                      viewModalState.invoice.supplierName ||
+                      "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Fecha</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.date}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Vencimiento</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.dueDate}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Estado</p>
+                  <div className="mt-1">
+                    <CustomBadge
+                      className={
+                        getStatusBadge(viewModalState.invoice.status).className
+                      }
+                    >
+                      {getStatusBadge(viewModalState.invoice.status).label}
+                    </CustomBadge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Monto Total</p>
+                  <p
+                    className={`text-lg font-bold ${viewModalState.invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {viewModalState.invoice.type === "sale" ? "+" : "-"}RD${" "}
+                    {viewModalState.invoice.amount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 border-t border-gray-200 pt-4">
+                <CustomButton
+                  onClick={handleViewClose}
+                  className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  Cerrar
+                </CustomButton>
+
+                {/* Conversion Buttons - Only for Quotes and Orders */}
+                {viewModalState.invoice.documentType === "QUOTE" && (
+                  <>
+                    <CustomButton
+                      onClick={() => {
+                        handleConvertRecord(viewModalState.invoice!.id, "ORDER");
+                        handleViewClose();
+                      }}
+                      className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Convertir a Orden
+                    </CustomButton>
+                    <CustomButton
+                      onClick={() => {
+                        handleConvertRecord(viewModalState.invoice!.id, "INVOICE");
+                        handleViewClose();
+                      }}
+                      className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Convertir a Factura
+                    </CustomButton>
+                  </>
+                )}
+
+                {viewModalState.invoice.documentType === "ORDER" && (
+                  <CustomButton
+                    onClick={() => {
+                      handleConvertRecord(viewModalState.invoice!.id, "INVOICE");
+                      handleViewClose();
+                    }}
+                    className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    Convertir a Factura
+                  </CustomButton>
+                )}
+
+                <CustomButton
+                  onClick={() => {
+                    handleViewClose();
+                    handleEditClick(viewModalState.invoice!);
+                  }}
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Editar
+                </CustomButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Invoice Modal */}
+      {editModalState.isOpen && editModalState.record && (
+        <EditInvoiceDialog
+          isOpen={editModalState.isOpen}
+          onClose={handleEditClose}
+          record={editModalState.record}
+          onUpdate={handleInvoiceCreated}
+        />
       )}
     </div>
   );
