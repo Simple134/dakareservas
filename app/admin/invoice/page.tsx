@@ -31,8 +31,9 @@ import type {
 } from "@/src/types/gestiono";
 import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
+import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
+import { generateQuotePDF } from "@/lib/generateQuotePDF";
 
-// Tipo para factura en el componente
 interface InvoiceDisplay {
   id: string;
   invoiceNumber: string;
@@ -47,24 +48,37 @@ interface InvoiceDisplay {
   documentType: string;
 }
 
-// Mapear factura de Gestiono a formato del componente
 function mapGestionoToInvoice(
   gestionoInvoice: GestionoInvoiceItem,
   beneficiariesMap: Record<number, string> = {},
   divisions: GestionoDivision[] = [],
 ): InvoiceDisplay {
-  // Mapear estado
-  const statusMap: Record<string, string> = {
-    COMPLETED: "paid",
-    PENDING: "pending",
-    PAST_DUE: "overdue",
-    DRAFT: "draft",
-  };
-
   const beneficiaryName =
     beneficiariesMap[gestionoInvoice.beneficiaryId] ||
     `Beneficiario ${gestionoInvoice.beneficiaryId}`;
   const division = divisions.find((d) => d.id === gestionoInvoice.divisionId);
+
+  let status = "pending";
+
+  if (
+    gestionoInvoice.dueToPay === 0 ||
+    gestionoInvoice.paid >= gestionoInvoice.amount
+  ) {
+    status = "paid";
+  } else if (gestionoInvoice.dueDate) {
+    const dueDate = new Date(gestionoInvoice.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dueDate < today && gestionoInvoice.dueToPay > 0) {
+      status = "overdue";
+    }
+  } else if (
+    gestionoInvoice.state === "DRAFT" ||
+    gestionoInvoice.state === "PENDING"
+  ) {
+    status = "draft";
+  }
 
   return {
     id: String(gestionoInvoice.id),
@@ -78,9 +92,14 @@ function mapGestionoToInvoice(
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
     amount: gestionoInvoice.amount,
-    status: statusMap[gestionoInvoice.state] || "draft",
+    status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
-    documentType: "invoice", // Gestiono solo devuelve INVOICE en este endpoint
+    documentType:
+      gestionoInvoice.type === "QUOTE"
+        ? "QUOTE"
+        : gestionoInvoice.type === "ORDER"
+          ? "ORDER"
+          : "INVOICE",
   };
 }
 
@@ -116,7 +135,7 @@ export default function InvoicesPage() {
     "QUOTE",
   );
   const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
-    "true",
+    "all",
   );
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -138,12 +157,28 @@ export default function InvoicesPage() {
     isOpen: boolean;
     invoiceId: string | null;
     invoiceNumber: string | null;
+    documentType: string | null;
   }>({
     isOpen: false,
     invoiceId: null,
     invoiceNumber: null,
+    documentType: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [viewModalState, setViewModalState] = useState<{
+    isOpen: boolean;
+    invoice: InvoiceDisplay | null;
+  }>({
+    isOpen: false,
+    invoice: null,
+  });
+  const [editModalState, setEditModalState] = useState<{
+    isOpen: boolean;
+    record: GestionoInvoiceItem | null;
+  }>({
+    isOpen: false,
+    record: null,
+  });
 
   useEffect(() => {
     const fetchBeneficiaries = async () => {
@@ -171,12 +206,12 @@ export default function InvoicesPage() {
     const fetchInvoices = async () => {
       setIsLoadingInvoices(true);
       try {
-        // Construir los query params según el ejemplo de Gestiono
         const params = new URLSearchParams({
           search: "",
-          state: "PENDING", // Vacío para obtener todos los estados
+          ignoreDetailedData: "false",
+          state: "PENDING",
           amount: "0",
-          type: activeTab, // Usar el tab activo para filtrar
+          type: activeTab,
           isSell: isSellFilter === "all" ? "" : isSellFilter,
           elements: String(itemsPerPage),
           page: String(currentPage),
@@ -220,7 +255,15 @@ export default function InvoicesPage() {
     const mapped = rawInvoices.map((item) =>
       mapGestionoToInvoice(item, beneficiariesMap, divisions),
     );
-    setInvoices(mapped);
+
+    // Sort by date descending (newest first)
+    const sorted = mapped.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA; // Descending order
+    });
+
+    setInvoices(sorted);
   }, [rawInvoices, beneficiariesMap, divisions]);
 
   const isLoading =
@@ -326,11 +369,16 @@ export default function InvoicesPage() {
     setRefreshKey((prev) => prev + 1);
   };
 
-  const handleDeleteClick = (invoiceId: string, invoiceNumber: string) => {
+  const handleDeleteClick = (
+    invoiceId: string,
+    invoiceNumber: string,
+    documentType: string,
+  ) => {
     setDeleteModalState({
       isOpen: true,
       invoiceId,
       invoiceNumber,
+      documentType,
     });
   };
 
@@ -339,15 +387,20 @@ export default function InvoicesPage() {
 
     setIsDeleting(true);
     try {
+      const isQuote = activeTab === "QUOTE";
+      const method = isQuote ? "DELETE" : "PATCH";
+
       const response = await fetch(
         `/api/gestiono/pendingRecord/${deleteModalState.invoiceId}`,
         {
-          method: "PATCH",
+          method,
         },
       );
 
       if (!response.ok) {
-        throw new Error("Error al eliminar la factura");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Error response:", errorData);
+        throw new Error(errorData.details || "Error al eliminar el documento");
       }
 
       // Cerrar modal y refrescar lista
@@ -355,11 +408,16 @@ export default function InvoicesPage() {
         isOpen: false,
         invoiceId: null,
         invoiceNumber: null,
+        documentType: null,
       });
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("❌ Error deleting invoice:", error);
-      alert("Error al eliminar la factura. Por favor, intenta de nuevo.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al eliminar el documento. Por favor, intenta de nuevo.",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -370,7 +428,176 @@ export default function InvoicesPage() {
       isOpen: false,
       invoiceId: null,
       invoiceNumber: null,
+      documentType: null,
     });
+  };
+
+  const handleViewClick = (invoice: InvoiceDisplay) => {
+    setViewModalState({
+      isOpen: true,
+      invoice,
+    });
+  };
+
+  const handleViewClose = () => {
+    setViewModalState({
+      isOpen: false,
+      invoice: null,
+    });
+  };
+
+  const handleEditClick = (invoice: InvoiceDisplay) => {
+    // Find the full record from rawInvoices
+    const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
+    if (fullRecord) {
+      setEditModalState({
+        isOpen: true,
+        record: fullRecord,
+      });
+    }
+  };
+
+  const handleEditClose = () => {
+    setEditModalState({
+      isOpen: false,
+      record: null,
+    });
+    // Refresh list after edit
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleConvertRecord = async (
+    invoiceId: string,
+    newType: "ORDER" | "INVOICE",
+  ) => {
+    try {
+      const response = await fetch(`/api/gestiono/pendingRecord/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: parseInt(invoiceId),
+          type: newType,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || "Error al convertir el documento");
+      }
+
+      // Refresh list
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("❌ Error converting record:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al convertir el documento. Por favor, intenta de nuevo.",
+      );
+    }
+  };
+
+  const handleDownloadPDF = async (invoice: InvoiceDisplay) => {
+    try {
+      // Find the full record from rawInvoices
+      const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
+      if (!fullRecord) {
+        throw new Error("No se pudo encontrar el registro completo");
+      }
+
+      // Fetch full details including elements if not present
+      let recordWithElements = fullRecord;
+      if (!fullRecord.elements || fullRecord.elements.length === 0) {
+        const detailsResponse = await fetch(
+          `/api/gestiono/pendingRecord/${fullRecord.id}`,
+        );
+        if (detailsResponse.ok) {
+          recordWithElements = await detailsResponse.json();
+        }
+      }
+
+      // Fetch beneficiary details
+      const beneficiaryResponse = await fetch(
+        `/api/gestiono/beneficiaries?withContacts=true`,
+      );
+      let beneficiary = null;
+      if (beneficiaryResponse.ok) {
+        const beneficiaries = await beneficiaryResponse.json();
+        beneficiary =
+          beneficiaries.find((b: any) => b.id === fullRecord.beneficiaryId) ||
+          null;
+      }
+
+      // Check if it is a Local Quotation
+      const isLocalQuotation =
+        (recordWithElements.reference &&
+          recordWithElements.reference.toLowerCase().includes("local")) ||
+        (typeof recordWithElements.clientdata !== "string" &&
+          recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
+
+      if (
+        isLocalQuotation &&
+        recordWithElements.clientdata &&
+        typeof recordWithElements.clientdata !== "string"
+      ) {
+        // Parse local specific data
+        const clientData = recordWithElements.clientdata;
+        let localInfo;
+        let paymentPlan;
+
+        try {
+          localInfo =
+            typeof clientData.localInfo === "string"
+              ? JSON.parse(clientData.localInfo)
+              : clientData.localInfo;
+
+          paymentPlan =
+            typeof clientData.paymentPlan === "string"
+              ? JSON.parse(clientData.paymentPlan)
+              : clientData.paymentPlan;
+        } catch (e) {
+          console.error("Error parsing local data:", e);
+          throw new Error("Datos de cotización de local inválidos");
+        }
+
+        const { generateLocalQuotePDF } =
+          await import("@/src/lib/generateLocalQuotePDF");
+
+        // Get project name
+        const division = divisions.find((d) => d.id === fullRecord.divisionId);
+
+        await generateLocalQuotePDF({
+          localData: {
+            id: Number(clientData.localId),
+            level: localInfo.level,
+            area_mt2: localInfo.area,
+            price_per_mt2: localInfo.pricePerM2,
+            total_value: localInfo.totalValue,
+            status: "DISPONIBLE", // Status might not be needed for PDF or fetched from elsewhere, using filler or what's available
+          },
+          beneficiary,
+          projectName: division?.name || invoice.projectName,
+          paymentPlan: paymentPlan,
+          quotationDate: recordWithElements.date,
+        });
+      } else {
+        // Generate Standard PDF
+        await generateQuotePDF({
+          quote: recordWithElements,
+          beneficiary,
+          elements: recordWithElements.elements || [],
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error generating PDF:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al generar el PDF. Por favor, intenta de nuevo.",
+      );
+    }
   };
 
   return (
@@ -378,9 +605,20 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Facturas</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === "QUOTE"
+              ? "Cotizaciones"
+              : activeTab === "INVOICE"
+                ? "Facturas"
+                : "Ordenes"}
+          </h1>
           <p className="text-gray-600">
-            Gestiona todas las facturas de ventas y compras
+            Gestiona todas las{" "}
+            {activeTab === "QUOTE"
+              ? "cotizaciones"
+              : activeTab === "INVOICE"
+                ? "facturas"
+                : "ordenes"}
           </p>
         </div>
         <div className="relative">
@@ -804,9 +1042,6 @@ export default function InvoicesPage() {
                       invoice.type,
                       invoice.documentType,
                     );
-                    const canConvert =
-                      invoice.documentType === "quote" ||
-                      invoice.documentType === "order";
 
                     return (
                       <tr
@@ -846,28 +1081,23 @@ export default function InvoicesPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1">
                             <button
+                              onClick={() => handleViewClick(invoice)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Ver"
                             >
                               <Eye className="w-4 h-4 text-gray-600" />
                             </button>
                             <button
+                              onClick={() => handleEditClick(invoice)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Editar"
                             >
                               <Edit2 className="w-4 h-4 text-gray-600" />
                             </button>
-                            {canConvert && (
-                              <button
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                title="Convertir a Factura"
-                              >
-                                <ArrowRight className="w-4 h-4 text-gray-600" />
-                              </button>
-                            )}
                             <button
+                              onClick={() => handleDownloadPDF(invoice)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Descargar"
+                              title="Descargar PDF"
                             >
                               <Download className="w-4 h-4 text-gray-600" />
                             </button>
@@ -876,6 +1106,7 @@ export default function InvoicesPage() {
                                 handleDeleteClick(
                                   invoice.id,
                                   invoice.invoiceNumber,
+                                  invoice.documentType,
                                 )
                               }
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -995,14 +1226,33 @@ export default function InvoicesPage() {
               <div className="p-2 bg-red-100 rounded-full">
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-xl font-semibold">Confirmar Eliminación</h3>
+              <h3 className="text-xl font-semibold">
+                {activeTab === "QUOTE"
+                  ? "Confirmar Eliminación"
+                  : "Confirmar Archivado"}
+              </h3>
             </div>
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro que quieres eliminar la factura{" "}
-              <span className="font-semibold">
-                {deleteModalState.invoiceNumber}
-              </span>
-              ? Esta acción no se puede deshacer.
+              {activeTab === "QUOTE" ? (
+                <>
+                  ¿Estás seguro que quieres eliminar permanentemente la
+                  cotización{" "}
+                  <span className="font-semibold">
+                    {deleteModalState.invoiceNumber}
+                  </span>
+                  ? Esta acción no se puede deshacer y el documento será
+                  eliminado completamente.
+                </>
+              ) : (
+                <>
+                  ¿Estás seguro que quieres archivar el documento{" "}
+                  <span className="font-semibold">
+                    {deleteModalState.invoiceNumber}
+                  </span>
+                  ? El documento será archivado pero no eliminado
+                  permanentemente.
+                </>
+              )}
             </p>
             <div className="flex gap-3 justify-end">
               <CustomButton
@@ -1017,11 +1267,202 @@ export default function InvoicesPage() {
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isDeleting ? "Eliminando..." : "Eliminar"}
+                {isDeleting
+                  ? activeTab === "QUOTE"
+                    ? "Eliminando..."
+                    : "Archivando..."
+                  : activeTab === "QUOTE"
+                    ? "Eliminar"
+                    : "Archivar"}
               </CustomButton>
             </div>
           </div>
         </div>
+      )}
+
+      {/* View Invoice Modal */}
+      {viewModalState.isOpen && viewModalState.invoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Detalles del Documento
+              </h2>
+              <button
+                onClick={handleViewClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Header Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Número</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.invoiceNumber}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Tipo</p>
+                  <div className="mt-1">
+                    <CustomBadge
+                      className={
+                        getTypeBadge(
+                          viewModalState.invoice.type,
+                          viewModalState.invoice.documentType,
+                        ).className
+                      }
+                    >
+                      {
+                        getTypeBadge(
+                          viewModalState.invoice.type,
+                          viewModalState.invoice.documentType,
+                        ).label
+                      }
+                    </CustomBadge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Proyecto</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.projectName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">
+                    {viewModalState.invoice.type === "sale"
+                      ? "Cliente"
+                      : "Proveedor"}
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.clientName ||
+                      viewModalState.invoice.supplierName ||
+                      "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Fecha</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.date}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Vencimiento</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.dueDate}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Estado</p>
+                  <div className="mt-1">
+                    <CustomBadge
+                      className={
+                        getStatusBadge(viewModalState.invoice.status).className
+                      }
+                    >
+                      {getStatusBadge(viewModalState.invoice.status).label}
+                    </CustomBadge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Monto Total</p>
+                  <p
+                    className={`text-lg font-bold ${viewModalState.invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {viewModalState.invoice.type === "sale" ? "+" : "-"}RD${" "}
+                    {viewModalState.invoice.amount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 border-t border-gray-200 pt-4">
+                <CustomButton
+                  onClick={handleViewClose}
+                  className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  Cerrar
+                </CustomButton>
+
+                {/* Conversion Buttons - Only for Quotes and Orders */}
+                {viewModalState.invoice.documentType === "QUOTE" && (
+                  <>
+                    <CustomButton
+                      onClick={() => {
+                        handleConvertRecord(
+                          viewModalState.invoice!.id,
+                          "ORDER",
+                        );
+                        handleViewClose();
+                      }}
+                      className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Convertir a Orden
+                    </CustomButton>
+                    <CustomButton
+                      onClick={() => {
+                        handleConvertRecord(
+                          viewModalState.invoice!.id,
+                          "INVOICE",
+                        );
+                        handleViewClose();
+                      }}
+                      className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Convertir a Factura
+                    </CustomButton>
+                  </>
+                )}
+
+                {viewModalState.invoice.documentType === "ORDER" && (
+                  <CustomButton
+                    onClick={() => {
+                      handleConvertRecord(
+                        viewModalState.invoice!.id,
+                        "INVOICE",
+                      );
+                      handleViewClose();
+                    }}
+                    className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    Convertir a Factura
+                  </CustomButton>
+                )}
+
+                <CustomButton
+                  onClick={() => {
+                    handleViewClose();
+                    handleEditClick(viewModalState.invoice!);
+                  }}
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Editar
+                </CustomButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Invoice Modal */}
+      {editModalState.isOpen && editModalState.record && (
+        <EditInvoiceDialog
+          isOpen={editModalState.isOpen}
+          onClose={handleEditClose}
+          record={editModalState.record}
+          onUpdate={handleInvoiceCreated}
+        />
       )}
     </div>
   );
