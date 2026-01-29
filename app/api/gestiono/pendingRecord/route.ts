@@ -107,34 +107,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const recordId = searchParams.get("recordId");
-
-    if (!recordId) {
-      return NextResponse.json(
-        { error: "recordId is required" },
-        { status: 400 },
-      );
-    }
-
-    console.log("📍 Deleting pending record with ID:", recordId);
-
-    const result = await deletePendingRecord(Number(recordId));
-    console.log("✅ Pending record deleted:", result);
-
-    return NextResponse.json(result);
-  } catch (error: unknown) {
-    console.error("❌ Error deleting pending record:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to delete pending record",
-        details: error instanceof Error ? error.message : "Error desconocido",
-        gestionoError: error,
-      },
-      { status: 500 },
-    );
-  }
-}

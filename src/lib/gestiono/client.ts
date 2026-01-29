@@ -50,7 +50,8 @@ export async function gestionoRequest<T>(
   let finalUrl = `${GESTIONO_BASE_URL}${path}`;
   let finalBody = options.body;
 
-  if (method === "GET" || method === "DELETE") {
+  if (method === "GET") {
+    // Only GET uses query params without body
     const allParams: Record<string, string> = {};
 
     Object.entries(queryParamsObj).forEach(([key, value]) => {
@@ -69,6 +70,7 @@ export async function gestionoRequest<T>(
     const params = new URLSearchParams(allParams);
     finalUrl = `${GESTIONO_BASE_URL}${path}?${params.toString()}`;
   } else {
+    // POST, PATCH, DELETE - all use body
     dataToSign = {
       ...queryParamsObj,
       ...body,

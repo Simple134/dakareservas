@@ -51,6 +51,7 @@ export async function DELETE(
     }
 
     const result = await deletePendingRecord(recordId);
+    console.log("✅ Pending record deleted:", result);
 
     return NextResponse.json({
       success: true,
