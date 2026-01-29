@@ -335,3 +335,22 @@ export async function updatePendingRecord(
   });
 }
 
+export async function getAppDataTypes(
+  appId: number,
+): Promise<any> {
+  return gestionoRequest<any>(`/v1/apps/data-types/${appId}`, {
+    method: "GET",
+  });
+}
+
+export async function getAppData(
+  appId: number,
+  data: any = {},
+): Promise<any> {
+  return gestionoRequest<any>(`/v1/apps/data/explorer/${appId}`, {
+    method: "GET",
+    query: data,
+  });
+}
+
+

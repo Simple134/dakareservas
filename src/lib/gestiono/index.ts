@@ -26,6 +26,9 @@ export {
   transformToGestionoFormat,
   addResource,
   v2GetResources,
+  // App Data
+  getAppDataTypes,
+  getAppData,
 } from "./endpoints";
 
 export type {

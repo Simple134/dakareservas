@@ -32,8 +32,8 @@ import type {
 import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
+import { generateQuotePDF } from "@/lib/generateQuotePDF";
 
-// Tipo para factura en el componente
 interface InvoiceDisplay {
   id: string;
   invoiceNumber: string;
@@ -48,24 +48,33 @@ interface InvoiceDisplay {
   documentType: string;
 }
 
-// Mapear factura de Gestiono a formato del componente
 function mapGestionoToInvoice(
   gestionoInvoice: GestionoInvoiceItem,
   beneficiariesMap: Record<number, string> = {},
   divisions: GestionoDivision[] = [],
 ): InvoiceDisplay {
-  // Mapear estado
-  const statusMap: Record<string, string> = {
-    COMPLETED: "paid",
-    PENDING: "pending",
-    PAST_DUE: "overdue",
-    DRAFT: "draft",
-  };
-
   const beneficiaryName =
     beneficiariesMap[gestionoInvoice.beneficiaryId] ||
     `Beneficiario ${gestionoInvoice.beneficiaryId}`;
   const division = divisions.find((d) => d.id === gestionoInvoice.divisionId);
+
+  let status = "pending";
+
+  if (gestionoInvoice.dueToPay === 0 || gestionoInvoice.paid >= gestionoInvoice.amount) {
+    status = "paid";
+  }
+  else if (gestionoInvoice.dueDate) {
+    const dueDate = new Date(gestionoInvoice.dueDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dueDate < today && gestionoInvoice.dueToPay > 0) {
+      status = "overdue";
+    }
+  }
+  else if (gestionoInvoice.state === "DRAFT" || gestionoInvoice.state === "PENDING") {
+    status = "draft";
+  }
 
   return {
     id: String(gestionoInvoice.id),
@@ -79,7 +88,7 @@ function mapGestionoToInvoice(
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
     amount: gestionoInvoice.amount,
-    status: statusMap[gestionoInvoice.state] || "draft",
+    status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
       gestionoInvoice.type === "QUOTE"
@@ -122,7 +131,7 @@ export default function InvoicesPage() {
     "QUOTE",
   );
   const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
-    "true",
+    "all",
   );
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -193,13 +202,12 @@ export default function InvoicesPage() {
     const fetchInvoices = async () => {
       setIsLoadingInvoices(true);
       try {
-        // Construir los query params según el ejemplo de Gestiono
         const params = new URLSearchParams({
           search: "",
           ignoreDetailedData: "false",
-          state: "PENDING", // Vacío para obtener todos los estados
+          state: "PENDING",
           amount: "0",
-          type: activeTab, // Usar el tab activo para filtrar
+          type: activeTab,
           isSell: isSellFilter === "all" ? "" : isSellFilter,
           elements: String(itemsPerPage),
           page: String(currentPage),
@@ -487,14 +495,110 @@ export default function InvoicesPage() {
     }
   };
 
+  const handleDownloadPDF = async (invoice: InvoiceDisplay) => {
+    try {
+      // Find the full record from rawInvoices
+      const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
+      if (!fullRecord) {
+        throw new Error("No se pudo encontrar el registro completo");
+      }
+
+      // Fetch full details including elements if not present
+      let recordWithElements = fullRecord;
+      if (!fullRecord.elements || fullRecord.elements.length === 0) {
+        const detailsResponse = await fetch(
+          `/api/gestiono/pendingRecord/${fullRecord.id}`,
+        );
+        if (detailsResponse.ok) {
+          recordWithElements = await detailsResponse.json();
+        }
+      }
+
+      // Fetch beneficiary details
+      const beneficiaryResponse = await fetch(
+        `/api/gestiono/beneficiaries?withContacts=true`,
+      );
+      let beneficiary = null;
+      if (beneficiaryResponse.ok) {
+        const beneficiaries = await beneficiaryResponse.json();
+        beneficiary =
+          beneficiaries.find(
+            (b: any) => b.id === fullRecord.beneficiaryId,
+          ) || null;
+      }
+
+      // Check if it is a Local Quotation
+      const isLocalQuotation =
+        (recordWithElements.reference &&
+          recordWithElements.reference.toLowerCase().includes("local")) ||
+        (typeof recordWithElements.clientdata !== "string" && recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
+
+      if (isLocalQuotation && recordWithElements.clientdata && typeof recordWithElements.clientdata !== "string") {
+        // Parse local specific data
+        const clientData = recordWithElements.clientdata;
+        let localInfo;
+        let paymentPlan;
+
+        try {
+          localInfo = typeof clientData.localInfo === 'string'
+            ? JSON.parse(clientData.localInfo)
+            : clientData.localInfo;
+
+          paymentPlan = typeof clientData.paymentPlan === 'string'
+            ? JSON.parse(clientData.paymentPlan)
+            : clientData.paymentPlan;
+        } catch (e) {
+          console.error("Error parsing local data:", e);
+          throw new Error("Datos de cotización de local inválidos");
+        }
+
+        const { generateLocalQuotePDF } = await import("@/src/lib/generateLocalQuotePDF");
+
+        // Get project name
+        const division = divisions.find((d) => d.id === fullRecord.divisionId);
+
+        await generateLocalQuotePDF({
+          localData: {
+            id: Number(clientData.localId),
+            level: localInfo.level,
+            area_mt2: localInfo.area,
+            price_per_mt2: localInfo.pricePerM2,
+            total_value: localInfo.totalValue,
+            status: "DISPONIBLE" // Status might not be needed for PDF or fetched from elsewhere, using filler or what's available
+          },
+          beneficiary,
+          projectName: division?.name || invoice.projectName,
+          paymentPlan: paymentPlan,
+          quotationDate: recordWithElements.date
+        });
+
+      } else {
+        // Generate Standard PDF
+        await generateQuotePDF({
+          quote: recordWithElements,
+          beneficiary,
+          elements: recordWithElements.elements || [],
+        });
+      }
+
+    } catch (error) {
+      console.error("❌ Error generating PDF:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al generar el PDF. Por favor, intenta de nuevo.",
+      );
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Facturas</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{activeTab === "QUOTE" ? "Cotizaciones" : activeTab === "INVOICE" ? "Facturas" : "Ordenes"}</h1>
           <p className="text-gray-600">
-            Gestiona todas las facturas de ventas y compras
+            Gestiona todas las {activeTab === "QUOTE" ? "cotizaciones" : activeTab === "INVOICE" ? "facturas" : "ordenes"}
           </p>
         </div>
         <div className="relative">
@@ -965,9 +1069,9 @@ export default function InvoicesPage() {
                               <Edit2 className="w-4 h-4 text-gray-600" />
                             </button>
                             <button
-                              disabled
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors opacity-50 cursor-not-allowed"
-                              title="Descargar (Próximamente)"
+                              onClick={() => handleDownloadPDF(invoice)}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Descargar PDF"
                             >
                               <Download className="w-4 h-4 text-gray-600" />
                             </button>

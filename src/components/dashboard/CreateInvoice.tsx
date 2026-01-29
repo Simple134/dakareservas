@@ -93,11 +93,11 @@ export function CreateInvoiceDialog({
         authorizedBy?: string;
         authorizedDate?: string;
         preparedBy?: string;
+        taxRate?: number;
       }
     >
   >({
     defaultValues: {
-      // Campos requeridos por Gestiono API
       type: getGestionoType(),
       date: new Date().toISOString().split("T")[0],
       dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -108,11 +108,11 @@ export function CreateInvoiceDialog({
       beneficiaryId: 0,
       currency: "DOP",
       isInstantDelivery: false,
-      reference: `FAC-${transactionType === "sale" ? "V" : "C"}-${Date.now()}`,
+      reference: "",
       notes: "",
+      taxRate: 18,
       // Arrays
       elements: [],
-      // Campos adicionales para cotización y orden
       conditions: "",
       shippingAddress: "",
       contactPerson: "",
@@ -134,6 +134,7 @@ export function CreateInvoiceDialog({
   const watchElements = watch("elements");
   const watchTaxes = watch("taxes");
   const watchAfterTaxesDiscount = watch("afterTaxesDiscount");
+  const watchTaxRate = watch("taxRate");
 
   // Fetch beneficiaries
   useEffect(() => {
@@ -184,7 +185,7 @@ export function CreateInvoiceDialog({
       sum + (item?.quantity || 0) * (item?.price || 0),
     0,
   );
-  const taxAmount = subtotal * 0.18; // ITBIS 18%
+  const taxAmount = subtotal * ((watchTaxRate || 0) / 100); // Usar el porcentaje configurado
   const discountAmount = subtotal * 0; // Puede ser configurable
   const total = subtotal + taxAmount - discountAmount;
 
@@ -373,22 +374,7 @@ export function CreateInvoiceDialog({
               Configuración del Documento
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {documentType === "quote"
-                    ? "No. COTIZACIÓN"
-                    : documentType === "order"
-                      ? "No. ORDEN"
-                      : "Número de Factura"}
-                </label>
-                <input
-                  type="text"
-                  {...register("reference")}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Fecha
@@ -396,6 +382,17 @@ export function CreateInvoiceDialog({
                 <input
                   type="date"
                   {...register("date")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Fecha de Vencimiento
+                </label>
+                <input
+                  type="date"
+                  {...register("dueDate")}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -696,13 +693,28 @@ export function CreateInvoiceDialog({
                   </div>
                 )}
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-green-600">
-                    {documentType === "invoice" ? "ITBIS (18%)" : "Impuestos"}:
-                  </span>
-                  <span className="font-medium text-green-600">
-                    {formatCurrency(taxAmount)}
-                  </span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <label className="text-gray-600">
+                      Impuesto (%):
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      {...register("taxRate", { valueAsNumber: true })}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600">
+                      {documentType === "invoice" ? "ITBIS" : "Impuestos"}:
+                    </span>
+                    <span className="font-medium text-green-600">
+                      {formatCurrency(taxAmount)}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="border-t border-gray-200 pt-3">

@@ -35,25 +35,20 @@ import {
 } from "@/src/types/gestiono";
 import { MaterialsModule } from "@/src/components/project/MaterialsModule";
 import { PersonnelModule } from "@/src/components/project/PersonnelModule";
+import { LocalesSection } from "@/src/components/projects/LocalesSection";
+import { ClientesSection } from "@/src/components/projects/ClientesSection";
 
 const sections = [
-  {
-    value: "presupuesto-general",
-    label: "Presupuesto General",
-    icon: Calculator,
-  },
-  {
-    value: "costos-indirectos",
-    label: "Costos Indirectos",
-    icon: TrendingDown,
-  },
-  { value: "facturacion", label: "Facturación", icon: FileText },
-  { value: "ingresos-pagos", label: "Ingresos/Pagos", icon: Banknote },
-  { value: "gastos", label: "Gastos", icon: CreditCard },
-  { value: "materiales", label: "Materiales", icon: ShoppingCart },
-  { value: "contrataciones", label: "Contrataciones", icon: Briefcase },
-  { value: "mano-obra", label: "Mano de Obra", icon: HardHat },
-  { value: "retiro-comercial", label: "Retiro Comercial", icon: Users },
+  { value: "presupuesto-general", label: "Presupuesto General", icon: Calculator, },
+  // { value: "costos-indirectos", label: "Costos Indirectos", icon: TrendingDown, },
+  { value: "facturacion", label: "Facturación", icon: FileText, },
+  // { value: "ingresos-pagos", label: "Ingresos/Pagos", icon: Banknote, },
+  { value: "gastos", label: "Gastos", icon: CreditCard, },
+  // { value: "materiales", label: "Materiales", icon: ShoppingCart, },
+  // { value: "contrataciones", label: "Contrataciones", icon: Briefcase, },
+  // { value: "mano-obra", label: "Mano de Obra", icon: HardHat, },
+  { value: "clientes", label: "Clientes", icon: Users, },
+  { value: "locales", label: "Locales", icon: Briefcase, },
 ];
 
 export default function ProjectOverview() {
@@ -68,6 +63,52 @@ export default function ProjectOverview() {
   const selectRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
 
+  // Expenses State
+  const [expensesTotal, setExpensesTotal] = useState<number>(0);
+  const [isLoadingExpenses, setIsLoadingExpenses] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchExpenses = async () => {
+      if (selectedSection === "gastos" && division?.id) {
+        setIsLoadingExpenses(true);
+        try {
+          const params = new URLSearchParams({
+            divisionId: String(division.id),
+            isSell: "false",
+            type: "INVOICE",
+            state: "PAID", // Assuming we only want paid expenses, or maybe all valid ones? User said "gastos" usually implies incurred. PENDING might be accounts payable. 
+            // The prompt says "traemos las facturas que sea de compra". Usually that includes pending to pay. 
+            // Let's include everything that is not draft/cancelled? Or just filter by type/isSell as requested.
+            // API defaults might need checking. 
+            // Let's stick to simple: isSell=false, type=INVOICE.
+            // I'll grab the 'resume.totalCharged' or 'resume.toPay' + 'resume.totalPaid'? 
+            // Actually 'subTotal' or 'amount'.
+            // The API returns `resume` with `toPay` and `totalPaid`.
+          });
+
+          // If I want *all* expenses (paid + pending), I should sum them or check if API gives a grand total.
+          // V2GetPendingRecordsResponse has `resume.toPay` (pending) and `resume.totalPaid`. 
+          // Total Expenses = toPay + totalPaid. 
+
+          const res = await fetch(`/api/gestiono/pendingRecord?${params.toString()}`);
+          if (res.ok) {
+            const data = await res.json();
+            // data.resume might correspond to the filtered set
+            if (data.resume) {
+              const total = (data.resume.toPay || 0) + (data.resume.totalPaid || 0);
+              setExpensesTotal(total);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching expenses:", error);
+        } finally {
+          setIsLoadingExpenses(false);
+        }
+      }
+    };
+    fetchExpenses();
+  }, [selectedSection, division?.id]);
+
   // Estado unificado para manejar todos los documentos
   const [documentDialogState, setDocumentDialogState] = useState<{
     isOpen: boolean;
@@ -79,65 +120,6 @@ export default function ProjectOverview() {
     transactionType: "sale",
   });
 
-  useEffect(() => {
-    const fetchDivision = async () => {
-      if (!projectId) return;
-      setIsLoading(true);
-      try {
-        const res = await fetch(`/api/gestiono/divisions/${projectId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const divData = Array.isArray(data) ? data[0] : data;
-          setDivision(divData);
-        } else {
-          console.error("Failed to fetch division");
-        }
-      } catch (error) {
-        console.error("Error fetching division:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDivision();
-  }, [projectId]);
-
-  const project = division
-    ? {
-        id: division.id,
-        name: division.name,
-        client: division.metadata?.client || "Cliente Desconocido",
-        location: division.metadata?.location || "Ubicación desconocida",
-        status: division.metadata?.status || "planning",
-        totalBudget: division.metadata?.budget || 0,
-        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-        completionPercentage: division.metadata?.completionPercentage || 0,
-        profitMargin: division.metadata?.profitMargin || 0,
-        startDate: division.metadata?.startDate || new Date().toISOString(),
-        endDate: division.metadata?.endDate || new Date().toISOString(),
-        budgetCategories: division.metadata?.budgetCategories || [],
-      }
-    : null;
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-        <h1 className="text-2xl font-bold text-gray-800">
-          Proyecto no encontrado
-        </h1>
-        <CustomButton onClick={() => router.back()}>Volver</CustomButton>
-      </div>
-    );
-  }
-
-  // Status helpers...
   const getStatusColor = (status: string) => {
     switch (status) {
       case "planning":
@@ -184,6 +166,65 @@ export default function ProjectOverview() {
       return dateString;
     }
   };
+
+
+  useEffect(() => {
+    const fetchDivision = async () => {
+      if (!projectId) return;
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/gestiono/divisions/${projectId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const divData = Array.isArray(data) ? data[0] : data;
+          setDivision(divData);
+        } else {
+          console.error("Failed to fetch division");
+        }
+      } catch (error) {
+        console.error("Error fetching division:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDivision();
+  }, [projectId]);
+
+  const project = division
+    ? {
+      id: division.id,
+      name: division.name,
+      client: division.metadata?.client || "Cliente Desconocido",
+      location: division.metadata?.location || "Ubicación desconocida",
+      status: division.metadata?.status || "planning",
+      totalBudget: division.metadata?.budget || 0,
+      executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+      completionPercentage: division.metadata?.completionPercentage || 0,
+      profitMargin: division.metadata?.profitMargin || 0,
+      startDate: division.metadata?.startDate || new Date().toISOString(),
+      endDate: division.metadata?.endDate || new Date().toISOString(),
+      budgetCategories: division.metadata?.budgetCategories || [],
+    }
+    : null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <h1 className="text-2xl font-bold text-gray-800">
+          Proyecto no encontrado
+        </h1>
+        <CustomButton onClick={() => router.back()}>Volver</CustomButton>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-white">
@@ -314,7 +355,7 @@ export default function ProjectOverview() {
           </CustomCard>
         </div>
 
-        <CustomCard className="p-6">
+        {/* <CustomCard className="p-6">
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-900">
               Cronograma del Proyecto
@@ -344,7 +385,7 @@ export default function ProjectOverview() {
               </div>
             </div>
           </div>
-        </CustomCard>
+        </CustomCard> */}
 
         <CustomCard className="p-6">
           <div className="flex items-center justify-between">
@@ -486,35 +527,22 @@ export default function ProjectOverview() {
                 <div className="flex justify-between items-center p-3 bg-red-50 rounded-lg border border-red-100">
                   <span className="text-gray-700">Total de Gastos</span>
                   <span className="font-bold text-red-600">
-                    {formatCurrency(project?.executedBudget || 0)}
+                    {isLoadingExpenses ? (
+                      <Loader2 className="w-4 h-4 animate-spin inline" />
+                    ) : (
+                      formatCurrency(expensesTotal)
+                    )}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Materiales</p>
-                    <p className="font-bold text-gray-900">
-                      {formatCurrency((project?.executedBudget || 0) * 0.6)}
-                    </p>
+                {expensesTotal > 0 ? (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    Desglose no disponible
                   </div>
-                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Mano de obra</p>
-                    <p className="font-bold text-gray-900">
-                      {formatCurrency((project?.executedBudget || 0) * 0.3)}
-                    </p>
+                ) : (
+                  <div className="text-sm text-gray-500 text-center py-4">
+                    No hay gastos registrados
                   </div>
-                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Equipos</p>
-                    <p className="font-bold text-gray-900">
-                      {formatCurrency((project?.executedBudget || 0) * 0.1)}
-                    </p>
-                  </div>
-                  <div className="p-4 border border-gray-100 rounded-lg bg-gray-50 text-center">
-                    <p className="text-sm text-gray-500 mb-1">Otros</p>
-                    <p className="font-bold text-gray-900">
-                      {formatCurrency((project?.executedBudget || 0) * 0.05)}
-                    </p>
-                  </div>
-                </div>
+                )}
               </div>
             </CustomCard>
           )}
@@ -558,46 +586,20 @@ export default function ProjectOverview() {
             </CustomCard>
           )}
 
-          {selectedSection === "mano-obra" && (
+          {/* {selectedSection === "mano-obra" && (
             <PersonnelModule projectId={project?.id ?? ""} />
+          )} */}
+
+          {selectedSection === "locales" && (
+            <LocalesSection
+              formatCurrency={formatCurrency}
+              projectName={division?.name || ""}
+              projectId={projectId}
+            />
           )}
 
-          {selectedSection === "retiro-comercial" && (
-            <CustomCard className="p-6">
-              <div className="mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-gray-500" />
-                <h3 className="font-semibold text-gray-900">
-                  Retiro Comercial
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-green-50 rounded-lg border border-green-100">
-                  <p className="text-sm text-gray-500">Ganancia Estimada</p>
-                  <p className="text-xl font-bold text-green-600">
-                    {formatCurrency(
-                      (project?.totalBudget || 0) *
-                        ((project?.profitMargin || 0) / 100),
-                    )}
-                  </p>
-                </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-sm text-gray-500">Retiros Realizados</p>
-                  <p className="text-xl font-bold text-blue-600">
-                    {formatCurrency((project?.totalBudget || 0) * 0.05)}
-                  </p>
-                </div>
-                <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-100">
-                  <p className="text-sm text-gray-500">Disponible</p>
-                  <p className="text-xl font-bold text-purple-600">
-                    {formatCurrency(
-                      (project?.totalBudget || 0) *
-                        ((project?.profitMargin || 0) / 100) -
-                        (project?.totalBudget || 0) * 0.05,
-                    )}
-                  </p>
-                </div>
-              </div>
-            </CustomCard>
+          {selectedSection === "clientes" && (
+            <ClientesSection />
           )}
           {/* Diálogo unificado para crear documentos */}
           <CreateInvoiceDialog
@@ -608,10 +610,6 @@ export default function ProjectOverview() {
             documentType={documentDialogState.documentType}
             transactionType={documentDialogState.transactionType}
             projectId={projectId}
-            onCreateInvoice={(invoice) => {
-              console.log("Documento creado:", invoice);
-              // Aquí puedes agregar lógica adicional si necesitas actualizar algo
-            }}
           />
         </div>
       </main>

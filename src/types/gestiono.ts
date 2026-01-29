@@ -496,6 +496,7 @@ export interface GestionoInvoiceItem {
   paid: number;
   dueToPay: number;
   elements?: PendingRecordElement[];
+  clientdata?: Record<string, any> | string;
 }
 
 export interface GestionoInvoicesResponse {
@@ -759,4 +760,35 @@ export interface GestionoApiError {
   message: string;
   statusCode: number;
   details?: any;
+}
+
+// Local Quotations
+export interface LocalQuotation {
+  id?: number;
+  localId: number;
+  beneficiaryId: number;
+  quotationDate: string;
+  validUntil: string;
+  localInfo: {
+    number: number;
+    level: number;
+    area: number;
+    pricePerM2: number;
+    totalValue: number;
+  };
+  paymentPlan: {
+    separation10: number;
+    separation45: number;
+    installments: PaymentInstallment[];
+  };
+  terms: string;
+  notes?: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+}
+
+export interface PaymentInstallment {
+  installmentNumber: number;
+  dueDate: string;
+  amount: number;
+  description: string;
 }
