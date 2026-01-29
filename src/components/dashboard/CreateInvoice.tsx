@@ -695,9 +695,7 @@ export function CreateInvoiceDialog({
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <label className="text-gray-600">
-                      Impuesto (%):
-                    </label>
+                    <label className="text-gray-600">Impuesto (%):</label>
                     <input
                       type="number"
                       step="0.01"

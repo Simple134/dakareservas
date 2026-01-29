@@ -51,7 +51,6 @@ export const GestionoProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-
   useEffect(() => {
     fetchDivisions();
   }, []);

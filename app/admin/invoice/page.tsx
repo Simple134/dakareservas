@@ -60,10 +60,12 @@ function mapGestionoToInvoice(
 
   let status = "pending";
 
-  if (gestionoInvoice.dueToPay === 0 || gestionoInvoice.paid >= gestionoInvoice.amount) {
+  if (
+    gestionoInvoice.dueToPay === 0 ||
+    gestionoInvoice.paid >= gestionoInvoice.amount
+  ) {
     status = "paid";
-  }
-  else if (gestionoInvoice.dueDate) {
+  } else if (gestionoInvoice.dueDate) {
     const dueDate = new Date(gestionoInvoice.dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -71,8 +73,10 @@ function mapGestionoToInvoice(
     if (dueDate < today && gestionoInvoice.dueToPay > 0) {
       status = "overdue";
     }
-  }
-  else if (gestionoInvoice.state === "DRAFT" || gestionoInvoice.state === "PENDING") {
+  } else if (
+    gestionoInvoice.state === "DRAFT" ||
+    gestionoInvoice.state === "PENDING"
+  ) {
     status = "draft";
   }
 
@@ -211,7 +215,6 @@ export default function InvoicesPage() {
           isSell: isSellFilter === "all" ? "" : isSellFilter,
           elements: String(itemsPerPage),
           page: String(currentPage),
-
         });
 
         const response = await fetch(
@@ -366,7 +369,11 @@ export default function InvoicesPage() {
     setRefreshKey((prev) => prev + 1);
   };
 
-  const handleDeleteClick = (invoiceId: string, invoiceNumber: string, documentType: string) => {
+  const handleDeleteClick = (
+    invoiceId: string,
+    invoiceNumber: string,
+    documentType: string,
+  ) => {
     setDeleteModalState({
       isOpen: true,
       invoiceId,
@@ -464,19 +471,16 @@ export default function InvoicesPage() {
     newType: "ORDER" | "INVOICE",
   ) => {
     try {
-      const response = await fetch(
-        `/api/gestiono/pendingRecord/update`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: parseInt(invoiceId),
-            type: newType,
-          }),
+      const response = await fetch(`/api/gestiono/pendingRecord/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          id: parseInt(invoiceId),
+          type: newType,
+        }),
+      });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -522,37 +526,44 @@ export default function InvoicesPage() {
       if (beneficiaryResponse.ok) {
         const beneficiaries = await beneficiaryResponse.json();
         beneficiary =
-          beneficiaries.find(
-            (b: any) => b.id === fullRecord.beneficiaryId,
-          ) || null;
+          beneficiaries.find((b: any) => b.id === fullRecord.beneficiaryId) ||
+          null;
       }
 
       // Check if it is a Local Quotation
       const isLocalQuotation =
         (recordWithElements.reference &&
           recordWithElements.reference.toLowerCase().includes("local")) ||
-        (typeof recordWithElements.clientdata !== "string" && recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
+        (typeof recordWithElements.clientdata !== "string" &&
+          recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
 
-      if (isLocalQuotation && recordWithElements.clientdata && typeof recordWithElements.clientdata !== "string") {
+      if (
+        isLocalQuotation &&
+        recordWithElements.clientdata &&
+        typeof recordWithElements.clientdata !== "string"
+      ) {
         // Parse local specific data
         const clientData = recordWithElements.clientdata;
         let localInfo;
         let paymentPlan;
 
         try {
-          localInfo = typeof clientData.localInfo === 'string'
-            ? JSON.parse(clientData.localInfo)
-            : clientData.localInfo;
+          localInfo =
+            typeof clientData.localInfo === "string"
+              ? JSON.parse(clientData.localInfo)
+              : clientData.localInfo;
 
-          paymentPlan = typeof clientData.paymentPlan === 'string'
-            ? JSON.parse(clientData.paymentPlan)
-            : clientData.paymentPlan;
+          paymentPlan =
+            typeof clientData.paymentPlan === "string"
+              ? JSON.parse(clientData.paymentPlan)
+              : clientData.paymentPlan;
         } catch (e) {
           console.error("Error parsing local data:", e);
           throw new Error("Datos de cotización de local inválidos");
         }
 
-        const { generateLocalQuotePDF } = await import("@/src/lib/generateLocalQuotePDF");
+        const { generateLocalQuotePDF } =
+          await import("@/src/lib/generateLocalQuotePDF");
 
         // Get project name
         const division = divisions.find((d) => d.id === fullRecord.divisionId);
@@ -564,14 +575,13 @@ export default function InvoicesPage() {
             area_mt2: localInfo.area,
             price_per_mt2: localInfo.pricePerM2,
             total_value: localInfo.totalValue,
-            status: "DISPONIBLE" // Status might not be needed for PDF or fetched from elsewhere, using filler or what's available
+            status: "DISPONIBLE", // Status might not be needed for PDF or fetched from elsewhere, using filler or what's available
           },
           beneficiary,
           projectName: division?.name || invoice.projectName,
           paymentPlan: paymentPlan,
-          quotationDate: recordWithElements.date
+          quotationDate: recordWithElements.date,
         });
-
       } else {
         // Generate Standard PDF
         await generateQuotePDF({
@@ -580,7 +590,6 @@ export default function InvoicesPage() {
           elements: recordWithElements.elements || [],
         });
       }
-
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
       alert(
@@ -596,9 +605,20 @@ export default function InvoicesPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{activeTab === "QUOTE" ? "Cotizaciones" : activeTab === "INVOICE" ? "Facturas" : "Ordenes"}</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === "QUOTE"
+              ? "Cotizaciones"
+              : activeTab === "INVOICE"
+                ? "Facturas"
+                : "Ordenes"}
+          </h1>
           <p className="text-gray-600">
-            Gestiona todas las {activeTab === "QUOTE" ? "cotizaciones" : activeTab === "INVOICE" ? "facturas" : "ordenes"}
+            Gestiona todas las{" "}
+            {activeTab === "QUOTE"
+              ? "cotizaciones"
+              : activeTab === "INVOICE"
+                ? "facturas"
+                : "ordenes"}
           </p>
         </div>
         <div className="relative">
@@ -667,28 +687,31 @@ export default function InvoicesPage() {
       <div className="flex gap-2 border-b border-gray-200">
         <button
           onClick={() => setActiveTab("QUOTE")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "QUOTE"
-            ? "border-blue-600 text-blue-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "QUOTE"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Cotizaciones
         </button>
         <button
           onClick={() => setActiveTab("ORDER")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "ORDER"
-            ? "border-purple-600 text-purple-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "ORDER"
+              ? "border-purple-600 text-purple-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Órdenes
         </button>
         <button
           onClick={() => setActiveTab("INVOICE")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "INVOICE"
-            ? "border-indigo-600 text-indigo-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "INVOICE"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Facturas
         </button>
@@ -840,29 +863,32 @@ export default function InvoicesPage() {
                 <div className="space-y-2">
                   <button
                     onClick={() => setIsSellFilter("all")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "all"
-                      ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                      }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "all"
+                        ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     Todas
                   </button>
                   <button
                     onClick={() => setIsSellFilter("true")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "true"
-                      ? "bg-green-50 border-green-500 text-green-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                      }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "true"
+                        ? "bg-green-50 border-green-500 text-green-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     <TrendingUp className="w-4 h-4" />
                     Ventas
                   </button>
                   <button
                     onClick={() => setIsSellFilter("false")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "false"
-                      ? "bg-red-50 border-red-500 text-red-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                      }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "false"
+                        ? "bg-red-50 border-red-500 text-red-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     <ShoppingCart className="w-4 h-4" />
                     Compras
@@ -1119,10 +1145,11 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.max(prev - 1, 1))
                   }
                   disabled={currentPage === 1 || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === 1 || isLoading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    currentPage === 1 || isLoading
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   Anterior
                 </button>
@@ -1150,10 +1177,11 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => setCurrentPage(page)}
                             disabled={isLoading}
-                            className={`px-3 py-1 text-sm rounded transition-colors ${page === currentPage
-                              ? "bg-blue-600 text-white border border-blue-600"
-                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                              } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
+                            className={`px-3 py-1 text-sm rounded transition-colors ${
+                              page === currentPage
+                                ? "bg-blue-600 text-white border border-blue-600"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                            } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
                           >
                             {page}
                           </button>
@@ -1167,10 +1195,11 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                   }
                   disabled={currentPage === totalPages || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === totalPages || isLoading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    currentPage === totalPages || isLoading
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   Siguiente
                 </button>
@@ -1220,7 +1249,8 @@ export default function InvoicesPage() {
                   <span className="font-semibold">
                     {deleteModalState.invoiceNumber}
                   </span>
-                  ? El documento será archivado pero no eliminado permanentemente.
+                  ? El documento será archivado pero no eliminado
+                  permanentemente.
                 </>
               )}
             </p>
@@ -1367,7 +1397,10 @@ export default function InvoicesPage() {
                   <>
                     <CustomButton
                       onClick={() => {
-                        handleConvertRecord(viewModalState.invoice!.id, "ORDER");
+                        handleConvertRecord(
+                          viewModalState.invoice!.id,
+                          "ORDER",
+                        );
                         handleViewClose();
                       }}
                       className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
@@ -1377,7 +1410,10 @@ export default function InvoicesPage() {
                     </CustomButton>
                     <CustomButton
                       onClick={() => {
-                        handleConvertRecord(viewModalState.invoice!.id, "INVOICE");
+                        handleConvertRecord(
+                          viewModalState.invoice!.id,
+                          "INVOICE",
+                        );
                         handleViewClose();
                       }}
                       className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
@@ -1391,7 +1427,10 @@ export default function InvoicesPage() {
                 {viewModalState.invoice.documentType === "ORDER" && (
                   <CustomButton
                     onClick={() => {
-                      handleConvertRecord(viewModalState.invoice!.id, "INVOICE");
+                      handleConvertRecord(
+                        viewModalState.invoice!.id,
+                        "INVOICE",
+                      );
                       handleViewClose();
                     }}
                     className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"

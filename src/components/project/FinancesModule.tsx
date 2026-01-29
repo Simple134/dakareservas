@@ -65,7 +65,10 @@ function mapGestionoToInvoice(
 
   let status = "pending";
 
-  if (gestionoInvoice.dueToPay === 0 || gestionoInvoice.paid >= gestionoInvoice.amount) {
+  if (
+    gestionoInvoice.dueToPay === 0 ||
+    gestionoInvoice.paid >= gestionoInvoice.amount
+  ) {
     status = "paid";
   } else if (gestionoInvoice.dueDate) {
     const dueDate = new Date(gestionoInvoice.dueDate);
@@ -75,7 +78,10 @@ function mapGestionoToInvoice(
     if (dueDate < today && gestionoInvoice.dueToPay > 0) {
       status = "overdue";
     }
-  } else if (gestionoInvoice.state === "DRAFT" || gestionoInvoice.state === "PENDING") {
+  } else if (
+    gestionoInvoice.state === "DRAFT" ||
+    gestionoInvoice.state === "PENDING"
+  ) {
     status = "draft";
   }
 
@@ -125,8 +131,12 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDocumentType, setSelectedDocumentType] = useState("all");
-  const [activeTab, setActiveTab] = useState<"QUOTE" | "INVOICE" | "ORDER">("INVOICE"); // Default to INVOICE
-  const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">("all");
+  const [activeTab, setActiveTab] = useState<"QUOTE" | "INVOICE" | "ORDER">(
+    "INVOICE",
+  ); // Default to INVOICE
+  const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
+    "all",
+  );
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -158,7 +168,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
           page: "1",
         });
 
-        const response = await fetch(`/api/gestiono/pendingRecord?${params.toString()}`);
+        const response = await fetch(
+          `/api/gestiono/pendingRecord?${params.toString()}`,
+        );
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -206,9 +218,11 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
 
     const matchesType = selectedType === "all" || invoice.type === selectedType;
     const matchesDocumentType =
-      selectedDocumentType === "all" || invoice.documentType === selectedDocumentType;
+      selectedDocumentType === "all" ||
+      invoice.documentType === selectedDocumentType;
     const matchesStatus =
-      selectedStatuses.length === 0 || selectedStatuses.includes(invoice.status);
+      selectedStatuses.length === 0 ||
+      selectedStatuses.includes(invoice.status);
 
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
@@ -217,7 +231,8 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   // Note: resume from API is based on the query. If we filter by type=INVOICE, it shows invoice totals.
   const totalSalesToCharge = resume.toCharge;
   const totalPurchasesToPay = resume.toPay;
-  const pendingRecordsCount = resume.toChargeRecordsCount + resume.toPayRecordsCount;
+  const pendingRecordsCount =
+    resume.toChargeRecordsCount + resume.toPayRecordsCount;
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -229,7 +244,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       overdue: { label: "Vencida", className: "bg-red-100 text-red-800" },
       draft: { label: "Borrador", className: "bg-gray-100 text-gray-800" },
     };
-    return statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
+    return (
+      statusConfig[status as keyof typeof statusConfig] || statusConfig.draft
+    );
   };
 
   const [deleteModalState, setDeleteModalState] = useState<{
@@ -252,7 +269,11 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     record: null,
   });
 
-  const handleDeleteClick = (invoiceId: string, invoiceNumber: string, documentType: string) => {
+  const handleDeleteClick = (
+    invoiceId: string,
+    invoiceNumber: string,
+    documentType: string,
+  ) => {
     setDeleteModalState({
       isOpen: true,
       invoiceId,
@@ -352,35 +373,42 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       if (beneficiaryResponse.ok) {
         const beneficiaries = await beneficiaryResponse.json();
         beneficiary =
-          beneficiaries.find(
-            (b: any) => b.id === fullRecord.beneficiaryId,
-          ) || null;
+          beneficiaries.find((b: any) => b.id === fullRecord.beneficiaryId) ||
+          null;
       }
 
       const isLocalQuotation =
         (recordWithElements.reference &&
           recordWithElements.reference.toLowerCase().includes("local")) ||
-        (typeof recordWithElements.clientdata !== "string" && recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
+        (typeof recordWithElements.clientdata !== "string" &&
+          recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
 
-      if (isLocalQuotation && recordWithElements.clientdata && typeof recordWithElements.clientdata !== "string") {
+      if (
+        isLocalQuotation &&
+        recordWithElements.clientdata &&
+        typeof recordWithElements.clientdata !== "string"
+      ) {
         const clientData = recordWithElements.clientdata;
         let localInfo;
         let paymentPlan;
 
         try {
-          localInfo = typeof clientData.localInfo === 'string'
-            ? JSON.parse(clientData.localInfo)
-            : clientData.localInfo;
+          localInfo =
+            typeof clientData.localInfo === "string"
+              ? JSON.parse(clientData.localInfo)
+              : clientData.localInfo;
 
-          paymentPlan = typeof clientData.paymentPlan === 'string'
-            ? JSON.parse(clientData.paymentPlan)
-            : clientData.paymentPlan;
+          paymentPlan =
+            typeof clientData.paymentPlan === "string"
+              ? JSON.parse(clientData.paymentPlan)
+              : clientData.paymentPlan;
         } catch (e) {
           console.error("Error parsing local data:", e);
           throw new Error("Datos de cotización de local inválidos");
         }
 
-        const { generateLocalQuotePDF } = await import("@/src/lib/generateLocalQuotePDF");
+        const { generateLocalQuotePDF } =
+          await import("@/src/lib/generateLocalQuotePDF");
 
         // We don't have divisions handy, but maybe we can use projectName or fetch it.
         // For project context, we passed projectId.
@@ -393,14 +421,13 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             area_mt2: localInfo.area,
             price_per_mt2: localInfo.pricePerM2,
             total_value: localInfo.totalValue,
-            status: "DISPONIBLE"
+            status: "DISPONIBLE",
           },
           beneficiary,
           projectName: invoice.projectName, // Using invoice project name
           paymentPlan: paymentPlan,
-          quotationDate: recordWithElements.date
+          quotationDate: recordWithElements.date,
         });
-
       } else {
         const { generateQuotePDF } = await import("@/lib/generateQuotePDF");
         await generateQuotePDF({
@@ -409,7 +436,6 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
           elements: recordWithElements.elements || [],
         });
       }
-
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
       alert(
@@ -422,7 +448,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
 
   const handleCreateInvoice = (
     transactionType: "sale" | "purchase",
-    documentType: "invoice" | "quote" | "order"
+    documentType: "invoice" | "quote" | "order",
   ) => {
     setCreateDialogState({
       isOpen: true,
@@ -456,7 +482,6 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     setSelectedDocumentType("all");
     setSelectedStatuses([]);
   };
-
 
   return (
     <div className="space-y-6">
@@ -534,28 +559,31 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       <div className="flex gap-2 border-b border-gray-200">
         <button
           onClick={() => setActiveTab("QUOTE")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "QUOTE"
-            ? "border-blue-600 text-blue-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "QUOTE"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Cotizaciones
         </button>
         <button
           onClick={() => setActiveTab("ORDER")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "ORDER"
-            ? "border-purple-600 text-purple-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "ORDER"
+              ? "border-purple-600 text-purple-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Órdenes
         </button>
         <button
           onClick={() => setActiveTab("INVOICE")}
-          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "INVOICE"
-            ? "border-indigo-600 text-indigo-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "INVOICE"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Facturas
         </button>
@@ -748,21 +776,32 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             <tbody>
               {isLoadingInvoices ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
                     Cargando documentos...
                   </td>
                 </tr>
               ) : filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    {hasActiveFilters ? "No se encontraron documentos con los filtros aplicados" : "No hay documentos registrados para este proyecto"}
+                  <td
+                    colSpan={7}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    {hasActiveFilters
+                      ? "No se encontraron documentos con los filtros aplicados"
+                      : "No hay documentos registrados para este proyecto"}
                   </td>
                 </tr>
               ) : (
                 filteredInvoices.map((invoice) => {
                   const statusBadge = getStatusBadge(invoice.status);
                   return (
-                    <tr key={invoice.id} className="bg-white border-b hover:bg-gray-50">
+                    <tr
+                      key={invoice.id}
+                      className="bg-white border-b hover:bg-gray-50"
+                    >
                       <td className="px-6 py-4 font-medium text-gray-900">
                         {invoice.invoiceNumber}
                       </td>
@@ -770,7 +809,13 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                         {invoice.projectName}
                       </td>
                       <td className="px-6 py-4">
-                        <CustomBadge className={invoice.type === "sale" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                        <CustomBadge
+                          className={
+                            invoice.type === "sale"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }
+                        >
                           {invoice.type === "sale" ? "Venta" : "Compra"}
                         </CustomBadge>
                       </td>
@@ -778,7 +823,10 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                         {invoice.date}
                       </td>
                       <td className="px-6 py-4 text-right font-medium text-gray-900">
-                        RD$ {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        RD${" "}
+                        {invoice.amount.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
                       </td>
                       <td className="px-6 py-4">
                         <CustomBadge className={statusBadge.className}>
@@ -802,7 +850,13 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                             <Edit2 className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteClick(invoice.id, invoice.invoiceNumber, invoice.documentType)}
+                            onClick={() =>
+                              handleDeleteClick(
+                                invoice.id,
+                                invoice.invoiceNumber,
+                                invoice.documentType,
+                              )
+                            }
                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                             title="Eliminar"
                           >
@@ -811,7 +865,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                         </div>
                       </td>
                     </tr>
-                  )
+                  );
                 })
               )}
             </tbody>
@@ -821,10 +875,14 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
 
       <CreateInvoiceDialog
         isOpen={createDialogState.isOpen}
-        onClose={() => setCreateDialogState((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() =>
+          setCreateDialogState((prev) => ({ ...prev, isOpen: false }))
+        }
         documentType={createDialogState.documentType}
         transactionType={createDialogState.transactionType}
-        projectId={typeof projectId === 'number' ? String(projectId) : projectId} // Ensure string if needed or logic adjustments
+        projectId={
+          typeof projectId === "number" ? String(projectId) : projectId
+        } // Ensure string if needed or logic adjustments
         onCreateInvoice={handleInvoiceCreated}
       />
 
@@ -845,7 +903,10 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
               Confirmar eliminación
             </h3>
             <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que quieres eliminar {deleteModalState.documentType === "QUOTE" ? "la cotización" : "el documento"}{" "}
+              ¿Estás seguro de que quieres eliminar{" "}
+              {deleteModalState.documentType === "QUOTE"
+                ? "la cotización"
+                : "el documento"}{" "}
               <span className="font-medium text-gray-900">
                 {deleteModalState.invoiceNumber}
               </span>

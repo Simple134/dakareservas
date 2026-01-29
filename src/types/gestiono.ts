@@ -22,13 +22,13 @@ export interface PendingRecord {
 
   // Record Type (Required by Gestiono API)
   type?:
-  | "INVOICE"
-  | "QUOTE"
-  | "ORDER"
-  | "LOAN"
-  | "INCOME"
-  | "OUTCOME"
-  | "PAYROLL";
+    | "INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "INCOME"
+    | "OUTCOME"
+    | "PAYROLL";
 
   // Dates & Status
   date: AnyDate;
@@ -300,13 +300,13 @@ export interface GestionoBeneficiary {
   name: string;
   organizationId: number;
   type:
-  | "CLIENT"
-  | "PROVIDER"
-  | "SELLER"
-  | "ORGANIZATION"
-  | "BOTH"
-  | "EMPLOYEE"
-  | "OTHER";
+    | "CLIENT"
+    | "PROVIDER"
+    | "SELLER"
+    | "ORGANIZATION"
+    | "BOTH"
+    | "EMPLOYEE"
+    | "OTHER";
   referredBy: string | null;
   archived: number;
   assignedDivisionId: number | null;
@@ -356,21 +356,21 @@ export interface GestionoDivision {
     budget?: number;
     budgetCurrency?: "DOP" | "USD" | "EUR";
     budgetPeriod?:
-    | "MONTHLY"
-    | "YEARLY"
-    | "QUARTERLY"
-    | "WEEKLY"
-    | "DAILY"
-    | "LIFETIME";
+      | "MONTHLY"
+      | "YEARLY"
+      | "QUARTERLY"
+      | "WEEKLY"
+      | "DAILY"
+      | "LIFETIME";
     sellTarget?: number;
     sellTargetCurrency?: "DOP" | "USD" | "EUR";
     sellTargetPeriod?:
-    | "MONTHLY"
-    | "YEARLY"
-    | "QUARTERLY"
-    | "WEEKLY"
-    | "DAILY"
-    | "LIFETIME";
+      | "MONTHLY"
+      | "YEARLY"
+      | "QUARTERLY"
+      | "WEEKLY"
+      | "DAILY"
+      | "LIFETIME";
     [key: string]: any;
   };
 }
@@ -443,12 +443,12 @@ export interface EventsResponse {
 export interface CreateBeneficiaryBody {
   name: string;
   type:
-  | "CLIENT"
-  | "PROVIDER"
-  | "ORGANIZATION"
-  | "EMPLOYEE"
-  | "SELLER"
-  | "GOVERNMENT";
+    | "CLIENT"
+    | "PROVIDER"
+    | "ORGANIZATION"
+    | "EMPLOYEE"
+    | "SELLER"
+    | "GOVERNMENT";
   taxId?: string;
   reference?: string;
   labels?: string[];
@@ -480,7 +480,14 @@ export interface GestionoInvoiceItem {
   date: string;
   dueDate: string | null;
   beneficiaryId: number;
-  type: "INVOICE" | "QUOTE" | "ORDER" | "LOAN" | "INCOME" | "OUTCOME" | "PAYROLL";
+  type:
+    | "INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "INCOME"
+    | "OUTCOME"
+    | "PAYROLL";
   isSell: number;
   state: string;
   amount: number;
@@ -541,13 +548,13 @@ export interface V2GetPendingRecordsQuery {
   query?: string;
   timeZone?: number;
   type:
-  | "INVOICE"
-  | "RECURRENT_INVOICE"
-  | "QUOTE"
-  | "ORDER"
-  | "LOAN"
-  | "RECURRENT_PAYROLL"
-  | "PAYROLL";
+    | "INVOICE"
+    | "RECURRENT_INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "RECURRENT_PAYROLL"
+    | "PAYROLL";
   pendingRecordElements: boolean;
   pendingRecordPayments: boolean;
   elements: number;
@@ -581,16 +588,16 @@ export type AdvancedSearchFilter = {
   field: `$${string}` /* metadata */ | `@${string}` /* clientData */ | string;
   value: string | number | (string | number)[];
   method:
-  | "="
-  | ">"
-  | "<"
-  | "in"
-  | "not in"
-  | "!="
-  | "like"
-  | "not like"
-  | "is null"
-  | "is not null";
+    | "="
+    | ">"
+    | "<"
+    | "in"
+    | "not in"
+    | "!="
+    | "like"
+    | "not like"
+    | "is null"
+    | "is not null";
 };
 
 export interface PayPendingRecordBody {
@@ -614,12 +621,12 @@ export interface CreateResourceBody {
   name: string; // Mínimo 2 caracteres
   type: "PRODUCT" | "SERVICE" | "ASSET" | "OTHER";
   relation:
-  | "FOR_SALE"
-  | "FOR_RENT"
-  | "MATERIAL"
-  | "ONE_TIME_USE"
-  | "OPERATIONS"
-  | "OTHER";
+    | "FOR_SALE"
+    | "FOR_RENT"
+    | "MATERIAL"
+    | "ONE_TIME_USE"
+    | "OPERATIONS"
+    | "OTHER";
   unit: string; // Ej: "unidad", "kg", "litro"
   priceStrategy: "FIXED" | "DEFINE_ON_INVOICE" | "VARIABLE";
   variation: number | string; // Precio de venta (ej: 100 o "10%")
@@ -629,10 +636,10 @@ export interface CreateResourceBody {
   divisionId?: number; // División asignada
   variantOf?: number; // Si es variante de otro producto
   costStrategy?:
-  | "MINIMUM_PROVIDER_COST"
-  | "MAXIMUM_PROVIDER_COST"
-  | "AVG_PROVIDER_COST"
-  | "FIXED";
+    | "MINIMUM_PROVIDER_COST"
+    | "MAXIMUM_PROVIDER_COST"
+    | "AVG_PROVIDER_COST"
+    | "FIXED";
   currency?: "DOP" | "USD" | "EUR";
 
   // Precio por mayor
@@ -701,12 +708,12 @@ export interface V2GetResourcesResponse {
     description?: string;
     type: "PRODUCT" | "SERVICE" | "ASSET" | "OTHER";
     relation:
-    | "FOR_SALE"
-    | "FOR_RENT"
-    | "MATERIAL"
-    | "ONE_TIME_USE"
-    | "OPERATIONS"
-    | "OTHER";
+      | "FOR_SALE"
+      | "FOR_RENT"
+      | "MATERIAL"
+      | "ONE_TIME_USE"
+      | "OPERATIONS"
+      | "OTHER";
     unit: string;
     priceStrategy: "FIXED" | "DEFINE_ON_INVOICE" | "VARIABLE";
     sellPrice?: number;
@@ -783,7 +790,7 @@ export interface LocalQuotation {
   };
   terms: string;
   notes?: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'expired';
+  status: "pending" | "accepted" | "rejected" | "expired";
 }
 
 export interface PaymentInstallment {

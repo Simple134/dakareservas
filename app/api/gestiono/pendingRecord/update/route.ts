@@ -6,30 +6,30 @@ import { updatePendingRecord } from "@/src/lib/gestiono";
  * Body: { id: number, type?: "QUOTE" | "ORDER" | "INVOICE", ... }
  */
 export async function PATCH(request: NextRequest) {
-    try {
-        const body = await request.json();
+  try {
+    const body = await request.json();
 
-        if (!body.id) {
-            return NextResponse.json(
-                { error: "Record ID is required" },
-                { status: 400 }
-            );
-        }
-
-        const result = await updatePendingRecord(body);
-
-        return NextResponse.json({
-            success: true,
-            data: result,
-        });
-    } catch (error) {
-        console.error("❌ Error updating pending record:", error);
-        return NextResponse.json(
-            {
-                error: "Failed to update pending record",
-                details: error instanceof Error ? error.message : String(error),
-            },
-            { status: 500 }
-        );
+    if (!body.id) {
+      return NextResponse.json(
+        { error: "Record ID is required" },
+        { status: 400 },
+      );
     }
+
+    const result = await updatePendingRecord(body);
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error("❌ Error updating pending record:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to update pending record",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
+  }
 }

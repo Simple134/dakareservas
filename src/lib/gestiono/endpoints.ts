@@ -326,31 +326,26 @@ export async function deletePendingRecord(
   });
 }
 
-export async function updatePendingRecord(
-  data: { id: number; type?: string;[key: string]: any }
-): Promise<V2GetPendingRecordsResponse> {
+export async function updatePendingRecord(data: {
+  id: number;
+  type?: string;
+  [key: string]: any;
+}): Promise<V2GetPendingRecordsResponse> {
   return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
 }
 
-export async function getAppDataTypes(
-  appId: number,
-): Promise<any> {
+export async function getAppDataTypes(appId: number): Promise<any> {
   return gestionoRequest<any>(`/v1/apps/data-types/${appId}`, {
     method: "GET",
   });
 }
 
-export async function getAppData(
-  appId: number,
-  data: any = {},
-): Promise<any> {
+export async function getAppData(appId: number, data: any = {}): Promise<any> {
   return gestionoRequest<any>(`/v1/apps/data/explorer/${appId}`, {
     method: "GET",
     query: data,
   });
 }
-
-

@@ -39,16 +39,20 @@ import { LocalesSection } from "@/src/components/projects/LocalesSection";
 import { ClientesSection } from "@/src/components/projects/ClientesSection";
 
 const sections = [
-  { value: "presupuesto-general", label: "Presupuesto General", icon: Calculator, },
+  {
+    value: "presupuesto-general",
+    label: "Presupuesto General",
+    icon: Calculator,
+  },
   // { value: "costos-indirectos", label: "Costos Indirectos", icon: TrendingDown, },
-  { value: "facturacion", label: "Facturación", icon: FileText, },
+  { value: "facturacion", label: "Facturación", icon: FileText },
   // { value: "ingresos-pagos", label: "Ingresos/Pagos", icon: Banknote, },
-  { value: "gastos", label: "Gastos", icon: CreditCard, },
+  { value: "gastos", label: "Gastos", icon: CreditCard },
   // { value: "materiales", label: "Materiales", icon: ShoppingCart, },
   // { value: "contrataciones", label: "Contrataciones", icon: Briefcase, },
   // { value: "mano-obra", label: "Mano de Obra", icon: HardHat, },
-  { value: "clientes", label: "Clientes", icon: Users, },
-  { value: "locales", label: "Locales", icon: Briefcase, },
+  { value: "clientes", label: "Clientes", icon: Users },
+  { value: "locales", label: "Locales", icon: Briefcase },
 ];
 
 export default function ProjectOverview() {
@@ -76,26 +80,29 @@ export default function ProjectOverview() {
             divisionId: String(division.id),
             isSell: "false",
             type: "INVOICE",
-            state: "PAID", // Assuming we only want paid expenses, or maybe all valid ones? User said "gastos" usually implies incurred. PENDING might be accounts payable. 
-            // The prompt says "traemos las facturas que sea de compra". Usually that includes pending to pay. 
+            state: "PAID", // Assuming we only want paid expenses, or maybe all valid ones? User said "gastos" usually implies incurred. PENDING might be accounts payable.
+            // The prompt says "traemos las facturas que sea de compra". Usually that includes pending to pay.
             // Let's include everything that is not draft/cancelled? Or just filter by type/isSell as requested.
-            // API defaults might need checking. 
+            // API defaults might need checking.
             // Let's stick to simple: isSell=false, type=INVOICE.
-            // I'll grab the 'resume.totalCharged' or 'resume.toPay' + 'resume.totalPaid'? 
+            // I'll grab the 'resume.totalCharged' or 'resume.toPay' + 'resume.totalPaid'?
             // Actually 'subTotal' or 'amount'.
             // The API returns `resume` with `toPay` and `totalPaid`.
           });
 
           // If I want *all* expenses (paid + pending), I should sum them or check if API gives a grand total.
-          // V2GetPendingRecordsResponse has `resume.toPay` (pending) and `resume.totalPaid`. 
-          // Total Expenses = toPay + totalPaid. 
+          // V2GetPendingRecordsResponse has `resume.toPay` (pending) and `resume.totalPaid`.
+          // Total Expenses = toPay + totalPaid.
 
-          const res = await fetch(`/api/gestiono/pendingRecord?${params.toString()}`);
+          const res = await fetch(
+            `/api/gestiono/pendingRecord?${params.toString()}`,
+          );
           if (res.ok) {
             const data = await res.json();
             // data.resume might correspond to the filtered set
             if (data.resume) {
-              const total = (data.resume.toPay || 0) + (data.resume.totalPaid || 0);
+              const total =
+                (data.resume.toPay || 0) + (data.resume.totalPaid || 0);
               setExpensesTotal(total);
             }
           }
@@ -167,7 +174,6 @@ export default function ProjectOverview() {
     }
   };
 
-
   useEffect(() => {
     const fetchDivision = async () => {
       if (!projectId) return;
@@ -192,19 +198,19 @@ export default function ProjectOverview() {
 
   const project = division
     ? {
-      id: division.id,
-      name: division.name,
-      client: division.metadata?.client || "Cliente Desconocido",
-      location: division.metadata?.location || "Ubicación desconocida",
-      status: division.metadata?.status || "planning",
-      totalBudget: division.metadata?.budget || 0,
-      executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
-      completionPercentage: division.metadata?.completionPercentage || 0,
-      profitMargin: division.metadata?.profitMargin || 0,
-      startDate: division.metadata?.startDate || new Date().toISOString(),
-      endDate: division.metadata?.endDate || new Date().toISOString(),
-      budgetCategories: division.metadata?.budgetCategories || [],
-    }
+        id: division.id,
+        name: division.name,
+        client: division.metadata?.client || "Cliente Desconocido",
+        location: division.metadata?.location || "Ubicación desconocida",
+        status: division.metadata?.status || "planning",
+        totalBudget: division.metadata?.budget || 0,
+        executedBudget: division.monthlyExpenses || 0, // Using monthlyExpenses as a proxy for now
+        completionPercentage: division.metadata?.completionPercentage || 0,
+        profitMargin: division.metadata?.profitMargin || 0,
+        startDate: division.metadata?.startDate || new Date().toISOString(),
+        endDate: division.metadata?.endDate || new Date().toISOString(),
+        budgetCategories: division.metadata?.budgetCategories || [],
+      }
     : null;
 
   if (isLoading) {
@@ -598,9 +604,7 @@ export default function ProjectOverview() {
             />
           )}
 
-          {selectedSection === "clientes" && (
-            <ClientesSection />
-          )}
+          {selectedSection === "clientes" && <ClientesSection />}
           {/* Diálogo unificado para crear documentos */}
           <CreateInvoiceDialog
             isOpen={documentDialogState.isOpen}
