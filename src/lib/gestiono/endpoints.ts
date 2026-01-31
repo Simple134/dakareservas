@@ -349,3 +349,36 @@ export async function getAppData(appId: number, data: any = {}): Promise<any> {
     query: data,
   });
 }
+
+export async function createPendingRecordElement(data: {
+  pendingRecordId: number;
+  description: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  variation: number;
+}): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/element`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePendingRecordElement(data: {
+  id: number;
+  [key: string]: any;
+}): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/element`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deletePendingRecordElement(data: {
+  id: number;
+}): Promise<V2GetPendingRecordsResponse> {
+  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/element`, {
+    method: "DELETE",
+    body: JSON.stringify(data),
+  });
+}

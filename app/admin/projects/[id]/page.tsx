@@ -50,7 +50,7 @@ const sections = [
   { value: "gastos", label: "Gastos", icon: CreditCard },
   // { value: "materiales", label: "Materiales", icon: ShoppingCart, },
   // { value: "contrataciones", label: "Contrataciones", icon: Briefcase, },
-  // { value: "mano-obra", label: "Mano de Obra", icon: HardHat, },
+  { value: "mano-obra", label: "Mano de Obra", icon: HardHat, },
   { value: "clientes", label: "Clientes", icon: Users },
   { value: "locales", label: "Locales", icon: Briefcase },
 ];
@@ -592,9 +592,9 @@ export default function ProjectOverview() {
             </CustomCard>
           )}
 
-          {/* {selectedSection === "mano-obra" && (
+          {selectedSection === "mano-obra" && (
             <PersonnelModule projectId={project?.id ?? ""} />
-          )} */}
+          )}
 
           {selectedSection === "locales" && (
             <LocalesSection

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, Calculator, Building2, X } from "lucide-react";
+import { Plus, Trash2, Calculator, Building2, X, Save } from "lucide-react";
 
 import { useGestiono } from "@/src/context/Gestiono";
 import {
@@ -32,6 +32,8 @@ export function EditInvoiceDialog({
   const [gestionoBeneficiaries, setGestionoBeneficiaries] = useState<
     GestionoBeneficiary[]
   >([]);
+  const [savingElementId, setSavingElementId] = useState<number | null>(null);
+  const [originalElements] = useState(record.elements || []);
 
   const { divisions: gestionoDivisions } = useGestiono();
 
@@ -143,10 +145,135 @@ export function EditInvoiceDialog({
     } as PendingRecordElement);
   };
 
-  const removeItem = (index: number) => {
-    if (fields.length > 1) {
+  const removeItem = async (index: number) => {
+    const element = watchElements?.[index];
+
+    // If the element has an ID > 0, it exists in the database, so delete it via API
+    if (element?.id && element.id > 0) {
+      try {
+        const response = await fetch(`/api/gestiono/element`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ id: element.id, pendingRecordId: record.id }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error("Error deleting element:", errorData);
+          return;
+        }
+
+        console.log("✅ Element deleted:", element.id);
+        remove(index);
+      } catch (error) {
+        console.error("Error deleting element:", error);
+      }
+    } else {
+      // New element not yet saved, just remove from form
       remove(index);
     }
+  };
+
+  // Save individual element (create new or update existing)
+  const saveElement = async (index: number) => {
+    const element = watchElements?.[index];
+    if (!element) return;
+
+    setSavingElementId(element.id || index);
+
+    try {
+      // If element is new (id === 0), create it using POST
+      if (!element.id || element.id === 0) {
+        const elementPayload = {
+          pendingRecordId: record.id,
+          description: element.description,
+          quantity: Number(element.quantity) || 0,
+          unit: element.unit || "unidad",
+          price: Number(element.price) || 0,
+          variation: Number(element.variation) || 0,
+        };
+
+        console.log("📦 Creating new element:", elementPayload);
+
+        const response = await fetch(`/api/gestiono/element`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(elementPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.details || "Error al crear elemento");
+        }
+
+        console.log("✅ Elemento creado");
+      } else {
+        // Update existing element using PATCH
+        const elementPayload = {
+          id: element.id,
+          description: element.description,
+          quantity: Number(element.quantity) || 0,
+          unit: element.unit || "unidad",
+          price: Number(element.price) || 0,
+          variation: Number(element.variation) || 0,
+        };
+
+        console.log("📦 Updating element:", elementPayload);
+
+        const response = await fetch(`/api/gestiono/element`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(elementPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.details || `Error al actualizar elemento ${element.id}`
+          );
+        }
+
+        console.log("✅ Elemento actualizado");
+      }
+
+      // Refresh the data
+      onUpdate();
+    } catch (error) {
+      console.error("Error saving element:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Error al guardar elemento"
+      );
+    } finally {
+      setSavingElementId(null);
+    }
+  };
+
+  // Check if element has changes or is new
+  const hasElementChanges = (index: number): boolean => {
+    const currentElement = watchElements?.[index];
+    if (!currentElement) return false;
+
+    // Show save button for new elements
+    if (!currentElement.id || currentElement.id === 0) return true;
+
+    // Find original element
+    const original = originalElements.find((el) => el.id === currentElement.id);
+    if (!original) return true;
+
+    // Compare fields
+    return (
+      original.description !== currentElement.description ||
+      original.quantity !== Number(currentElement.quantity) ||
+      original.unit !== currentElement.unit ||
+      original.price !== Number(currentElement.price) ||
+      original.variation !== Number(currentElement.variation)
+    );
   };
 
   const onSubmit = async (data: Partial<PendingRecord>) => {
@@ -157,7 +284,6 @@ export function EditInvoiceDialog({
     try {
       console.log("📤 Actualizando registro...");
 
-      // Helper function to convert YYYY-MM-DD to ISO 8601
       const formatDateToISO = (dateStr: string | undefined): string => {
         if (!dateStr) return new Date().toISOString();
         try {
@@ -168,37 +294,34 @@ export function EditInvoiceDialog({
         }
       };
 
-      // Prepare payload
-      const payload = {
+      // Only update record metadata (dates, notes, reference)
+      const recordPayload = {
         id: record.id,
-        type: data.type,
-        divisionId: data.divisionId,
-        beneficiaryId: data.beneficiaryId,
-        currency: data.currency,
         date: formatDateToISO(data.date),
         dueDate: formatDateToISO(data.dueDate),
         reference: data.reference,
         notes: data.notes,
-        elements: data.elements || [],
       };
 
-      console.log("📦 Payload:", payload);
+      console.log("📦 Updating record metadata:", recordPayload);
 
-      const response = await fetch(`/api/gestiono/pendingRecord/${record.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const recordResponse = await fetch(
+        `/api/gestiono/pendingRecord/update`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(recordPayload),
+        }
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.details || "Error al actualizar");
+      if (!recordResponse.ok) {
+        const errorData = await recordResponse.json().catch(() => ({}));
+        throw new Error(errorData.details || "Error al actualizar registro");
       }
 
-      const result = await response.json();
-      console.log("✅ Registro actualizado:", result);
+      console.log("✅ Registro actualizado");
 
       setSubmitSuccess(true);
       onUpdate();
@@ -376,24 +499,26 @@ export function EditInvoiceDialog({
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
+              <div className="grid grid-cols-13 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
                 <div className="col-span-5">Descripción</div>
                 <div className="col-span-2">Cantidad</div>
                 <div className="col-span-1">Unidad</div>
                 <div className="col-span-2">Precio</div>
                 <div className="col-span-1">Total</div>
-                <div className="col-span-1"></div>
+                <div className="col-span-2"></div>
               </div>
 
               {fields.map((field, index) => {
                 const element = watchElements?.[index];
                 const itemTotal =
                   (element?.quantity || 0) * (element?.price || 0);
+                const showSaveButton = hasElementChanges(index);
+                const isSaving = savingElementId === (element?.id || index);
 
                 return (
                   <div
                     key={field.id}
-                    className="grid grid-cols-12 gap-2 items-center"
+                    className="grid grid-cols-13 gap-2 items-center"
                   >
                     <div className="col-span-5">
                       <input
@@ -444,11 +569,21 @@ export function EditInvoiceDialog({
                       />
                     </div>
 
-                    <div className="col-span-1 flex justify-center">
+                    <div className="col-span-2 flex justify-center gap-2">
+                      {showSaveButton && (
+                        <button
+                          type="button"
+                          onClick={() => saveElement(index)}
+                          disabled={isSaving}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors disabled:opacity-30"
+                          title="Guardar cambios"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => removeItem(index)}
-                        disabled={fields.length === 1}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-30"
                       >
                         <Trash2 className="w-4 h-4" />

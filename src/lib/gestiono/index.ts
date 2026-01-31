@@ -7,6 +7,8 @@ export {
   deletePendingRecord,
   archivePendingRecord,
   updatePendingRecord,
+  createPendingRecordElement,
+  updatePendingRecordElement,
   // Events
   fetchOrganizationEvents,
   getInvoiceEvents,
