@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getBeneficiaries,
-  addBeneficiary,
-  archiveBeneficiary,
-} from "@/src/lib/gestiono";
+import { getBeneficiaries, addBeneficiary } from "@/src/lib/gestiono";
 import type {
   BeneficiaryQueryParams,
   CreateBeneficiaryBody,
@@ -63,37 +59,6 @@ export async function GET(request: NextRequest) {
       {
         error: "Failed to fetch beneficiaries",
         details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
-    );
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const beneficiaryId = searchParams.get("beneficiaryId");
-
-    if (!beneficiaryId) {
-      return NextResponse.json(
-        { error: "beneficiaryId is required" },
-        { status: 400 },
-      );
-    }
-
-    console.log("📍 Archiving beneficiary with ID:", beneficiaryId);
-
-    const result = await archiveBeneficiary(Number(beneficiaryId));
-    console.log("✅ Beneficiary archived:", result);
-
-    return NextResponse.json(result);
-  } catch (error: unknown) {
-    console.error("❌ Error archiving beneficiary:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to archive beneficiary",
-        details: error instanceof Error ? error.message : "Error desconocido",
-        gestionoError: error,
       },
       { status: 500 },
     );

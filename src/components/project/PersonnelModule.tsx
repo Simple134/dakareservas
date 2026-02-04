@@ -42,7 +42,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `/api/gestiono/pendingRecord?divisionId=${projectId}&type=PAYROLL&isSell=false`
+        `/api/gestiono/pendingRecord?divisionId=${projectId}&type=PAYROLL&isSell=false`,
       );
 
       if (response.ok) {
@@ -53,7 +53,8 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
         const transformedData = (data.data || []).map((record: any) => ({
           id: record.id,
           contractor_name: record.beneficiary?.name || "Desconocido",
-          work_description: record.elements?.[0]?.description || "Sin descripción",
+          work_description:
+            record.elements?.[0]?.description || "Sin descripción",
           total_amount: record.elements?.[0]?.price || 0,
           payment_date: record.paymentDate || null,
           payment_status: record.paymentDate ? "paid" : "pending",

@@ -145,8 +145,8 @@ export const generateLocalQuotePDF = async ({
     }
 
     doc.text(installment.dueDate, 20, yPos);
-    doc.text(`CUOTA ${installment.number}`, 80, yPos);
-    doc.text(`${paymentPlan.numberOfInstallments}`, 155, yPos);
+    doc.text(`CUOTA`, 80, yPos);
+    doc.text(`${installment.number}`, 155, yPos);
     doc.text(formatCurrency(installment.amount), 170, yPos);
 
     yPos += 6;

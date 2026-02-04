@@ -3,8 +3,12 @@ import { getAppDataTypes } from "@/src/lib/gestiono";
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📍 Llamando a getAppData()...");
-    const appData = await getAppDataTypes(15);
+    const searchParams = request.nextUrl.searchParams;
+    const appId =
+      searchParams.get("appId") || searchParams.get("unique_id") || "";
+
+    console.log(`📍 Llamando a getAppDataTypes(${appId})...`);
+    const appData = await getAppDataTypes(parseInt(appId));
     console.log("✅ AppData obtenida:", appData);
     return NextResponse.json(appData);
   } catch (error: unknown) {

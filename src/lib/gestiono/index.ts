@@ -31,6 +31,7 @@ export {
   // App Data
   getAppDataTypes,
   getAppData,
+  uploadFile,
 } from "./endpoints";
 
 export type {

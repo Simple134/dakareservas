@@ -29,6 +29,7 @@ interface LocalQuotationDialogProps {
   } | null;
   projectName: string;
   projectId: string;
+  projectEndDate?: string;
 }
 
 interface QuotationForm {
@@ -38,6 +39,7 @@ interface QuotationForm {
   numberOfInstallments: number;
   terms: string;
   notes: string;
+  projectEndDate?: string;
 }
 
 export function LocalQuotationDialog({
@@ -46,6 +48,7 @@ export function LocalQuotationDialog({
   localData,
   projectName,
   projectId,
+  projectEndDate,
 }: LocalQuotationDialogProps) {
   const [beneficiaries, setBeneficiaries] = useState<GestionoBeneficiary[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,13 +115,46 @@ export function LocalQuotationDialog({
     }
   }, [watchBeneficiaryId, beneficiaries]);
 
-  // Reset form when dialog closes
+  // Sincronizar validUntil y términos con la última cuota
   useEffect(() => {
-    if (!isOpen) {
+    if (watchQuotationDate && watchNumberOfInstallments) {
+      const date = new Date(watchQuotationDate);
+      date.setMonth(date.getMonth() + watchNumberOfInstallments);
+      const dateStr = date.toISOString().split("T")[0];
+      setValue("validUntil", dateStr);
+
+      // Actualizar términos para reflejar la validez real si es el valor por defecto
+      const currentTerms = watch("terms");
+      if (
+        !currentTerms ||
+        currentTerms.includes("cotización es válida por 3 días")
+      ) {
+        setValue(
+          "terms",
+          `Esta cotización es válida hasta el final del plan de pagos (${dateStr}) y está sujeta a disponibilidad del local.`,
+        );
+      }
+    }
+  }, [watchQuotationDate, watchNumberOfInstallments, setValue, watch]);
+
+  // Reset form and set installments based on projectEndDate when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      if (projectEndDate) {
+        const end = new Date(projectEndDate);
+        const start = new Date();
+        const months =
+          (end.getFullYear() - start.getFullYear()) * 12 +
+          (end.getMonth() - start.getMonth());
+        if (months > 0) {
+          setValue("numberOfInstallments", months);
+        }
+      }
+    } else {
       reset();
       setSelectedBeneficiary(null);
     }
-  }, [isOpen, reset]);
+  }, [isOpen, projectEndDate, reset, setValue]);
 
   if (!isOpen || !localData) return null;
 
@@ -201,7 +237,7 @@ export function LocalQuotationDialog({
         isInstantDelivery: false,
         date: new Date(data.quotationDate).toISOString(),
         dueDate: new Date(data.validUntil).toISOString(),
-        reference: `Local #${localData.id}`,
+        reference: `${Math.random().toString(36).substring(2, 7).toUpperCase()}-L${localData.id}`,
         notes: data.notes || "",
         elements: [
           {
@@ -472,7 +508,7 @@ export function LocalQuotationDialog({
                 </p>
               </div>
               <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Separación 45%</p>
+                <p className="text-sm text-gray-600 mb-1">Inicial 45%</p>
                 <p className="text-xl font-bold text-yellow-700">
                   {formatCurrency(separation45)}
                 </p>
@@ -490,16 +526,15 @@ export function LocalQuotationDialog({
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Número de Cuotas Mensuales
               </label>
-              <select
-                {...register("numberOfInstallments", { valueAsNumber: true })}
-                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value={6}>6 meses</option>
-                <option value={12}>12 meses</option>
-                <option value={18}>18 meses</option>
-                <option value={24}>24 meses</option>
-                <option value={36}>36 meses</option>
-              </select>
+              <input
+                type="number"
+                {...register("numberOfInstallments", {
+                  valueAsNumber: true,
+                  min: 1,
+                })}
+                className="w-full md:w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="ml-2 text-gray-600">meses</span>
               <p className="mt-2 text-sm text-gray-600">
                 Cuota mensual:{" "}
                 <span className="font-semibold text-gray-900">

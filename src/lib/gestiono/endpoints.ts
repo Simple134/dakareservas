@@ -1,4 +1,4 @@
-import { gestionoRequest } from "./client";
+import { gestionoRequest, gestionoFormRequest } from "./client";
 import type {
   GestionoRecordPayload,
   GestionoInvoiceResponse,
@@ -126,11 +126,11 @@ export async function addBeneficiary(
 }
 
 export async function updateBeneficiary(
-  params: BeneficiaryContactResponse,
-): Promise<BeneficiaryContactResponse> {
-  return gestionoRequest<BeneficiaryContactResponse>(`/v1/beneficiary/`, {
+  params: CreateBeneficiaryBody & { id: number },
+): Promise<GestionoBeneficiary> {
+  return gestionoRequest<GestionoBeneficiary>(`/v1/beneficiary/`, {
     method: "PATCH",
-    body: JSON.stringify(params), //pasarle dentro del data el id del beneficiario y los campos que se quieren actualizar
+    body: JSON.stringify(params),
   });
 }
 
@@ -270,7 +270,7 @@ export async function archiveBeneficiary(
     method: "PATCH",
     body: JSON.stringify({
       id,
-      metadata: { disabled: true },
+      archived: true,
     }),
   });
 }
@@ -358,27 +358,92 @@ export async function createPendingRecordElement(data: {
   price: number;
   variation: number;
 }): Promise<V2GetPendingRecordsResponse> {
-  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/element`, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+  return gestionoRequest<V2GetPendingRecordsResponse>(
+    `/v1/record/pending/element`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+  );
 }
 
 export async function updatePendingRecordElement(data: {
   id: number;
   [key: string]: any;
 }): Promise<V2GetPendingRecordsResponse> {
-  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/element`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+  return gestionoRequest<V2GetPendingRecordsResponse>(
+    `/v1/record/pending/element`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    },
+  );
 }
 
 export async function deletePendingRecordElement(data: {
   id: number;
 }): Promise<V2GetPendingRecordsResponse> {
-  return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending/element`, {
-    method: "DELETE",
+  return gestionoRequest<V2GetPendingRecordsResponse>(
+    `/v1/record/pending/element`,
+    {
+      method: "DELETE",
+      body: JSON.stringify(data),
+    },
+  );
+}
+
+export async function createContactData(data: {
+  beneficiaryId: number;
+  [key: string]: any;
+}): Promise<any> {
+  return gestionoRequest<any>(`/v1/beneficiary/contact`, {
+    method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function updateContactData(data: { id: number }): Promise<any> {
+  return gestionoRequest<any>(`/v1/beneficiary/contact`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteContactData(id: number): Promise<any> {
+  return gestionoRequest<any>(`/v1/beneficiary/contact/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function uploadFile({
+  file,
+  ...remainer
+}: {
+  file: File;
+  createFolder?: "true";
+  convertTo?: "mp3" | "ogg";
+  path?: string;
+}): Promise<{
+  file: {
+    id: number;
+    url: string;
+    public: string;
+  };
+}> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("createFolder", remainer.createFolder || "false");
+  if (remainer.convertTo) formData.append("convertTo", remainer.convertTo);
+  formData.append("path", remainer.path || "/");
+
+  return gestionoFormRequest<{
+    file: {
+      id: number;
+      url: string;
+      public: string;
+    };
+  }>("/v1/files", {
+    method: "POST",
+    body: formData,
   });
 }

@@ -235,7 +235,7 @@ export function EditInvoiceDialog({
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.details || `Error al actualizar elemento ${element.id}`
+            errorData.details || `Error al actualizar elemento ${element.id}`,
           );
         }
 
@@ -247,7 +247,7 @@ export function EditInvoiceDialog({
     } catch (error) {
       console.error("Error saving element:", error);
       setSubmitError(
-        error instanceof Error ? error.message : "Error al guardar elemento"
+        error instanceof Error ? error.message : "Error al guardar elemento",
       );
     } finally {
       setSavingElementId(null);
@@ -305,16 +305,13 @@ export function EditInvoiceDialog({
 
       console.log("📦 Updating record metadata:", recordPayload);
 
-      const recordResponse = await fetch(
-        `/api/gestiono/pendingRecord/update`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(recordPayload),
-        }
-      );
+      const recordResponse = await fetch(`/api/gestiono/pendingRecord/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(recordPayload),
+      });
 
       if (!recordResponse.ok) {
         const errorData = await recordResponse.json().catch(() => ({}));

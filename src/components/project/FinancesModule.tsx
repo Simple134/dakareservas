@@ -33,7 +33,8 @@ import type {
 // import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
-// import { generateQuotePDF } from "@/lib/generateQuotePDF";
+import { generateQuotePDF } from "@/lib/generateQuotePDF";
+import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 
 interface FinancesModuleProps {
   projectId: string | number;
@@ -429,12 +430,25 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
           quotationDate: recordWithElements.date,
         });
       } else {
-        const { generateQuotePDF } = await import("@/lib/generateQuotePDF");
-        await generateQuotePDF({
-          quote: recordWithElements,
-          beneficiary,
-          elements: recordWithElements.elements || [],
-        });
+        // Check document type to determine which PDF generator to use
+        if (recordWithElements.type === "INVOICE") {
+          // Generate Invoice PDF
+          await generateInvoicePDF({
+            invoice: recordWithElements,
+            beneficiary,
+            elements: recordWithElements.elements || [],
+            isSell: recordWithElements.isSell === 1,
+          });
+        } else {
+          // Generate Quote or Order PDF
+          await generateQuotePDF({
+            quote: recordWithElements,
+            beneficiary,
+            elements: recordWithElements.elements || [],
+            documentType: recordWithElements.type as "QUOTE" | "ORDER",
+            isSell: recordWithElements.isSell === 1,
+          });
+        }
       }
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
@@ -492,15 +506,6 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
           <p className="text-gray-600">Gestión de documentos del proyecto</p>
         </div>
         <div className="relative">
-          <CustomButton
-            onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-            className="bg-blue-600 text-white hover:bg-blue-700"
-          >
-            <span className="mr-2">+</span>
-            Nuevo Documento
-            <ChevronDown className="w-4 h-4 ml-2" />
-          </CustomButton>
-
           {/* Dropdown Menu */}
           {isCreateMenuOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">

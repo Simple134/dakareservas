@@ -17,6 +17,8 @@ import {
   Clock,
   AlertCircle,
   XCircle,
+  DollarSign,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   CustomCard,
@@ -33,6 +35,9 @@ import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
+import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
+import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
+import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
 
 interface InvoiceDisplay {
   id: string;
@@ -46,6 +51,7 @@ interface InvoiceDisplay {
   status: string;
   type: string;
   documentType: string;
+  attachedFileUrl?: string; // URL of the attached file/image
 }
 
 function mapGestionoToInvoice(
@@ -80,6 +86,18 @@ function mapGestionoToInvoice(
     status = "draft";
   }
 
+  let attachedFileUrl: string | undefined;
+  const item = gestionoInvoice as any;
+  if (item.metadata && typeof item.metadata === "object") {
+    const meta = item.metadata;
+    if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
+      attachedFileUrl = meta.files[0].s3Key;
+    } else if (meta.attachedfileurl) {
+      // Fallback for old data
+      attachedFileUrl = meta.attachedfileurl;
+    }
+  }
+
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
@@ -100,6 +118,7 @@ function mapGestionoToInvoice(
         : gestionoInvoice.type === "ORDER"
           ? "ORDER"
           : "INVOICE",
+    attachedFileUrl,
   };
 }
 
@@ -137,6 +156,7 @@ export default function InvoicesPage() {
   const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
     "all",
   );
+  const [showWithImages, setShowWithImages] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -172,12 +192,38 @@ export default function InvoicesPage() {
     isOpen: false,
     invoice: null,
   });
+
+  const [payModalState, setPayModalState] = useState<{
+    isOpen: boolean;
+    invoice: InvoiceDisplay | null;
+  }>({
+    isOpen: false,
+    invoice: null,
+  });
   const [editModalState, setEditModalState] = useState<{
     isOpen: boolean;
     record: GestionoInvoiceItem | null;
   }>({
     isOpen: false,
     record: null,
+  });
+
+  const [convertModalState, setConvertModalState] = useState<{
+    isOpen: boolean;
+    invoiceId: string | null;
+    invoiceNumber: string | null;
+  }>({
+    isOpen: false,
+    invoiceId: null,
+    invoiceNumber: null,
+  });
+
+  const [imagePreviewState, setImagePreviewState] = useState<{
+    isOpen: boolean;
+    imageUrl: string | null;
+  }>({
+    isOpen: false,
+    imageUrl: null,
   });
 
   useEffect(() => {
@@ -217,6 +263,17 @@ export default function InvoicesPage() {
           page: String(currentPage),
         });
 
+        if (showWithImages) {
+          const advancedSearch = [
+            {
+              field: "$files",
+              method: "is not null",
+              value: "",
+            },
+          ];
+          params.append("advancedSearch", JSON.stringify(advancedSearch));
+        }
+
         const response = await fetch(
           `/api/gestiono/pendingRecord?${params.toString()}`,
         );
@@ -249,7 +306,14 @@ export default function InvoicesPage() {
     };
 
     fetchInvoices();
-  }, [currentPage, itemsPerPage, refreshKey, activeTab, isSellFilter]);
+  }, [
+    currentPage,
+    itemsPerPage,
+    refreshKey,
+    activeTab,
+    isSellFilter,
+    showWithImages,
+  ]);
 
   useEffect(() => {
     const mapped = rawInvoices.map((item) =>
@@ -312,23 +376,14 @@ export default function InvoicesPage() {
   };
 
   const getTypeBadge = (type: string, documentType: string) => {
-    const typeMap = {
-      quote: type === "sale" ? "Cotización Venta" : "Cotización Compra",
-      order: type === "sale" ? "Orden Venta" : "Orden Compra",
-      invoice: type === "sale" ? "Factura Venta" : "Factura Compra",
-    };
-
-    const classMap = {
-      quote: "bg-blue-100 text-blue-800",
-      order: "bg-purple-100 text-purple-800",
-      invoice: "bg-indigo-100 text-indigo-800",
-    };
+    // Show Venta or Compra based on transaction type
+    const isVenta = type === "sale";
 
     return {
-      label: typeMap[documentType as keyof typeof typeMap] || "Documento",
-      className:
-        classMap[documentType as keyof typeof classMap] ||
-        "bg-gray-100 text-gray-800",
+      label: isVenta ? "Venta" : "Compra",
+      className: isVenta
+        ? "bg-green-100 text-green-800"
+        : "bg-red-100 text-red-800",
     };
   };
 
@@ -351,6 +406,7 @@ export default function InvoicesPage() {
     setSelectedType("all");
     setSelectedDocumentType("all");
     setSelectedStatuses([]);
+    setShowWithImages(false);
   };
 
   const handleCreateInvoice = (
@@ -380,6 +436,14 @@ export default function InvoicesPage() {
       invoiceNumber,
       documentType,
     });
+  };
+
+  const handlePayInvoice = (invoice: InvoiceDisplay) => {
+    setPayModalState({
+      isOpen: true,
+      invoice,
+    });
+    handleViewClose();
   };
 
   const handleDeleteConfirm = async () => {
@@ -469,17 +533,24 @@ export default function InvoicesPage() {
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
+    metadata?: any,
   ) => {
     try {
+      const payload: any = {
+        id: parseInt(invoiceId),
+        type: newType,
+      };
+
+      if (metadata) {
+        payload.metadata = metadata;
+      }
+
       const response = await fetch(`/api/gestiono/pendingRecord/update`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          id: parseInt(invoiceId),
-          type: newType,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -583,12 +654,25 @@ export default function InvoicesPage() {
           quotationDate: recordWithElements.date,
         });
       } else {
-        // Generate Standard PDF
-        await generateQuotePDF({
-          quote: recordWithElements,
-          beneficiary,
-          elements: recordWithElements.elements || [],
-        });
+        // Check document type to determine which PDF generator to use
+        if (recordWithElements.type === "INVOICE") {
+          // Generate Invoice PDF
+          await generateInvoicePDF({
+            invoice: recordWithElements,
+            beneficiary,
+            elements: recordWithElements.elements || [],
+            isSell: recordWithElements.isSell === 1,
+          });
+        } else {
+          // Generate Quote or Order PDF
+          await generateQuotePDF({
+            quote: recordWithElements,
+            beneficiary,
+            elements: recordWithElements.elements || [],
+            documentType: recordWithElements.type as "QUOTE" | "ORDER",
+            isSell: recordWithElements.isSell === 1,
+          });
+        }
       }
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
@@ -788,13 +872,14 @@ export default function InvoicesPage() {
             >
               <Filter className="w-4 h-4 mr-2" />
               Filtros
-              {hasActiveFilters && (
+              {hasActiveFilters || showWithImages ? (
                 <CustomBadge className="ml-2 bg-blue-100 text-blue-800">
                   {(selectedType !== "all" ? 1 : 0) +
                     (selectedDocumentType !== "all" ? 1 : 0) +
-                    selectedStatuses.length}
+                    selectedStatuses.length +
+                    (showWithImages ? 1 : 0)}
                 </CustomBadge>
-              )}
+              ) : null}
             </CustomButton>
           </div>
 
@@ -817,6 +902,14 @@ export default function InvoicesPage() {
                       : selectedDocumentType === "order"
                         ? "Órdenes"
                         : "Facturas"}
+                    <X className="w-3 h-3" />
+                  </CustomBadge>
+                </button>
+              )}
+              {showWithImages && (
+                <button onClick={() => setShowWithImages(false)}>
+                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                    Con Imágenes
                     <X className="w-3 h-3" />
                   </CustomBadge>
                 </button>
@@ -936,6 +1029,25 @@ export default function InvoicesPage() {
                     {invoices.filter((i) => i.status === "draft").length})
                   </button>
                 </div>
+              </div>
+
+              {/* Extras */}
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <ImageIcon className="w-4 h-4" />
+                  Extras
+                </label>
+                <button
+                  onClick={() => setShowWithImages(!showWithImages)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                    showWithImages
+                      ? "bg-blue-50 border-blue-500 text-blue-700"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  Con Imágenes
+                </button>
               </div>
             </div>
             <div className="mt-6">
@@ -1114,6 +1226,20 @@ export default function InvoicesPage() {
                             >
                               <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
+                            {invoice.attachedFileUrl && (
+                              <button
+                                onClick={() =>
+                                  setImagePreviewState({
+                                    isOpen: true,
+                                    imageUrl: invoice.attachedFileUrl!,
+                                  })
+                                }
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Ver Comprobante"
+                              >
+                                <ImageIcon className="w-4 h-4 text-blue-600" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1427,16 +1553,29 @@ export default function InvoicesPage() {
                 {viewModalState.invoice.documentType === "ORDER" && (
                   <CustomButton
                     onClick={() => {
-                      handleConvertRecord(
-                        viewModalState.invoice!.id,
-                        "INVOICE",
-                      );
+                      // Order -> Invoice: Open modal for optional file upload
                       handleViewClose();
+                      setConvertModalState({
+                        isOpen: true,
+                        invoiceId: viewModalState.invoice!.id,
+                        invoiceNumber: viewModalState.invoice!.invoiceNumber,
+                      });
                     }}
                     className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
                   >
                     <ArrowRight className="w-4 h-4" />
                     Convertir a Factura
+                  </CustomButton>
+                )}
+
+                {/* Pay Button - Only for Invoices */}
+                {viewModalState.invoice.documentType === "INVOICE" && (
+                  <CustomButton
+                    onClick={() => handlePayInvoice(viewModalState.invoice!)}
+                    className="flex-1 bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Pagar
                   </CustomButton>
                 )}
 
@@ -1463,6 +1602,74 @@ export default function InvoicesPage() {
           record={editModalState.record}
           onUpdate={handleInvoiceCreated}
         />
+      )}
+
+      {/* Pay Invoice Modal */}
+      {payModalState.isOpen && payModalState.invoice && (
+        <PayInvoiceModal
+          isOpen={payModalState.isOpen}
+          onClose={() => setPayModalState({ isOpen: false, invoice: null })}
+          invoice={{
+            id: payModalState.invoice.id,
+            invoiceNumber: payModalState.invoice.invoiceNumber,
+            clientName: payModalState.invoice.clientName,
+            supplierName: payModalState.invoice.supplierName,
+            amount: payModalState.invoice.amount,
+            paid: 0, // TODO: Get from API if available
+            dueToPay: payModalState.invoice.amount, // TODO: Calculate from amount - paid
+            type: payModalState.invoice.type as "sale" | "purchase",
+          }}
+          onPaymentSuccess={() => {
+            setRefreshKey((prev) => prev + 1);
+            setPayModalState({ isOpen: false, invoice: null });
+          }}
+        />
+      )}
+
+      {/* Convert Modal (Order -> Invoice) */}
+      {convertModalState.isOpen && (
+        <ConvertModal
+          isOpen={convertModalState.isOpen}
+          onClose={() =>
+            setConvertModalState({
+              isOpen: false,
+              invoiceId: null,
+              invoiceNumber: null,
+            })
+          }
+          invoiceNumber={convertModalState.invoiceNumber || ""}
+          onConfirm={async (metadata) => {
+            if (convertModalState.invoiceId) {
+              await handleConvertRecord(
+                convertModalState.invoiceId,
+                "INVOICE",
+                metadata,
+              );
+            }
+          }}
+        />
+      )}
+      {/* Image Preview Modal */}
+      {imagePreviewState.isOpen && imagePreviewState.imageUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] overflow-auto">
+            <button
+              onClick={() =>
+                setImagePreviewState({ isOpen: false, imageUrl: null })
+              }
+              className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors z-10"
+            >
+              <X className="w-6 h-6 text-gray-600" />
+            </button>
+            <div className="p-2">
+              <img
+                src={imagePreviewState.imageUrl}
+                alt="Comprobante"
+                className="max-w-full h-auto rounded"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

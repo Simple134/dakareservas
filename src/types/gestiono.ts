@@ -265,7 +265,14 @@ export interface GestionoBeneficiaryContact {
 export interface GestionoBeneficiaryPayload {
   id: number;
   name: string;
-  type: "CLIENT" | "PROVIDER" | "BOTH" | "EMPLOYEE" | "OTHER";
+  type:
+    | "CLIENT"
+    | "PROVIDER"
+    | "BOTH"
+    | "EMPLOYEE"
+    | "GOVERNMENT"
+    | "ORGANIZATION"
+    | "OTHER";
   taxId?: string;
   email?: string;
   reference?: string;
@@ -306,6 +313,7 @@ export interface GestionoBeneficiary {
     | "ORGANIZATION"
     | "BOTH"
     | "EMPLOYEE"
+    | "GOVERNMENT"
     | "OTHER";
   referredBy: string | null;
   archived: number;
@@ -448,7 +456,9 @@ export interface CreateBeneficiaryBody {
     | "ORGANIZATION"
     | "EMPLOYEE"
     | "SELLER"
-    | "GOVERNMENT";
+    | "GOVERNMENT"
+    | "BOTH"
+    | "OTHER";
   taxId?: string;
   reference?: string;
   labels?: string[];
@@ -604,7 +614,6 @@ export interface PayPendingRecordBody {
   pendingRecordId: number; // ID de la factura
   paymentMethod: "CASH" | "TRANSFER" | "CARD";
   accountId: number; // Cuenta de banco o caja donde entra el dinero
-
   amount?: number; // Monto a pagar (si es parcial), por defecto paga el total pendiente
   state?: "PENDING" | "COMPLETED" | "CANCELED" | "FAILED"; // Estado del pago
   reference?: string; // Referencia del pago (ej: número de cheque)

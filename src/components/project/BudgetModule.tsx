@@ -188,7 +188,7 @@ export function BudgetModule({
       <div className="p-6 flex flex-row items-center justify-between border-b border-gray-100">
         <div>
           <h3 className="font-semibold text-lg text-gray-900">
-            Desglose por Partidas
+            Desglose por Categorias
           </h3>
           {isEditing && (
             <p className="text-xs text-gray-500 mt-1">
@@ -238,7 +238,7 @@ export function BudgetModule({
               className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors h-9 px-4 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c]"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Nueva Partida
+              Nueva Categoría
             </button>
           )}
         </div>

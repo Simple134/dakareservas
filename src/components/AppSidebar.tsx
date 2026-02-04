@@ -151,9 +151,9 @@ export function AppSidebar({
           </nav>
         </div>
         <div className="space-y-2">
-          <h3 className="px-2 text-xs font-semibold text-white/50 uppercase tracking-wider">
+          <h5 className="px-2 text-xs font-semibold text-white/50 uppercase tracking-wider">
             Proyectos Activos
-          </h3>
+          </h5>
           <div className="space-y-1">
             {isLoading ? (
               <div className="px-3 py-2 text-sm text-white/50">
@@ -174,9 +174,9 @@ export function AppSidebar({
                   style={{ borderRadius: "10px" }}
                   className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-white/70 rounded-lg hover:bg-white/5 hover:text-white transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Building2 className="w-4 h-4" />
-                    <span className="truncate">{division.name}</span>
+                    <span className="text-xs">{division.name}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 flex-shrink-0" />
                 </button>

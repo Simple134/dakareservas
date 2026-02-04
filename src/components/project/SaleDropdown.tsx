@@ -6,13 +6,11 @@ import { CustomButton } from "./CustomCard";
 
 interface SaleDropdownProps {
   onQuotationClick: () => void;
-  onSaleOrderClick: () => void;
   onInvoiceClick: () => void;
 }
 
 export function SaleDropdown({
   onQuotationClick,
-  onSaleOrderClick,
   onInvoiceClick,
 }: SaleDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,11 +32,6 @@ export function SaleDropdown({
 
   const handleQuotationClick = () => {
     onQuotationClick();
-    setIsOpen(false);
-  };
-
-  const handleSaleOrderClick = () => {
-    onSaleOrderClick();
     setIsOpen(false);
   };
 
@@ -72,16 +65,6 @@ export function SaleDropdown({
             <div>
               <p className="font-medium text-gray-900">Cotización</p>
               <p className="text-xs text-gray-500">Crear nueva cotización</p>
-            </div>
-          </button>
-          <button
-            onClick={handleSaleOrderClick}
-            className="w-full px-4 py-3 text-left hover:bg-green-50 transition-colors flex items-center gap-3 border-b border-gray-100"
-          >
-            <TrendingUp className="w-4 h-4 text-green-600" />
-            <div>
-              <p className="font-medium text-gray-900">Orden de Venta</p>
-              <p className="text-xs text-gray-500">Crear orden de venta</p>
             </div>
           </button>
           <button
