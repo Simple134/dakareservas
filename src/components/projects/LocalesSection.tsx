@@ -10,12 +10,16 @@ interface LocalesSectionProps {
   formatCurrency: (amount: number) => string;
   projectName: string;
   projectId: string;
+  projectEndDate?: string;
+  uniqueId?: string;
 }
 
 export function LocalesSection({
   formatCurrency,
   projectName,
   projectId,
+  projectEndDate,
+  uniqueId,
 }: LocalesSectionProps) {
   const [localesData, setLocalesData] = useState<any[]>([]);
 
@@ -39,6 +43,7 @@ export function LocalesSection({
       try {
         const queryParams = new URLSearchParams({
           type: "locales",
+          appId: uniqueId || "",
         });
         const res = await fetch(
           `/api/gestiono/appData?${queryParams.toString()}`,
@@ -61,6 +66,33 @@ export function LocalesSection({
     };
     fetchLocales();
   }, []);
+  //  useEffect(() => {
+  //   const fetchLocales = async () => {
+  //     try {
+  //       const queryParams = new URLSearchParams({
+  //         type: "reservas",
+  //       });
+  //       const res = await fetch(
+  //         `/api/gestiono/appData?${queryParams.toString()}`,
+  //       );
+  //       if (res.ok) {
+  //         const data = await res.json();
+  //         // The API returns {appData: Array, organizations: Object}
+  //         if (data.appData && Array.isArray(data.appData)) {
+  //           setLocalesData(data.appData);
+  //         } else if (Array.isArray(data)) {
+  //           // Fallback in case structure changes
+  //           setLocalesData(data);
+  //         }
+  //       } else {
+  //         console.error("Failed to fetch locales");
+  //       }
+  //     } catch (error) {
+  //       console.error("Error fetching locales:", error);
+  //     }
+  //   };
+  //   fetchLocales();
+  // }, []);
 
   const getFilteredLocales = () => {
     return localesData.filter((local) => {
@@ -134,19 +166,6 @@ export function LocalesSection({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <svg
-              className="absolute left-3 top-3 w-4 h-4 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
           </div>
 
           {/* Filter Grid */}
@@ -414,6 +433,7 @@ export function LocalesSection({
         localData={quotationDialog.selectedLocal}
         projectName={projectName}
         projectId={projectId}
+        projectEndDate={projectEndDate}
       />
     </>
   );

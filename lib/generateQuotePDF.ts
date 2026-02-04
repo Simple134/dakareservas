@@ -9,10 +9,18 @@ interface QuotePDFData {
   quote: GestionoInvoiceItem;
   beneficiary: GestionoBeneficiary | null;
   elements: PendingRecordElement[];
+  documentType?: "QUOTE" | "ORDER";
+  isSell?: boolean;
 }
 
 export async function generateQuotePDF(data: QuotePDFData) {
-  const { quote, beneficiary, elements } = data;
+  const {
+    quote,
+    beneficiary,
+    elements,
+    documentType = "QUOTE",
+    isSell = true,
+  } = data;
 
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
@@ -63,10 +71,16 @@ export async function generateQuotePDF(data: QuotePDFData) {
     color: rgb(0, 0, 0),
   });
 
-  // RIGHT SIDE: Quotation Number and Date (at same level as company name)
+  // RIGHT SIDE: Document header based on type
   let rightYPosition = leftStartY;
 
-  page.drawText("COTIZACION No.", {
+  // Determine document label based on type
+  let documentLabel = "COTIZACION No.";
+  if (documentType === "ORDER") {
+    documentLabel = isSell ? "ORDEN DE VENTA No." : "ORDEN DE COMPRA No.";
+  }
+
+  page.drawText(documentLabel, {
     x: width - margin - 200,
     y: rightYPosition,
     size: 11,
@@ -110,9 +124,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   const clientAddress =
     beneficiary?.contacts?.find((c) => c.type === "address")?.data || "";
 
-  const clientStartY = yPosition;
-
-  // LEFT SIDE: Client info
+  // Client info
   page.drawText("A:", {
     x: margin,
     y: yPosition,
@@ -157,16 +169,19 @@ export async function generateQuotePDF(data: QuotePDFData) {
     });
   }
 
-  // RIGHT SIDE: Request text (at same level as client name)
-  page.drawText("Favor cotizarnos lo siguiente:", {
-    x: width - margin - 240,
-    y: clientStartY,
-    size: 10,
-    font: fontBold,
-    color: rgb(0, 0, 0),
-  });
-
+  // Request text below client info
   yPosition -= 25;
+
+  {
+    documentType === "QUOTE" &&
+      page.drawText("Favor cotizarnos lo siguiente:", {
+        x: margin,
+        y: yPosition,
+        size: 10,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+  }
 
   yPosition -= 20;
 
@@ -380,7 +395,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `Cotizacion_${quoteNumber}_${clientName.replace(/\s+/g, "_")}.pdf`;
+  link.download = `${documentLabel}_${quoteNumber}_${clientName.replace(/\s+/g, "_")}.pdf`;
   link.click();
   URL.revokeObjectURL(url);
 }

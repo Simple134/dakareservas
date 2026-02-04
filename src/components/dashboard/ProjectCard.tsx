@@ -67,7 +67,7 @@ export function ProjectCard({ project, onSelect }: ProjectCardProps) {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-bold">Daka 2</h3>
+            <h3 className="text-lg font-bold">{project.name}</h3>
             <p className="text-sm font-bold text-muted-foreground mt-1">
               {project.client}
             </p>

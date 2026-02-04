@@ -7,14 +7,15 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const queryData: Record<string, any> = {};
-
     searchParams.forEach((value, key) => {
       queryData[key] = value;
     });
 
-    console.log("📊 Query data:", queryData);
+    const appId =
+      searchParams.get("appId") || searchParams.get("unique_id") || "";
+    console.log(`📊 Query data (appId: ${appId}):`, queryData);
 
-    const appData = await getAppData(15, queryData);
+    const appData = await getAppData(parseInt(appId), queryData);
     console.log("✅ AppData obtenida:", appData);
     return NextResponse.json(appData);
   } catch (error: unknown) {

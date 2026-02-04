@@ -40,7 +40,6 @@ export function CreateInvoiceDialog({
 }: CreateInvoiceDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [gestionoBeneficiaries, setGestionoBeneficiaries] = useState<
     GestionoBeneficiary[]
   >([]);
@@ -80,6 +79,7 @@ export function CreateInvoiceDialog({
     control,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<
     Partial<
@@ -179,6 +179,22 @@ export function CreateInvoiceDialog({
     }
   }, [isOpen, gestionoDivisions, projectId, setValue]);
 
+  // Update isSell and type when transactionType or documentType changes
+  useEffect(() => {
+    if (isOpen) {
+      setValue("isSell", transactionType === "sale");
+      setValue("type", getGestionoType());
+    }
+  }, [isOpen, transactionType, documentType, setValue]);
+
+  // Reset form when dialog closes to ensure clean state on next open
+  useEffect(() => {
+    if (!isOpen) {
+      reset();
+      setSubmitError(null);
+    }
+  }, [isOpen, reset]);
+
   // Calculate totals
   const subtotal = (watchElements || []).reduce(
     (sum: number, item: any) =>
@@ -227,7 +243,6 @@ export function CreateInvoiceDialog({
 
   const onSubmit = async (data: Partial<PendingRecord>) => {
     setSubmitError(null);
-    setSubmitSuccess(false);
     setIsSubmitting(true);
 
     try {
@@ -273,6 +288,7 @@ export function CreateInvoiceDialog({
 
       if (!result.configured) {
         console.warn("⚠️ Gestiono no está configurado:", result.details);
+        reset();
         onCreateInvoice?.(data);
         onClose();
         return;
@@ -284,18 +300,15 @@ export function CreateInvoiceDialog({
 
       console.log("✅ Factura creada en Gestiono:", result);
 
-      setSubmitSuccess(true);
+      // Reset form and close immediately
+      reset();
       onCreateInvoice?.(data);
-
-      setTimeout(() => {
-        onClose();
-      }, 1500);
+      onClose();
     } catch (error: unknown) {
       console.error("❌ Error creando factura:", error);
       const errorMessage =
         error instanceof Error ? error.message : "Error al crear factura";
       setSubmitError(errorMessage);
-      onCreateInvoice?.(data);
     } finally {
       setIsSubmitting(false);
     }
@@ -344,24 +357,6 @@ export function CreateInvoiceDialog({
               <div>
                 <p className="text-sm font-medium text-red-800">Error</p>
                 <p className="text-sm text-red-600 mt-1">{submitError}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Success Message */}
-        {submitSuccess && (
-          <div className="mx-6 mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-start gap-2">
-              <span className="text-green-600 text-xl">✅</span>
-              <div>
-                <p className="text-sm font-medium text-green-800">
-                  ¡{getDocumentName()} creada exitosamente!
-                </p>
-                <p className="text-sm text-green-600 mt-1">
-                  {getDocumentName()} se ha registrado en Gestiono
-                  correctamente.
-                </p>
               </div>
             </div>
           </div>
@@ -730,7 +725,7 @@ export function CreateInvoiceDialog({
           </div>
 
           {/* Campos de autorización para Cotización y Orden de Compra */}
-          {(documentType === "quote" || documentType === "order") && (
+          {/* {(documentType === "quote" || documentType === "order") && (
             <div className="bg-white border border-gray-200 rounded-lg p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Autorización
@@ -772,7 +767,7 @@ export function CreateInvoiceDialog({
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Campo específico para Factura: RNC del cliente */}
           {documentType === "invoice" && (

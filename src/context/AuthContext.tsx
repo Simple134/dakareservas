@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase/client";
 import { User } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 // Define the shape of the context
 type AuthContextType = {
@@ -56,7 +56,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    // Start loading for the sign‑in process
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -135,7 +134,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     router.push("/login");
   };
 
-  // Initialize auth state on mount - this reads from localStorage automatically
   useEffect(() => {
     let mounted = true;
 
@@ -223,6 +221,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!loading && pathname === "/") {
+      if (user) {
+        if (role === "admin") {
+          router.replace("/admin");
+        } else if (role === "user") {
+          router.replace(`/user/${user.id}`);
+        }
+      } else {
+        router.replace("/login");
+      }
+    }
+  }, [user, role, loading, pathname, router]);
 
   return (
     <AuthContext.Provider

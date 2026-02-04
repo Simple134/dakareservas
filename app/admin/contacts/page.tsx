@@ -36,6 +36,8 @@ const ContactsPage = () => {
     beneficiaryName: null,
   });
   const [isDeleting, setIsDeleting] = useState(false);
+  const [editBeneficiary, setEditBeneficiary] =
+    useState<GestionoBeneficiary | null>(null);
 
   const fetchGestionoBeneficiaries = async () => {
     setIsLoading(true);
@@ -94,14 +96,16 @@ const ContactsPage = () => {
 
   const getStats = () => {
     const total = contacts.length;
+    // Clientes: All types except ORGANIZATION and GOVERNMENT
     const clients = contacts.filter(
-      (c) => c.type === "CLIENT" || c.type === "BOTH",
+      (c) => c.type !== "ORGANIZATION" && c.type !== "GOVERNMENT",
     ).length;
-    const providers = contacts.filter(
-      (c) => c.type === "PROVIDER" || c.type === "BOTH",
+    // Organizaciones: Only ORGANIZATION and GOVERNMENT types
+    const organizations = contacts.filter(
+      (c) => c.type === "ORGANIZATION" || c.type === "GOVERNMENT",
     ).length;
 
-    return { total, clients, providers };
+    return { total, clients, organizations };
   };
 
   const stats = getStats();
@@ -122,12 +126,13 @@ const ContactsPage = () => {
 
     setIsDeleting(true);
     try {
-      const response = await fetch(
-        `/api/gestiono/beneficiaries?beneficiaryId=${deleteModalState.beneficiaryId}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await fetch("/api/gestiono/archiveBeneficiaries", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: deleteModalState.beneficiaryId,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error("Error al archivar el contacto");
@@ -156,6 +161,16 @@ const ContactsPage = () => {
     });
   };
 
+  const handleContactClick = (contact: GestionoBeneficiary) => {
+    setEditBeneficiary(contact);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditBeneficiary(null);
+  };
+
   return (
     <div className="flex min-h-screen bg-white">
       <div className="flex-1">
@@ -166,7 +181,7 @@ const ContactsPage = () => {
                 Contactos
               </h1>
               <p className="text-sm text-gray-500">
-                Gestiona clientes, proveedores, contratistas y más
+                Gestiona clientes y organizaciones
               </p>
             </div>
             <button
@@ -219,12 +234,12 @@ const ContactsPage = () => {
             <div className="bg-white rounded-xl p-6 border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Proveedores</p>
+                  <p className="text-sm text-gray-500 mb-1">Organizaciones</p>
                   <div className="text-3xl font-bold text-[#131E29]">
                     {isLoading ? (
                       <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
                     ) : (
-                      stats.providers
+                      stats.organizations
                     )}
                   </div>
                 </div>
@@ -289,7 +304,9 @@ const ContactsPage = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredContacts.map((contact, index) => {
-                const isProvider = contact.type === "PROVIDER";
+                const isOrganization =
+                  contact.type === "ORGANIZATION" ||
+                  contact.type === "GOVERNMENT";
 
                 // Collect distinct contact methods to display based on available data
                 const contactMethods: {
@@ -318,16 +335,19 @@ const ContactsPage = () => {
                 return (
                   <div
                     key={contact.id || index}
-                    className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-shadow"
+                    onClick={() => handleContactClick(contact)}
+                    className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-11 h-11 rounded-lg flex items-center justify-center ${
-                            isProvider ? "bg-[#F59E0B]/10" : "bg-[#10B981]/10"
+                            isOrganization
+                              ? "bg-[#F59E0B]/10"
+                              : "bg-[#10B981]/10"
                           }`}
                         >
-                          {isProvider ? (
+                          {isOrganization ? (
                             <Building2 className="w-5 h-5 text-[#F59E0B]" />
                           ) : (
                             <User className="w-5 h-5 text-[#10B981]" />
@@ -338,7 +358,7 @@ const ContactsPage = () => {
                             {contact.name || "Sin Nombre"}
                           </p>
                           <span
-                            className={`text-xs text-gray-500 mt-0.5 block ${isProvider ? "bg-[#F59E0B]/10 text-[#F59E0B] w-fit p-1 rounded-full" : "bg-[#10B981]/10 text-[#10B981] w-fit p-1 rounded-full"}`}
+                            className={`text-xs text-gray-500 mt-0.5 block ${isOrganization ? "bg-[#F59E0B]/10 text-[#F59E0B] w-fit p-1 rounded-full" : "bg-[#10B981]/10 text-[#10B981] w-fit p-1 rounded-full"}`}
                           >
                             {contact.type === "CLIENT"
                               ? "Cliente"
@@ -346,7 +366,13 @@ const ContactsPage = () => {
                                 ? "Proveedor"
                                 : contact.type === "EMPLOYEE"
                                   ? "Empleado"
-                                  : contact.type}
+                                  : contact.type === "SELLER"
+                                    ? "Vendedor"
+                                    : contact.type === "GOVERNMENT"
+                                      ? "Gobierno"
+                                      : contact.type === "ORGANIZATION"
+                                        ? "Organización"
+                                        : contact.type}
                           </span>
                         </div>
                       </div>
@@ -355,9 +381,10 @@ const ContactsPage = () => {
                           Activo
                         </span>
                         <button
-                          onClick={() =>
-                            handleDeleteClick(contact.id, contact.name)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteClick(contact.id, contact.name);
+                          }}
                           className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                           title="Eliminar contacto"
                         >
@@ -413,8 +440,32 @@ const ContactsPage = () => {
         </div>
         <AddBeneficiaryModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={handleModalClose}
           onSuccess={fetchGestionoBeneficiaries}
+          beneficiaryData={
+            editBeneficiary
+              ? {
+                  name: editBeneficiary.name,
+                  type: editBeneficiary.type,
+                  contact: editBeneficiary.contacts?.map((c) => ({
+                    id: c.id, // ✅ IMPORTANTE: Incluir el ID del contacto
+                    type: c.type,
+                    data: c.data,
+                    dataType: c.dataType as
+                      | "string"
+                      | "json"
+                      | "image"
+                      | "date"
+                      | undefined,
+                    beneficiaryId: c.beneficiaryId, // También incluir beneficiaryId
+                  })) || [{ type: "phone", data: "", dataType: "string" }],
+                  taxId: editBeneficiary.taxId || undefined,
+                  reference: editBeneficiary.reference || undefined,
+                  creditLimit: editBeneficiary.creditLimit || undefined,
+                }
+              : undefined
+          }
+          beneficiaryId={editBeneficiary?.id}
         />
 
         {/* Delete Confirmation Modal */}

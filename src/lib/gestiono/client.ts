@@ -17,6 +17,7 @@ function generateSignature(privateKey: string, data: any): string {
 
 export interface GestionoRequestInit extends RequestInit {
   query?: Record<string, any>;
+  formData?: FormData;
 }
 
 export async function gestionoRequest<T>(
@@ -123,6 +124,108 @@ export async function gestionoRequest<T>(
     console.error("Gestiono API Error:", error);
     throw error;
   }
+}
+
+function formDataToSignObject(formData: FormData) {
+  const obj: Record<string, string> = {};
+
+  formData.forEach((value, key) => {
+    if (typeof value === "string") {
+      obj[key] = value;
+    }
+  });
+
+  return obj;
+}
+
+export async function gestionoFormRequest<T>(
+  endpoint: string,
+  options: GestionoRequestInit = {},
+): Promise<T> {
+  const timestamp = Date.now();
+  const recvWindow = 60000;
+  const method = options.method?.toUpperCase() || "GET";
+  const isFormData = options.body instanceof FormData;
+
+  const [path, queryString] = endpoint.split("?");
+  const queryParamsObj: Record<string, any> = {};
+
+  new URLSearchParams(queryString || "").forEach((v, k) => {
+    queryParamsObj[k] = v;
+  });
+
+  let finalUrl = `${GESTIONO_BASE_URL}${path}`;
+  let finalBody: BodyInit | null = null;
+  let dataToSign: Record<string, any> = {};
+
+  if (method === "GET") {
+    const params = {
+      ...queryParamsObj,
+      timestamp,
+      recvWindow,
+    };
+
+    dataToSign = params;
+    finalUrl += `?${new URLSearchParams(
+      Object.entries(params).map(([k, v]) => [k, String(v)]),
+    ).toString()}`;
+  } else {
+    if (isFormData) {
+      const formData = options.body as FormData;
+
+      formData.append("timestamp", String(timestamp));
+      formData.append("recvWindow", String(recvWindow));
+
+      finalBody = formData;
+
+      dataToSign = {
+        ...queryParamsObj,
+        ...formDataToSignObject(formData),
+      };
+    } else {
+      const jsonBody = options.body ? JSON.parse(options.body as string) : {};
+
+      const newBody = {
+        ...jsonBody,
+        timestamp,
+        recvWindow,
+      };
+
+      finalBody = JSON.stringify(newBody);
+
+      dataToSign = {
+        ...queryParamsObj,
+        ...jsonBody,
+        timestamp,
+        recvWindow,
+      };
+    }
+  }
+
+  const signature = generateSignature(GESTIONO_API_PRIVATE_KEY, dataToSign);
+
+  const headers: HeadersInit = {
+    "X-Bitnation-Apikey": GESTIONO_API_PUBLIC_KEY,
+    "X-Bitnation-Organization-Id": GESTIONO_ORGANIZATION_ID,
+    Authorization: signature,
+  };
+
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  const response = await fetch(finalUrl, {
+    ...options,
+    body: finalBody,
+    headers,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => null);
+    throw err ?? { statusCode: response.status };
+  }
+
+  return response.json();
 }
 
 export function validateGestionoConfig(): { valid: boolean; errors: string[] } {

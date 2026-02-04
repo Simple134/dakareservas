@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/src/components/ui/table";
 import { Plus, Users, DollarSign, Clock, User } from "lucide-react";
+import { AddPersonnelDialog } from "./AddPersonnelDialog";
 
 interface PersonnelModuleProps {
   projectId: string | number;
@@ -34,6 +35,50 @@ interface Labor {
 
 export function PersonnelModule({ projectId }: PersonnelModuleProps) {
   const [personnel, setPersonnel] = useState<Labor[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchPersonnel = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(
+        `/api/gestiono/pendingRecord?divisionId=${projectId}&type=PAYROLL&isSell=false`,
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("📋 Personnel data:", data);
+
+        // Transform the data to match Labor interface
+        const transformedData = (data.data || []).map((record: any) => ({
+          id: record.id,
+          contractor_name: record.beneficiary?.name || "Desconocido",
+          work_description:
+            record.elements?.[0]?.description || "Sin descripción",
+          total_amount: record.elements?.[0]?.price || 0,
+          payment_date: record.paymentDate || null,
+          payment_status: record.paymentDate ? "paid" : "pending",
+          work_date: record.date,
+        }));
+
+        setPersonnel(transformedData);
+      }
+    } catch (error) {
+      console.error("Error fetching personnel:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (projectId) {
+      fetchPersonnel();
+    }
+  }, [projectId]);
+
+  const handleDialogSuccess = () => {
+    fetchPersonnel();
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-DO", {
@@ -171,7 +216,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Planilla de Personal</CardTitle>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setIsDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Trabajador
             </Button>
@@ -253,6 +298,14 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Add Personnel Dialog */}
+      <AddPersonnelDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        projectId={projectId}
+        onSuccess={handleDialogSuccess}
+      />
     </div>
   );
 }
