@@ -24,7 +24,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
 
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([612, 792]); // Letter size: 8.5" x 11"
+  let page = pdfDoc.addPage([612, 792]); // Letter size: 8.5" x 11"
 
   // Embed fonts
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -108,6 +108,16 @@ export async function generateQuotePDF(data: QuotePDFData) {
 
   page.drawText(quoteDate, {
     x: width - margin - 80,
+    y: rightYPosition,
+    size: 9,
+    font,
+    color: rgb(0, 0, 0),
+  });
+
+  rightYPosition -= 12;
+
+  page.drawText("Válido por 10 días", {
+    x: width - margin - 200,
     y: rightYPosition,
     size: 9,
     font,
@@ -214,6 +224,26 @@ export async function generateQuotePDF(data: QuotePDFData) {
     margin + 450,
   ];
 
+  // Helper for text wrapping
+  const wrapText = (text: string, maxWidth: number, fontSize: number) => {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let currentLine = "";
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = font.widthOfTextAtSize(testLine, fontSize);
+      if (testWidth > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  };
+
   tableHeaders.forEach((header, index) => {
     page.drawText(header, {
       x: columnPositions[index],
@@ -242,7 +272,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   elements.forEach((element, index) => {
     const ref = (index + 1).toString();
     const code = element.resourceId?.toString() || "";
-    const description = element.description;
+    const descriptionLines = wrapText(element.description, 190, 8);
     const quantity = element.quantity.toString();
     const unit = element.unit;
     const price = element.price.toFixed(2);
@@ -250,10 +280,11 @@ export async function generateQuotePDF(data: QuotePDFData) {
 
     totalAmount += element.quantity * element.price;
 
+    const rowHeight = Math.max(15, descriptionLines.length * 10 + 5);
+
     // Check if we need a new page
     if (yPosition < 100) {
-      // Add new page
-      const newPage = pdfDoc.addPage([612, 792]);
+      page = pdfDoc.addPage([612, 792]);
       yPosition = height - margin;
     }
 
@@ -273,12 +304,15 @@ export async function generateQuotePDF(data: QuotePDFData) {
       color: rgb(0, 0, 0),
     });
 
-    page.drawText(description, {
-      x: columnPositions[2],
-      y: yPosition,
-      size: 8,
-      font,
-      color: rgb(0, 0, 0),
+    // Draw wrapped description
+    descriptionLines.forEach((line, i) => {
+      page.drawText(line, {
+        x: columnPositions[2],
+        y: yPosition - i * 10,
+        size: 8,
+        font,
+        color: rgb(0, 0, 0),
+      });
     });
 
     page.drawText(quantity, {
@@ -313,7 +347,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
       color: rgb(0, 0, 0),
     });
 
-    yPosition -= 15;
+    yPosition -= rowHeight;
   });
 
   // Draw FIN marker
@@ -331,6 +365,14 @@ export async function generateQuotePDF(data: QuotePDFData) {
   yPosition -= 40;
 
   // Total
+  page.drawText("Realizado por:", {
+    x: margin,
+    y: yPosition,
+    size: 10,
+    font,
+    color: rgb(0, 0, 0),
+  });
+
   page.drawText("TOTAL RD$", {
     x: width - margin - 150,
     y: yPosition,
