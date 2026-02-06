@@ -170,20 +170,19 @@ export async function generateQuotePDF(data: QuotePDFData) {
   }
 
   // Request text below client info
-  yPosition -= 25;
-
-  {
-    documentType === "QUOTE" &&
-      page.drawText("Favor cotizarnos lo siguiente:", {
-        x: margin,
-        y: yPosition,
-        size: 10,
-        font: fontBold,
-        color: rgb(0, 0, 0),
-      });
+  if (documentType === "QUOTE" && !isSell) {
+    yPosition -= 25;
+    page.drawText("Favor cotizarnos lo siguiente:", {
+      x: margin,
+      y: yPosition,
+      size: 10,
+      font: fontBold,
+      color: rgb(0, 0, 0),
+    });
+    yPosition -= 20;
+  } else {
+    yPosition -= 15;
   }
-
-  yPosition -= 20;
 
   // Draw horizontal line
   page.drawLine({
@@ -243,10 +242,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   elements.forEach((element, index) => {
     const ref = (index + 1).toString();
     const code = element.resourceId?.toString() || "";
-    const description =
-      element.description.length > 30
-        ? element.description.substring(0, 30) + "..."
-        : element.description;
+    const description = element.description;
     const quantity = element.quantity.toString();
     const unit = element.unit;
     const price = element.price.toFixed(2);
