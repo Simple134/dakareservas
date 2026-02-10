@@ -78,11 +78,11 @@ const ItemsPage = () => {
   const filteredItems = items.filter((item) => {
     const itemCategory =
       typeof item.clientdata === "object" && item.clientdata !== null
-        ? item.clientdata.category
+        ? (item.clientdata.category as string) || item.type
         : item.type;
     const itemSubcategory =
       typeof item.clientdata === "object" && item.clientdata !== null
-        ? item.clientdata.subcategory
+        ? (item.clientdata.subcategory as string) || item.relation
         : item.relation;
 
     const matchesSearch =
@@ -105,12 +105,12 @@ const ItemsPage = () => {
       items
         .map((item) =>
           typeof item.clientdata === "object" && item.clientdata !== null
-            ? item.clientdata.category || item.type
+            ? (item.clientdata.category as string) || item.type
             : item.type,
         )
         .filter(Boolean),
     ),
-  );
+  ) as string[];
 
   // Get unique subcategories from items
   const uniqueSubcategories = Array.from(
@@ -118,24 +118,24 @@ const ItemsPage = () => {
       items
         .map((item) =>
           typeof item.clientdata === "object" && item.clientdata !== null
-            ? item.clientdata.subcategory || item.relation
+            ? (item.clientdata.subcategory as string) || item.relation
             : item.relation,
         )
         .filter(Boolean),
     ),
-  );
+  ) as string[];
 
   const categoryData = items.reduce(
     (acc, item) => {
       const category =
         typeof item.clientdata === "object" && item.clientdata !== null
-          ? item.clientdata.category || item.type
+          ? (item.clientdata.category as string) || item.type
           : item.type;
       const existing = acc.find((c) => c.name === category);
       if (existing) {
         existing.count++;
       } else {
-        acc.push({ name: category || "Otros", count: 1 });
+        acc.push({ name: (category as string) || "Otros", count: 1 });
       }
       return acc;
     },
@@ -341,17 +341,19 @@ const ItemsPage = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm text-gray-700">
-                                    {clientData.category || item.type}
+                                    {(clientData.category as string) ||
+                                      item.type}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm text-gray-700">
-                                    {clientData.subcategory || item.relation}
+                                    {(clientData.subcategory as string) ||
+                                      item.relation}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">
                                   <span className="text-sm text-gray-700">
-                                    {clientData.supplier || "N/A"}
+                                    {(clientData.supplier as string) || "N/A"}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4">

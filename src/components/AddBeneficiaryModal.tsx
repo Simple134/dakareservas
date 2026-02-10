@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { X, Plus, Trash2, Save, Loader2, Check } from "lucide-react";
-import { CreateBeneficiaryBody } from "@/src/types/gestiono";
+import {
+  CreateBeneficiaryBody,
+  BeneficiaryContactResponse,
+} from "@/src/types/gestiono";
 
 interface AddBeneficiaryModalProps {
   isOpen: boolean;
@@ -113,7 +116,7 @@ export default function AddBeneficiaryModal({
       reset({
         name: freshData.name,
         type: freshData.type,
-        contact: freshData.contacts?.map((c: any) => ({
+        contact: freshData.contacts?.map((c: BeneficiaryContactResponse) => ({
           id: c.id,
           type: c.type,
           data: c.data,
@@ -156,14 +159,6 @@ export default function AddBeneficiaryModal({
       if (!contactData) return;
 
       const contactId = beneficiaryData?.contact?.[index]?.id;
-
-      console.log("💾 SAVE DEBUG:", {
-        index,
-        contactId,
-        beneficiaryId,
-        contactData,
-        operation: contactId ? "UPDATE" : "CREATE",
-      });
 
       if (contactId) {
         // Update existing contact - must include beneficiaryId
@@ -208,7 +203,7 @@ export default function AddBeneficiaryModal({
 
         // Update the field with the new contact ID
         if (result.contactId) {
-          update(index, { ...contactData, id: result.contactId } as any);
+          update(index, { ...contactData, id: result.contactId });
         }
       }
 
@@ -312,27 +307,27 @@ export default function AddBeneficiaryModal({
 
       const payload = isEditMode
         ? {
-          // EDIT MODE: Only send beneficiary data, NO contact data
-          // Contacts are managed separately via individual save buttons
-          id: beneficiaryId,
-          name: beneficiaryData.name,
-          type: beneficiaryData.type,
-          taxId: beneficiaryData.taxId || undefined,
-          reference: beneficiaryData.reference || undefined,
-          creditLimit: beneficiaryData.creditLimit
-            ? Number(String(beneficiaryData.creditLimit).replace(/,/g, ""))
-            : undefined,
-          metadata: {
-            isrTaxRetention: isrTaxRetentionVar || 0,
-          },
-        }
+            // EDIT MODE: Only send beneficiary data, NO contact data
+            // Contacts are managed separately via individual save buttons
+            id: beneficiaryId,
+            name: beneficiaryData.name,
+            type: beneficiaryData.type,
+            taxId: beneficiaryData.taxId || undefined,
+            reference: beneficiaryData.reference || undefined,
+            creditLimit: beneficiaryData.creditLimit
+              ? Number(String(beneficiaryData.creditLimit).replace(/,/g, ""))
+              : undefined,
+            metadata: {
+              isrTaxRetention: isrTaxRetentionVar || 0,
+            },
+          }
         : {
-          // CREATE MODE: Send everything including contacts
-          ...data,
-          creditLimit: data.creditLimit
-            ? Number(String(data.creditLimit).replace(/,/g, ""))
-            : undefined,
-        };
+            // CREATE MODE: Send everything including contacts
+            ...data,
+            creditLimit: data.creditLimit
+              ? Number(String(data.creditLimit).replace(/,/g, ""))
+              : undefined,
+          };
 
       const url = isEditMode
         ? `/api/gestiono/beneficiaries/${beneficiaryId}`

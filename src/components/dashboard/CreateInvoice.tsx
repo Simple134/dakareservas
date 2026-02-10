@@ -16,6 +16,7 @@ import {
   GestionoBeneficiary,
   PendingRecord,
   PendingRecordElement,
+  TaxRate,
 } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
 
@@ -46,6 +47,7 @@ export function CreateInvoiceDialog({
   const [selectedBeneficiary, setSelectedBeneficiary] =
     useState<GestionoBeneficiary | null>(null);
   const [isService, setIsService] = useState(false);
+  const [taxesList, setTaxesList] = useState<TaxRate[]>([]);
 
   const { divisions: gestionoDivisions } = useGestiono();
   const [selectedDivisionId, setSelectedDivisionId] = useState<number>(183);
@@ -158,6 +160,24 @@ export function CreateInvoiceDialog({
     fetchBeneficiaries();
   }, [isOpen]);
 
+  // Fetch taxes list
+  useEffect(() => {
+    const fetchTaxes = async () => {
+      if (!isOpen) return;
+      try {
+        const response = await fetch(`/api/gestiono/taxes`);
+        if (response.ok) {
+          const data = await response.json();
+          setTaxesList(data || []);
+          console.log("📋 Taxes list:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching taxes:", error);
+      }
+    };
+    fetchTaxes();
+  }, [isOpen]);
+
   // Update division when context changes or projectId is provided
   useEffect(() => {
     if (isOpen && gestionoDivisions.length > 0) {
@@ -203,8 +223,10 @@ export function CreateInvoiceDialog({
   const taxAmount = (watchElements || []).reduce(
     (sum: number, item: Partial<PendingRecordElement>) => {
       const itemSubtotal = (item?.quantity || 0) * (item?.price || 0);
-      const rate = item?.salesTaxRate ?? 18;
-      return sum + itemSubtotal * (rate / 100);
+      const taxRateId = item?.taxes?.[0]?.taxRateId;
+      const tax = taxesList.find((t) => t.id === taxRateId);
+      const rate = tax?.rate || 0;
+      return sum + itemSubtotal * rate;
     },
     0,
   );
@@ -236,8 +258,17 @@ export function CreateInvoiceDialog({
       unit: "unidad",
       price: 0,
       variation: 0,
-      salesTaxRate: 18,
-      taxes: [],
+      taxes:
+        taxesList.length > 0
+          ? [
+              {
+                taxRateId: taxesList[0].id,
+                id: 0,
+                pendingRecordElementId: 0,
+                isIncludedInPrice: false,
+              },
+            ]
+          : [],
     } as PendingRecordElement);
   };
 
@@ -295,9 +326,13 @@ export function CreateInvoiceDialog({
           price: el.price,
           unit: el.unit,
           variation: el.variation || 0,
-          salesTaxRate: (el.salesTaxRate ?? 18) / 100,
         })),
       };
+
+      // Keep track of which taxes each element should have
+      const elementTaxes = (data.elements || []).map(
+        (el) => el.taxes?.[0]?.taxRateId ?? 0,
+      );
 
       console.log("📦 Payload:", payload);
 
@@ -324,6 +359,25 @@ export function CreateInvoiceDialog({
       }
 
       console.log("✅ Factura creada en Gestiono:", result);
+
+      // Add taxes to each element via separate endpoint
+      const createdElements = result.data?.elements || [];
+      for (let i = 0; i < createdElements.length; i++) {
+        const taxRateId = elementTaxes[i];
+        if (taxRateId > 0 && createdElements[i]?.id) {
+          console.log(
+            `➕ Adding tax ${taxRateId} to element ${createdElements[i].id}`,
+          );
+          await fetch(`/api/gestiono/element/taxes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pendingRecordElementId: createdElements[i].id,
+              taxRateId,
+            }),
+          });
+        }
+      }
 
       // Reset form and close immediately
       reset();
@@ -606,10 +660,10 @@ export function CreateInvoiceDialog({
             <div className="space-y-3">
               <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
                 <div className="col-span-4">Descripción</div>
-                <div className="col-span-2">Cantidad</div>
+                <div className="col-span-1">Cant.</div>
                 <div className="col-span-1">Unidad</div>
                 <div className="col-span-2">Precio</div>
-                <div className="col-span-1">ITBIS%</div>
+                <div className="col-span-2">Impuesto</div>
                 <div className="col-span-1">Total</div>
                 <div className="col-span-1"></div>
               </div>
@@ -633,10 +687,9 @@ export function CreateInvoiceDialog({
                       />
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <input
-                        type="number"
-                        step="0.01"
+                        type="text"
                         {...register(`elements.${index}.quantity`, {
                           valueAsNumber: true,
                         })}
@@ -664,17 +717,33 @@ export function CreateInvoiceDialog({
                       />
                     </div>
 
-                    <div className="col-span-1">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        {...register(`elements.${index}.salesTaxRate`, {
-                          valueAsNumber: true,
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
+                    <div className="col-span-2">
+                      <select
+                        value={element?.taxes?.[0]?.taxRateId || ""}
+                        onChange={(e) => {
+                          const taxRateId = Number(e.target.value);
+                          if (taxRateId) {
+                            setValue(`elements.${index}.taxes`, [
+                              {
+                                taxRateId,
+                                id: 0,
+                                pendingRecordElementId: 0,
+                                isIncludedInPrice: false,
+                              },
+                            ]);
+                          } else {
+                            setValue(`elements.${index}.taxes`, []);
+                          }
+                        }}
+                        className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                      >
+                        <option value="">Sin impuesto</option>
+                        {taxesList.map((tax) => (
+                          <option key={tax.id} value={tax.id}>
+                            {tax.slug} ({(tax.rate * 100).toFixed(0)}%)
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="col-span-1">

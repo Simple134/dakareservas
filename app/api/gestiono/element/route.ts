@@ -18,15 +18,12 @@ export async function POST(request: NextRequest) {
 
     const result = await createPendingRecordElement(body);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error creating element:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to create element",
-        details: error.message,
-      },
-      { status: error.status || 500 },
-    );
+    return NextResponse.json({
+      error: "Failed to create element",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -43,15 +40,12 @@ export async function PATCH(request: NextRequest) {
 
     const result = await updatePendingRecordElement(body);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating element:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to update element",
-        details: error.message,
-      },
-      { status: error.status || 500 },
-    );
+    return NextResponse.json({
+      error: "Failed to update element",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -69,14 +63,11 @@ export async function DELETE(request: NextRequest) {
       pendingRecordId: body.pendingRecordId,
     });
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting element:", error);
-    return NextResponse.json(
-      {
-        error: "Failed to delete element",
-        details: error.message,
-      },
-      { status: error.status || 500 },
-    );
+    return NextResponse.json({
+      error: "Failed to delete element",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 }

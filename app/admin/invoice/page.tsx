@@ -94,10 +94,10 @@ function mapGestionoToInvoice(
   ) {
     const meta = gestionoInvoice.metadata;
     if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
-      attachedFileUrl = meta.files[0].s3Key;
+      attachedFileUrl = meta.files[0].s3Key as string;
     } else if (meta.attachedfileurl) {
       // Fallback for old data
-      attachedFileUrl = meta.attachedfileurl;
+      attachedFileUrl = meta.attachedfileurl as string;
     }
   }
 

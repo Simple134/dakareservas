@@ -19,6 +19,13 @@ import type {
   GetResourcesQuery,
   V2GetResourcesResponse,
   GestionoBeneficiary,
+  PendingRecord,
+  PendingRecordElement,
+  AppDataExplorerResponse,
+  CreateContactDataBody,
+  CreateContactDataResponse,
+  UpdateContactDataBody,
+  UpdateContactDataResponse,
 } from "@/src/types/gestiono";
 
 export async function createPendingRecord(
@@ -326,27 +333,37 @@ export async function deletePendingRecord(
   });
 }
 
-export async function updatePendingRecord(data: {
-  id: number;
-  type?: string;
-  [key: string]: any;
-}): Promise<V2GetPendingRecordsResponse> {
+export async function updatePendingRecord(
+  data: Partial<PendingRecord> & { id: number },
+): Promise<V2GetPendingRecordsResponse> {
   return gestionoRequest<V2GetPendingRecordsResponse>(`/v1/record/pending`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
 }
 
-export async function getAppDataTypes(appId: number): Promise<any> {
-  return gestionoRequest<any>(`/v1/apps/data-types/${appId}`, {
+export async function getAppDataTypes(appId: number): Promise<string[]> {
+  return gestionoRequest<string[]>(`/v1/apps/data-types/${appId}`, {
     method: "GET",
   });
 }
 
-export async function getAppData(appId: number, data: any = {}): Promise<any> {
-  return gestionoRequest<any>(`/v1/apps/data/explorer/${appId}`, {
+export async function getAppData(
+  appId: number,
+  data: Record<string, unknown> = {},
+): Promise<AppDataExplorerResponse> {
+  return gestionoRequest<AppDataExplorerResponse>(
+    `/v1/apps/data/explorer/${appId}`,
+    {
+      method: "GET",
+      query: data,
+    },
+  );
+}
+
+export async function getTaxesList() {
+  return gestionoRequest(`/v1/taxes/list`, {
     method: "GET",
-    query: data,
   });
 }
 
@@ -367,10 +384,9 @@ export async function createPendingRecordElement(data: {
   );
 }
 
-export async function updatePendingRecordElement(data: {
-  id: number;
-  [key: string]: any;
-}): Promise<V2GetPendingRecordsResponse> {
+export async function updatePendingRecordElement(
+  data: Partial<PendingRecordElement> & { id: number },
+): Promise<V2GetPendingRecordsResponse> {
   return gestionoRequest<V2GetPendingRecordsResponse>(
     `/v1/record/pending/element`,
     {
@@ -393,25 +409,46 @@ export async function deletePendingRecordElement(data: {
   );
 }
 
-export async function createContactData(data: {
-  beneficiaryId: number;
-  [key: string]: any;
-}): Promise<any> {
-  return gestionoRequest<any>(`/v1/beneficiary/contact`, {
+export async function addPendingRecordElementTaxes(data: {
+  pendingRecordElementId: number;
+  taxRateId: number;
+}) {
+  return gestionoRequest(`/v1/record/pending/element/taxes`, {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
-export async function updateContactData(data: { id: number }): Promise<any> {
-  return gestionoRequest<any>(`/v1/beneficiary/contact`, {
+export async function removePendingRecordElementTaxes(data: {
+  pendingRecordElementId: number;
+  taxRateId: number;
+}) {
+  return gestionoRequest(`/v1/record/pending/element/taxes`, {
+    method: "DELETE",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function createContactData(
+  data: CreateContactDataBody,
+): Promise<CreateContactDataResponse> {
+  return gestionoRequest<CreateContactDataResponse>(`/v1/beneficiary/contact`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateContactData(
+  data: UpdateContactDataBody,
+): Promise<UpdateContactDataResponse> {
+  return gestionoRequest<UpdateContactDataResponse>(`/v1/beneficiary/contact`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
 }
 
-export async function deleteContactData(id: number): Promise<any> {
-  return gestionoRequest<any>(`/v1/beneficiary/contact/${id}`, {
+export async function deleteContactData(id: number): Promise<void> {
+  return gestionoRequest<void>(`/v1/beneficiary/contact/${id}`, {
     method: "DELETE",
   });
 }

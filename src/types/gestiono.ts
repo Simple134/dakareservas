@@ -22,13 +22,13 @@ export interface PendingRecord {
 
   // Record Type (Required by Gestiono API)
   type?:
-  | "INVOICE"
-  | "QUOTE"
-  | "ORDER"
-  | "LOAN"
-  | "INCOME"
-  | "OUTCOME"
-  | "PAYROLL";
+    | "INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "INCOME"
+    | "OUTCOME"
+    | "PAYROLL";
 
   // Dates & Status
   date: AnyDate;
@@ -119,7 +119,7 @@ export interface PendingRecord {
   returns?: Return[];
 
   // Logistics
-  deliveryTask?: any;
+  deliveryTask?: Record<string, unknown>;
   pendingToDeliver?: {
     quantity: number;
     resourceId: number;
@@ -128,8 +128,8 @@ export interface PendingRecord {
 
   // Metadata
   labels?: string[];
-  clientdata?: Record<string, any> | string;
-  metadata?: Record<string, any>;
+  clientdata?: Record<string, unknown> | string;
+  metadata?: Record<string, unknown>;
 
   // Linked Items
   invoices?: PendingRecord[];
@@ -181,7 +181,7 @@ export interface PaymentRecord {
   currency: Currency;
   description?: string;
   receivedFrom?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CommissionRecord {
@@ -190,7 +190,7 @@ export interface CommissionRecord {
   amount: number;
   date: AnyDate;
   currency: Currency;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Credit {
@@ -213,6 +213,15 @@ export interface Credit {
   };
 }
 
+export interface Redemption {
+  id: number;
+  returnId: number;
+  amount: number;
+  date: AnyDate;
+  description?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface Return {
   id: number;
   invoiceId: number;
@@ -222,7 +231,7 @@ export interface Return {
   createdAt: AnyDate;
 
   pendingToRedeem: number;
-  redeemtions: any[]; // Records of type REDEMPTION
+  redeemtions: Redemption[]; // Records of type REDEMPTION
 }
 
 export type GestionoInvoiceEvent =
@@ -238,8 +247,8 @@ export interface InvoiceEventPayload {
   invoiceId: string;
   userId?: string;
   editorId?: string;
-  old?: any;
-  new?: any;
+  old?: Record<string, unknown>;
+  new?: Record<string, unknown>;
   beneficiaryEmail?: string;
   emailsSent?: number;
   emailCount?: number;
@@ -267,13 +276,13 @@ export interface GestionoBeneficiaryPayload {
   id: number;
   name: string;
   type:
-  | "CLIENT"
-  | "PROVIDER"
-  | "BOTH"
-  | "EMPLOYEE"
-  | "GOVERNMENT"
-  | "ORGANIZATION"
-  | "OTHER";
+    | "CLIENT"
+    | "PROVIDER"
+    | "BOTH"
+    | "EMPLOYEE"
+    | "GOVERNMENT"
+    | "ORGANIZATION"
+    | "OTHER";
   taxId?: string;
   email?: string;
   reference?: string;
@@ -308,14 +317,14 @@ export interface GestionoBeneficiary {
   name: string;
   organizationId: number;
   type:
-  | "CLIENT"
-  | "PROVIDER"
-  | "SELLER"
-  | "ORGANIZATION"
-  | "BOTH"
-  | "EMPLOYEE"
-  | "GOVERNMENT"
-  | "OTHER";
+    | "CLIENT"
+    | "PROVIDER"
+    | "SELLER"
+    | "ORGANIZATION"
+    | "BOTH"
+    | "EMPLOYEE"
+    | "GOVERNMENT"
+    | "OTHER";
   referredBy: string | null;
   archived: number;
   assignedDivisionId: number | null;
@@ -365,22 +374,22 @@ export interface GestionoDivision {
     budget?: number;
     budgetCurrency?: "DOP" | "USD" | "EUR";
     budgetPeriod?:
-    | "MONTHLY"
-    | "YEARLY"
-    | "QUARTERLY"
-    | "WEEKLY"
-    | "DAILY"
-    | "LIFETIME";
+      | "MONTHLY"
+      | "YEARLY"
+      | "QUARTERLY"
+      | "WEEKLY"
+      | "DAILY"
+      | "LIFETIME";
     sellTarget?: number;
     sellTargetCurrency?: "DOP" | "USD" | "EUR";
     sellTargetPeriod?:
-    | "MONTHLY"
-    | "YEARLY"
-    | "QUARTERLY"
-    | "WEEKLY"
-    | "DAILY"
-    | "LIFETIME";
-    [key: string]: any;
+      | "MONTHLY"
+      | "YEARLY"
+      | "QUARTERLY"
+      | "WEEKLY"
+      | "DAILY"
+      | "LIFETIME";
+    [key: string]: string | number | boolean | undefined;
   };
 }
 
@@ -391,7 +400,7 @@ export interface GestionoDivisionPayload {
   linkedWarehouse?: number;
   lat?: number;
   lon?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GestionoDivisionWithBalance extends GestionoDivision {
@@ -408,7 +417,7 @@ export interface GestionoRecordElement {
   unit: string;
   variation: number;
   salesTaxRate?: number; // ITBIS percentage per element (e.g. 18)
-  taxes?: any[];
+  taxes?: PendingRecordElementTax[];
 }
 
 export interface GestionoRecordPayload {
@@ -441,7 +450,7 @@ export interface EventsQueryParams {
   type?: GestionoInvoiceEvent | GestionoInvoiceEvent[];
   page?: number;
   itemsPerPage?: number;
-  payloadFilter?: Record<string, any>;
+  payloadFilter?: Record<string, unknown>;
 }
 
 export interface EventsResponse {
@@ -454,14 +463,14 @@ export interface EventsResponse {
 export interface CreateBeneficiaryBody {
   name: string;
   type:
-  | "CLIENT"
-  | "PROVIDER"
-  | "ORGANIZATION"
-  | "EMPLOYEE"
-  | "SELLER"
-  | "GOVERNMENT"
-  | "BOTH"
-  | "OTHER";
+    | "CLIENT"
+    | "PROVIDER"
+    | "ORGANIZATION"
+    | "EMPLOYEE"
+    | "SELLER"
+    | "GOVERNMENT"
+    | "BOTH"
+    | "OTHER";
   taxId?: string;
   reference?: string;
   labels?: string[];
@@ -497,13 +506,13 @@ export interface GestionoInvoiceItem {
   dueDate: string | null;
   beneficiaryId: number;
   type:
-  | "INVOICE"
-  | "QUOTE"
-  | "ORDER"
-  | "LOAN"
-  | "INCOME"
-  | "OUTCOME"
-  | "PAYROLL";
+    | "INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "INCOME"
+    | "OUTCOME"
+    | "PAYROLL";
   isSell: number;
   state: string;
   amount: number;
@@ -519,8 +528,8 @@ export interface GestionoInvoiceItem {
   paid: number;
   dueToPay: number;
   elements?: PendingRecordElement[];
-  clientdata?: Record<string, any> | string;
-  metadata?: Record<string, any>;
+  clientdata?: Record<string, unknown> | string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface GestionoInvoicesResponse {
@@ -565,13 +574,13 @@ export interface V2GetPendingRecordsQuery {
   query?: string;
   timeZone?: number;
   type:
-  | "INVOICE"
-  | "RECURRENT_INVOICE"
-  | "QUOTE"
-  | "ORDER"
-  | "LOAN"
-  | "RECURRENT_PAYROLL"
-  | "PAYROLL";
+    | "INVOICE"
+    | "RECURRENT_INVOICE"
+    | "QUOTE"
+    | "ORDER"
+    | "LOAN"
+    | "RECURRENT_PAYROLL"
+    | "PAYROLL";
   pendingRecordElements: boolean;
   pendingRecordPayments: boolean;
   elements: number;
@@ -605,16 +614,16 @@ export type AdvancedSearchFilter = {
   field: `$${string}` /* metadata */ | `@${string}` /* clientData */ | string;
   value: string | number | (string | number)[];
   method:
-  | "="
-  | ">"
-  | "<"
-  | "in"
-  | "not in"
-  | "!="
-  | "like"
-  | "not like"
-  | "is null"
-  | "is not null";
+    | "="
+    | ">"
+    | "<"
+    | "in"
+    | "not in"
+    | "!="
+    | "like"
+    | "not like"
+    | "is null"
+    | "is not null";
 };
 
 export interface PayPendingRecordBody {
@@ -629,7 +638,7 @@ export interface PayPendingRecordBody {
   description?: string;
   date?: string; // Fecha del pago
   labels?: string[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateResourceBody {
@@ -637,12 +646,12 @@ export interface CreateResourceBody {
   name: string; // Mínimo 2 caracteres
   type: "PRODUCT" | "SERVICE" | "ASSET" | "OTHER";
   relation:
-  | "FOR_SALE"
-  | "FOR_RENT"
-  | "MATERIAL"
-  | "ONE_TIME_USE"
-  | "OPERATIONS"
-  | "OTHER";
+    | "FOR_SALE"
+    | "FOR_RENT"
+    | "MATERIAL"
+    | "ONE_TIME_USE"
+    | "OPERATIONS"
+    | "OTHER";
   unit: string; // Ej: "unidad", "kg", "litro"
   priceStrategy: "FIXED" | "DEFINE_ON_INVOICE" | "VARIABLE";
   variation: number | string; // Precio de venta (ej: 100 o "10%")
@@ -652,10 +661,10 @@ export interface CreateResourceBody {
   divisionId?: number; // División asignada
   variantOf?: number; // Si es variante de otro producto
   costStrategy?:
-  | "MINIMUM_PROVIDER_COST"
-  | "MAXIMUM_PROVIDER_COST"
-  | "AVG_PROVIDER_COST"
-  | "FIXED";
+    | "MINIMUM_PROVIDER_COST"
+    | "MAXIMUM_PROVIDER_COST"
+    | "AVG_PROVIDER_COST"
+    | "FIXED";
   currency?: "DOP" | "USD" | "EUR";
 
   // Precio por mayor
@@ -696,7 +705,7 @@ export interface CreateResourceBody {
 
   // Metadatos
   labels?: string[]; // Etiquetas
-  clientdata?: Record<string, any>; // Datos personalizados
+  clientdata?: Record<string, unknown>; // Datos personalizados
 }
 
 export interface GetResourcesQuery {
@@ -724,12 +733,12 @@ export interface V2GetResourcesResponse {
     description?: string;
     type: "PRODUCT" | "SERVICE" | "ASSET" | "OTHER";
     relation:
-    | "FOR_SALE"
-    | "FOR_RENT"
-    | "MATERIAL"
-    | "ONE_TIME_USE"
-    | "OPERATIONS"
-    | "OTHER";
+      | "FOR_SALE"
+      | "FOR_RENT"
+      | "MATERIAL"
+      | "ONE_TIME_USE"
+      | "OPERATIONS"
+      | "OTHER";
     unit: string;
     priceStrategy: "FIXED" | "DEFINE_ON_INVOICE" | "VARIABLE";
     sellPrice?: number;
@@ -759,7 +768,7 @@ export interface V2GetResourcesResponse {
     totalAvailableQuantity?: number | null;
     totalInPlaceQuantity?: number | null;
     totalReservedQuantity?: number | null;
-    clientdata?: Record<string, any> | string;
+    clientdata?: Record<string, unknown> | string;
     division?: ResourceStorage[];
     total?: ResourceStorage;
     storage: {
@@ -782,7 +791,7 @@ export interface GestionoApiError {
   error: string;
   message: string;
   statusCode: number;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 // Local Quotations
@@ -815,3 +824,78 @@ export interface PaymentInstallment {
   amount: number;
   description: string;
 }
+
+// ========================
+// Tax Rates
+// ========================
+
+export interface TaxRate {
+  id: number;
+  slug: string;
+  name: string;
+  rate: number;
+  country: string;
+  category: string;
+  mode: string | null;
+  organizationId: number | null;
+}
+
+// ========================
+// App Data
+// ========================
+
+export interface AppData {
+  id: number;
+  appId: number;
+  type: string;
+  organizationId: number;
+  createdAt: string;
+  updatedAt?: string;
+  data: Record<string, any>;
+}
+
+export interface AppDataExplorerResponse {
+  appData: AppData[];
+  organizations: Record<number, string>;
+}
+
+// getAppDataTypes response = string[]
+
+// ========================
+// Beneficiary Contact Data
+// ========================
+
+export interface ContactData {
+  id: number;
+  beneficiaryId: number;
+  type: string;
+  dataType?: "string" | "json" | "image" | "date";
+  createdAt: string;
+  updatedAt?: string;
+  data: string;
+}
+
+export interface CreateContactDataBody {
+  beneficiaryId: number;
+  type: string;
+  dataType?: "string" | "json" | "image" | "date";
+  data: string;
+}
+
+export interface CreateContactDataResponse {
+  contactId: number;
+}
+
+export interface UpdateContactDataBody {
+  id: number;
+  beneficiaryId: number;
+  type: string;
+  dataType?: "string" | "json" | "image" | "date";
+  data: string;
+}
+
+export interface UpdateContactDataResponse {
+  contactId: number;
+}
+
+// deleteContactData(id: number): Promise<void>

@@ -35,6 +35,9 @@ export {
 
   // Taxes
   getNextInvoiceNumeral,
+  getTaxesList,
+  addPendingRecordElementTaxes,
+  removePendingRecordElementTaxes,
 } from "./endpoints";
 
 export type {

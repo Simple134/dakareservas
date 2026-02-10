@@ -56,18 +56,18 @@ export function DashboardView() {
       return {
         id: div.id,
         name: div.name,
-        client: meta.client || "Cliente General",
-        startDate: meta.startDate || new Date().toISOString(),
-        endDate: meta.endDate || new Date().toISOString(),
+        client: String(meta.client || "Cliente General"),
+        startDate: String(meta.startDate || new Date().toISOString()),
+        endDate: String(meta.endDate || new Date().toISOString()),
         totalBudget: Number(meta.budget) || 0,
         executedBudget: 0,
         status,
-        location: meta.location || "Sin ubicación",
+        location: String(meta.location || "Sin ubicación"),
         profitMargin: 20,
         completionPercentage: 0,
-        project_type: meta.projectType || "General",
-        permitting_category: meta.permissionCategory || "General",
-        ownerProfileId: undefined,
+        project_type: String(meta.projectType || "General"),
+        permitting_category: String(meta.permissionCategory || "General"),
+        ownerProfileId: undefined as string | undefined,
       };
     });
 

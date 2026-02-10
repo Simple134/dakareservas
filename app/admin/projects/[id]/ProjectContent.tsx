@@ -158,17 +158,27 @@ export function ProjectContent({
     ? {
         id: division.id,
         name: division.name,
-        client: division.metadata?.client || "Cliente Desconocido",
-        location: division.metadata?.location || "Ubicación desconocida",
-        status: division.metadata?.status || "planning",
-        totalBudget: division.metadata?.budget || 0,
+        client: (division.metadata?.client as string) || "Cliente Desconocido",
+        location:
+          (division.metadata?.location as string) || "Ubicación desconocida",
+        status: (division.metadata?.status as string) || "planning",
+        totalBudget: (division.metadata?.budget as number) || 0,
         executedBudget: division.monthlyExpenses || 0,
-        completionPercentage: division.metadata?.completionPercentage || 0,
-        profitMargin: division.metadata?.profitMargin || 0,
-        startDate: division.metadata?.startDate || new Date().toISOString(),
-        endDate: division.metadata?.endDate || new Date().toISOString(),
-        budgetCategories: division.metadata?.budgetCategories || [],
-        uniqueId: division.metadata?.unique_id || "",
+        completionPercentage:
+          (division.metadata?.completionPercentage as number) || 0,
+        profitMargin: (division.metadata?.profitMargin as number) || 0,
+        startDate:
+          (division.metadata?.startDate as string) || new Date().toISOString(),
+        endDate:
+          (division.metadata?.endDate as string) || new Date().toISOString(),
+        budgetCategories:
+          (division.metadata?.budgetCategories as unknown as Array<{
+            id: string;
+            name: string;
+            amount: number;
+            percentage: number;
+          }>) || [],
+        uniqueId: (division.metadata?.unique_id as string) || "",
       }
     : null;
 
