@@ -4,6 +4,7 @@ import type {
   PendingRecordElement,
   GestionoBeneficiary,
 } from "@/src/types/gestiono";
+import { getTaxRateById } from "@/lib/taxRates";
 
 interface InvoicePDFData {
   invoice: GestionoInvoiceItem;
@@ -140,8 +141,20 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   yPosition -= 15;
 
   // Table Header
+  const colDescX = margin;
+  const colItbisX = width - margin - 160;
+  const colTotalX = width - margin - 80;
+
   page.drawText("Descripción", {
-    x: margin,
+    x: colDescX,
+    y: yPosition,
+    size: 9,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+
+  page.drawText("ITBIS", {
+    x: colItbisX,
     y: yPosition,
     size: 9,
     font: fontBold,
@@ -149,7 +162,7 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   });
 
   page.drawText("Impreso", {
-    x: width - margin - 80,
+    x: colTotalX,
     y: yPosition,
     size: 9,
     font: fontBold,
@@ -160,37 +173,62 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
 
   // Items
   let subtotal = 0;
+  let totalItbis = 0;
 
   elements.forEach((element) => {
     const description =
-      element.description.length > 65
-        ? element.description.substring(0, 65) + "..."
+      element.description.length > 55
+        ? element.description.substring(0, 55) + "..."
         : element.description;
 
-    const itemTotal = element.quantity * element.price;
-    subtotal += itemTotal;
+    const itemSubtotal = element.quantity * element.price;
+    subtotal += itemSubtotal;
+
+    // Calculate per-element ITBIS using local tax rates map
+    const taxRateId = element.taxes?.[0]?.taxRateId ?? 0;
+    const rate = getTaxRateById(taxRateId);
+    const itemItbis = itemSubtotal * rate;
+    totalItbis += itemItbis;
+
+    const itemTotal = itemSubtotal + itemItbis;
 
     // Check if we need a new page
     if (yPosition < 150) {
-      const newPage = pdfDoc.addPage([612, 792]);
+      pdfDoc.addPage([612, 792]);
       yPosition = height - margin;
     }
 
     page.drawText(description, {
-      x: margin,
+      x: colDescX,
       y: yPosition,
       size: 9,
       font,
       color: rgb(0, 0, 0),
     });
 
+    // ITBIS per element
+    page.drawText(
+      `$${itemItbis.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      {
+        x: colItbisX,
+        y: yPosition,
+        size: 9,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
+
+    // Total per element (subtotal + itbis)
     page.drawText(
       `$${itemTotal.toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       })}`,
       {
-        x: width - margin - 80,
+        x: colTotalX,
         y: yPosition,
         size: 9,
         font,
@@ -234,42 +272,38 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
 
   yPosition -= 15;
 
-  // ITBIS — calculated per element using its salesTaxRate (comes as decimal, e.g. 0.18)
-  const itbis = elements.reduce((sum, el) => {
-    const itemSubtotal = el.quantity * el.price;
-    const rate = el.salesTaxRate ?? 0.18;
-    // Normalize: if rate > 1 it's a percentage (e.g. 18), otherwise it's already decimal (e.g. 0.18)
-    const decimalRate = rate > 1 ? rate / 100 : rate;
-    return sum + itemSubtotal * decimalRate;
-  }, 0);
-  page.drawText("ITBIS", {
-    x: rightColumnX,
-    y: yPosition,
-    size: 10,
-    font,
-    color: rgb(0, 0, 0),
-  });
-
-  page.drawText(
-    `RD$${itbis.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`,
-    {
-      x: amountColumnX,
+  // ITBIS — show aggregated total only if there is actual tax on any element
+  if (totalItbis > 0) {
+    page.drawText("ITBIS", {
+      x: rightColumnX,
       y: yPosition,
       size: 10,
       font,
       color: rgb(0, 0, 0),
-    },
-  );
+    });
 
-  yPosition -= 20;
+    page.drawText(
+      `RD$${totalItbis.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      {
+        x: amountColumnX,
+        y: yPosition,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
+
+    yPosition -= 20;
+  }
+
   drawDashedLine(yPosition);
   yPosition -= 20;
 
   // TOTAL
-  const total = subtotal + itbis;
+  const total = subtotal + totalItbis;
   page.drawText("TOTAL", {
     x: rightColumnX,
     y: yPosition,

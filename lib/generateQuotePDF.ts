@@ -4,6 +4,7 @@ import type {
   PendingRecordElement,
   GestionoBeneficiary,
 } from "@/src/types/gestiono";
+import { getTaxRateById } from "@/lib/taxRates";
 
 interface QuotePDFData {
   quote: GestionoInvoiceItem;
@@ -214,15 +215,17 @@ export async function generateQuotePDF(data: QuotePDFData) {
     "Cant",
     "Und",
     "Precio",
-    "Importe",
+    "ITBIS",
+    "Total",
   ];
   const columnPositions = [
     margin,
-    margin + 40,
-    margin + 80,
-    margin + 280,
-    margin + 330,
-    margin + 380,
+    margin + 30,
+    margin + 65,
+    margin + 240,
+    margin + 275,
+    margin + 320,
+    margin + 385,
     margin + 450,
   ];
 
@@ -250,7 +253,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
     page.drawText(header, {
       x: columnPositions[index],
       y: yPosition,
-      size: 9,
+      size: 8,
       font: fontBold,
       color: rgb(0, 0, 0),
     });
@@ -270,17 +273,24 @@ export async function generateQuotePDF(data: QuotePDFData) {
 
   // Table Rows (Items)
   let totalAmount = 0;
+  let totalItbis = 0;
 
   elements.forEach((element, index) => {
     const ref = (index + 1).toString();
     const code = element.resourceId?.toString() || "";
-    const descriptionLines = wrapText(element.description, 190, 8);
+    const descriptionLines = wrapText(element.description, 165, 8);
     const quantity = element.quantity.toString();
     const unit = element.unit;
     const price = element.price.toFixed(2);
-    const importe = (element.quantity * element.price).toFixed(2);
 
-    totalAmount += element.quantity * element.price;
+    const itemSubtotal = element.quantity * element.price;
+    totalAmount += itemSubtotal;
+
+    // Calculate per-element ITBIS using local tax rates map
+    const taxRateId = element.taxes?.[0]?.taxRateId ?? 0;
+    const rate = getTaxRateById(taxRateId);
+    const itemItbis = itemSubtotal * rate;
+    totalItbis += itemItbis;
 
     const rowHeight = Math.max(15, descriptionLines.length * 10 + 5);
 
@@ -341,8 +351,18 @@ export async function generateQuotePDF(data: QuotePDFData) {
       color: rgb(0, 0, 0),
     });
 
-    page.drawText(importe, {
+    // ITBIS per element
+    page.drawText(itemItbis.toFixed(2), {
       x: columnPositions[6],
+      y: yPosition,
+      size: 8,
+      font,
+      color: rgb(0, 0, 0),
+    });
+
+    // Total per element (subtotal + itbis)
+    page.drawText((itemSubtotal + itemItbis).toFixed(2), {
+      x: columnPositions[7],
       y: yPosition,
       size: 8,
       font,
@@ -396,16 +416,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   // Row 2: TOTALS SECTION — Subtotal, ITBIS, Total
   yPosition -= 25;
 
-  // Calculate ITBIS per element
-  const itbis = elements.reduce((sum, el) => {
-    const itemSubtotal = el.quantity * el.price;
-    const rate = el.salesTaxRate ?? 0.18;
-    // Normalize: if rate > 1 it's a percentage (e.g. 18), otherwise it's decimal (e.g. 0.18)
-    const decimalRate = rate > 1 ? rate / 100 : rate;
-    return sum + itemSubtotal * decimalRate;
-  }, 0);
-
-  const grandTotal = totalAmount + itbis;
+  const grandTotal = totalAmount + totalItbis;
 
   // SUBTOTAL
   page.drawText("SUBTOTAL RD$", {
@@ -432,30 +443,32 @@ export async function generateQuotePDF(data: QuotePDFData) {
 
   yPosition -= 18;
 
-  // ITBIS
-  page.drawText("ITBIS RD$", {
-    x: width - margin - 170,
-    y: yPosition + 5,
-    size: 10,
-    font,
-    color: rgb(0, 0, 0),
-  });
-
-  page.drawText(
-    itbis.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-    {
-      x: width - margin - 80,
+  // ITBIS — only show if there is actual tax on any element
+  if (totalItbis > 0) {
+    page.drawText("ITBIS RD$", {
+      x: width - margin - 170,
       y: yPosition + 5,
       size: 10,
       font,
       color: rgb(0, 0, 0),
-    },
-  );
+    });
 
-  yPosition -= 18;
+    page.drawText(
+      totalItbis.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      {
+        x: width - margin - 80,
+        y: yPosition + 5,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
+
+    yPosition -= 18;
+  }
 
   // TOTAL
   page.drawText("TOTAL RD$", {

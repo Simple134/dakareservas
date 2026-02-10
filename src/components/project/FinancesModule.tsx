@@ -4,20 +4,13 @@ import { useState, useEffect } from "react";
 import {
   Search,
   Filter,
-  Eye,
   Edit2,
   Trash2,
   Download,
-  ChevronDown,
   X,
   TrendingUp,
   ShoppingCart,
-  // ArrowRight,
-  CheckCircle,
   Clock,
-  AlertCircle,
-  XCircle,
-  Plus,
 } from "lucide-react";
 import {
   CustomCard,
@@ -36,6 +29,7 @@ import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog"
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { useAuth } from "@/src/context/AuthContext";
+import { getTaxRateById } from "@/lib/taxRates";
 
 interface FinancesModuleProps {
   projectId: string | number;
@@ -105,9 +99,8 @@ function mapGestionoToInvoice(
           0,
         );
         const itbis = gestionoInvoice.elements.reduce((sum, el) => {
-          const rate = el.salesTaxRate ?? 0.18;
-          const decimalRate = rate > 1 ? rate / 100 : rate;
-          return sum + el.quantity * el.price * decimalRate;
+          const rate = getTaxRateById(el.taxes?.[0]?.taxRateId ?? 0);
+          return sum + el.quantity * el.price * rate;
         }, 0);
         return subtotal + itbis;
       }

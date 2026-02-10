@@ -39,6 +39,7 @@ import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
 import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
 import { useAuth } from "@/src/context/AuthContext";
+import { getTaxRateById } from "@/lib/taxRates";
 
 interface InvoiceDisplay {
   id: string;
@@ -120,9 +121,8 @@ function mapGestionoToInvoice(
           0,
         );
         const itbis = gestionoInvoice.elements.reduce((sum, el) => {
-          const rate = el.salesTaxRate ?? 0.18;
-          const decimalRate = rate > 1 ? rate / 100 : rate;
-          return sum + el.quantity * el.price * decimalRate;
+          const rate = getTaxRateById(el.taxes?.[0]?.taxRateId ?? 0);
+          return sum + el.quantity * el.price * rate;
         }, 0);
         return subtotal + itbis;
       }
