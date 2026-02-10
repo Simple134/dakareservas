@@ -95,7 +95,7 @@ export function AddPersonnelDialog({
                 taxId: data.taxId,
                 metadata: {
                   specialty: data.specialty,
-                  isrTaxRetention: 0.02,
+                  salesTaxRate: 0.02,
                 },
               }),
             },

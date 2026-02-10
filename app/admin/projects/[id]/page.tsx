@@ -27,7 +27,6 @@ export default async function ProjectOverview({
   const { id: projectId } = await params;
 
   const division = await getDivisionData(projectId);
-  console.log(division);
   if (!division) {
     notFound();
   }

@@ -9,9 +9,7 @@ import {
   Mail,
   MapPin,
   Briefcase,
-  X,
   Globe,
-  Loader2,
   Trash2,
   AlertCircle,
 } from "lucide-react";
@@ -466,6 +464,11 @@ const ContactsPage = () => {
               : undefined
           }
           beneficiaryId={editBeneficiary?.id}
+          isrTaxRetention={
+            editBeneficiary?.metadata?.isrTaxRetention
+              ? Number(editBeneficiary.metadata.isrTaxRetention)
+              : 0
+          }
         />
 
         {/* Delete Confirmation Modal */}

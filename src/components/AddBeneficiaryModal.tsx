@@ -9,6 +9,7 @@ interface AddBeneficiaryModalProps {
   onSuccess?: () => void;
   beneficiaryData?: CreateBeneficiaryBody & { id?: number };
   beneficiaryId?: number;
+  isrTaxRetention?: number;
 }
 
 const BENEFICIARY_TYPES = [
@@ -48,11 +49,15 @@ export default function AddBeneficiaryModal({
   onSuccess,
   beneficiaryData,
   beneficiaryId,
+  isrTaxRetention,
 }: AddBeneficiaryModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Set<number>>(new Set());
   const [savingContactId, setSavingContactId] = useState<number | null>(null);
+  const [isrTaxRetentionVar, setIsrTaxRetentionVar] = useState<number>(
+    isrTaxRetention || 0,
+  );
   const isEditMode = !!beneficiaryId;
 
   const {
@@ -88,8 +93,9 @@ export default function AddBeneficiaryModal({
         contact: [{ type: "phone", data: "", dataType: "string" }],
       });
     }
+    setIsrTaxRetentionVar(isrTaxRetention || 0);
     setPendingChanges(new Set());
-  }, [beneficiaryData, reset]);
+  }, [beneficiaryData, reset, isrTaxRetention]);
 
   // Refresh beneficiary data after successful contact operation
   const refreshBeneficiaryData = async () => {
@@ -119,6 +125,11 @@ export default function AddBeneficiaryModal({
         creditLimit: freshData.creditLimit || undefined,
       });
 
+      // Update ISR tax retention from metadata
+      if (freshData.metadata?.isrTaxRetention !== undefined) {
+        setIsrTaxRetentionVar(Number(freshData.metadata.isrTaxRetention) || 0);
+      }
+
       console.log("✅ Beneficiary data refreshed in modal");
     } catch (err) {
       console.error("❌ Error refreshing beneficiary data:", err);
@@ -144,7 +155,7 @@ export default function AddBeneficiaryModal({
       const contactData = watchedContacts?.[index];
       if (!contactData) return;
 
-      const contactId = (beneficiaryData?.contact?.[index] as any)?.id;
+      const contactId = beneficiaryData?.contact?.[index]?.id;
 
       console.log("💾 SAVE DEBUG:", {
         index,
@@ -225,10 +236,9 @@ export default function AddBeneficiaryModal({
   // Delete individual contact
   const deleteContact = async (index: number) => {
     // Try to get contact ID from multiple sources
-    const contactIdFromBeneficiary = (beneficiaryData?.contact?.[index] as any)
-      ?.id;
-    const contactIdFromField = (fields[index] as any)?.id;
-    const contactIdFromWatched = (watchedContacts?.[index] as any)?.id;
+    const contactIdFromBeneficiary = beneficiaryData?.contact?.[index]?.id;
+    const contactIdFromField = fields[index]?.id;
+    const contactIdFromWatched = watchedContacts?.[index]?.id;
     const contactId =
       contactIdFromWatched || contactIdFromField || contactIdFromBeneficiary;
 
@@ -302,24 +312,27 @@ export default function AddBeneficiaryModal({
 
       const payload = isEditMode
         ? {
-            // EDIT MODE: Only send beneficiary data, NO contact data
-            // Contacts are managed separately via individual save buttons
-            id: beneficiaryId,
-            name: beneficiaryData.name,
-            type: beneficiaryData.type,
-            taxId: beneficiaryData.taxId || undefined,
-            reference: beneficiaryData.reference || undefined,
-            creditLimit: beneficiaryData.creditLimit
-              ? Number(String(beneficiaryData.creditLimit).replace(/,/g, ""))
-              : undefined,
-          }
+          // EDIT MODE: Only send beneficiary data, NO contact data
+          // Contacts are managed separately via individual save buttons
+          id: beneficiaryId,
+          name: beneficiaryData.name,
+          type: beneficiaryData.type,
+          taxId: beneficiaryData.taxId || undefined,
+          reference: beneficiaryData.reference || undefined,
+          creditLimit: beneficiaryData.creditLimit
+            ? Number(String(beneficiaryData.creditLimit).replace(/,/g, ""))
+            : undefined,
+          metadata: {
+            isrTaxRetention: isrTaxRetentionVar || 0,
+          },
+        }
         : {
-            // CREATE MODE: Send everything including contacts
-            ...data,
-            creditLimit: data.creditLimit
-              ? Number(String(data.creditLimit).replace(/,/g, ""))
-              : undefined,
-          };
+          // CREATE MODE: Send everything including contacts
+          ...data,
+          creditLimit: data.creditLimit
+            ? Number(String(data.creditLimit).replace(/,/g, ""))
+            : undefined,
+        };
 
       const url = isEditMode
         ? `/api/gestiono/beneficiaries/${beneficiaryId}`
@@ -471,6 +484,35 @@ export default function AddBeneficiaryModal({
               />
             </div> */}
           </div>
+
+          {/* ISR Tax Retention - Only in edit mode */}
+          {isEditMode && (
+            <div className="border-t border-gray-100 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">
+                    Retención ISR (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={isrTaxRetentionVar}
+                    onChange={(e) =>
+                      setIsrTaxRetentionVar(parseFloat(e.target.value) || 0)
+                    }
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
+                    placeholder="Ej. 0.10 para 10%"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Porcentaje de retención ISR aplicado al crear facturas. Ej:
+                    0.10 = 10%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="border-t border-gray-100 pt-6">
             <div className="flex items-center justify-between mb-4">

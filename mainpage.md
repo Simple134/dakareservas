@@ -182,6 +182,7 @@ const oldStatus = payload.old.status;
 }, [fetchAndShowSale]);
 
 return (
+
 <div className="h-screen w-full overflow-hidden bg-white flex items-center justify-center p-8">
 {/_ Animate Presence for transitions _/}
 <AnimatePresence mode="wait">

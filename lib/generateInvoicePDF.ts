@@ -10,11 +10,13 @@ interface InvoicePDFData {
   beneficiary: GestionoBeneficiary | null;
   elements: PendingRecordElement[];
   isSell?: boolean;
+  userName: string;
 }
 
 export async function generateInvoicePDF(data: InvoicePDFData) {
-  const { invoice, beneficiary, elements, isSell = true } = data;
+  const { invoice, beneficiary, elements, isSell = true, userName } = data;
 
+  console.log(data, "data");
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]); // Letter size: 8.5" x 11"
@@ -232,8 +234,14 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
 
   yPosition -= 15;
 
-  // ITBIS (18%)
-  const itbis = subtotal * 0.18;
+  // ITBIS — calculated per element using its salesTaxRate (comes as decimal, e.g. 0.18)
+  const itbis = elements.reduce((sum, el) => {
+    const itemSubtotal = el.quantity * el.price;
+    const rate = el.salesTaxRate ?? 0.18;
+    // Normalize: if rate > 1 it's a percentage (e.g. 18), otherwise it's already decimal (e.g. 0.18)
+    const decimalRate = rate > 1 ? rate / 100 : rate;
+    return sum + itemSubtotal * decimalRate;
+  }, 0);
   page.drawText("ITBIS", {
     x: rightColumnX,
     y: yPosition,
@@ -290,38 +298,38 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   // Footer section
   yPosition -= 60;
 
-  page.drawText("REALIZADO POR:", {
-    x: margin,
-    y: yPosition,
-    size: 10,
-    font,
-    color: rgb(0, 0, 0),
-  });
+  // page.drawText(`REALIZADO POR: ${userName || ""}`, {
+  //   x: margin,
+  //   y: yPosition,
+  //   size: 10,
+  //   font,
+  //   color: rgb(0, 0, 0),
+  // });
 
-  // Repeated total at bottom right
-  yPosition -= 80;
-  page.drawText(
-    `$${total.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`,
-    {
-      x: width - margin - 100,
-      y: yPosition,
-      size: 10,
-      font,
-      color: rgb(0, 0, 0),
-    },
-  );
+  // // Repeated total at bottom right
+  // yPosition -= 80;
+  // page.drawText(
+  //   `$${total.toLocaleString("en-US", {
+  //     minimumFractionDigits: 2,
+  //     maximumFractionDigits: 2,
+  //   })}`,
+  //   {
+  //     x: width - margin - 100,
+  //     y: yPosition,
+  //     size: 10,
+  //     font,
+  //     color: rgb(0, 0, 0),
+  //   },
+  // );
 
-  // Dollar sign at bottom center
-  page.drawText("$", {
-    x: width / 2 - 5,
-    y: 40,
-    size: 12,
-    font: fontBold,
-    color: rgb(0, 0, 0),
-  });
+  // // Dollar sign at bottom center
+  // page.drawText("$", {
+  //   x: width / 2 - 5,
+  //   y: 40,
+  //   size: 12,
+  //   font: fontBold,
+  //   color: rgb(0, 0, 0),
+  // });
 
   // Save the PDF
   const pdfBytes = await pdfDoc.save();

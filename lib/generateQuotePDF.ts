@@ -11,6 +11,7 @@ interface QuotePDFData {
   elements: PendingRecordElement[];
   documentType?: "QUOTE" | "ORDER";
   isSell?: boolean;
+  userName?: string;
 }
 
 export async function generateQuotePDF(data: QuotePDFData) {
@@ -20,6 +21,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
     elements,
     documentType = "QUOTE",
     isSell = true,
+    userName = "",
   } = data;
 
   // Create a new PDF document
@@ -364,8 +366,8 @@ export async function generateQuotePDF(data: QuotePDFData) {
 
   yPosition -= 40;
 
-  // Total
-  page.drawText("Realizado por:", {
+  // Row 1: Realizado por and Recibido Por
+  page.drawText(`Realizado por: ${userName}`, {
     x: margin,
     y: yPosition,
     size: 10,
@@ -373,11 +375,44 @@ export async function generateQuotePDF(data: QuotePDFData) {
     color: rgb(0, 0, 0),
   });
 
-  page.drawText("TOTAL RD$", {
-    x: width - margin - 150,
+  const receivedByX = width / 2 + 20;
+  page.drawText("Recibido Por:", {
+    x: receivedByX,
     y: yPosition,
-    size: 11,
-    font: fontBold,
+    size: 10,
+    font,
+    color: rgb(0, 0, 0),
+  });
+
+  // Line 1: Under Row 1
+  yPosition -= 15;
+  page.drawLine({
+    start: { x: margin, y: yPosition },
+    end: { x: width - margin, y: yPosition },
+    thickness: 0.5,
+    color: rgb(0, 0, 0),
+  });
+
+  // Row 2: TOTALS SECTION — Subtotal, ITBIS, Total
+  yPosition -= 25;
+
+  // Calculate ITBIS per element
+  const itbis = elements.reduce((sum, el) => {
+    const itemSubtotal = el.quantity * el.price;
+    const rate = el.salesTaxRate ?? 0.18;
+    // Normalize: if rate > 1 it's a percentage (e.g. 18), otherwise it's decimal (e.g. 0.18)
+    const decimalRate = rate > 1 ? rate / 100 : rate;
+    return sum + itemSubtotal * decimalRate;
+  }, 0);
+
+  const grandTotal = totalAmount + itbis;
+
+  // SUBTOTAL
+  page.drawText("SUBTOTAL RD$", {
+    x: width - margin - 170,
+    y: yPosition + 5,
+    size: 10,
+    font,
     color: rgb(0, 0, 0),
   });
 
@@ -388,21 +423,72 @@ export async function generateQuotePDF(data: QuotePDFData) {
     }),
     {
       x: width - margin - 80,
-      y: yPosition,
+      y: yPosition + 5,
+      size: 10,
+      font,
+      color: rgb(0, 0, 0),
+    },
+  );
+
+  yPosition -= 18;
+
+  // ITBIS
+  page.drawText("ITBIS RD$", {
+    x: width - margin - 170,
+    y: yPosition + 5,
+    size: 10,
+    font,
+    color: rgb(0, 0, 0),
+  });
+
+  page.drawText(
+    itbis.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    {
+      x: width - margin - 80,
+      y: yPosition + 5,
+      size: 10,
+      font,
+      color: rgb(0, 0, 0),
+    },
+  );
+
+  yPosition -= 18;
+
+  // TOTAL
+  page.drawText("TOTAL RD$", {
+    x: width - margin - 170,
+    y: yPosition + 5,
+    size: 11,
+    font: fontBold,
+    color: rgb(0, 0, 0),
+  });
+
+  page.drawText(
+    grandTotal.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    {
+      x: width - margin - 80,
+      y: yPosition + 5,
       size: 11,
       font: fontBold,
       color: rgb(0, 0, 0),
     },
   );
 
-  // Draw bottom line
-  yPosition -= 10;
+  // Line 2: Under TOTAL
   page.drawLine({
     start: { x: margin, y: yPosition },
     end: { x: width - margin, y: yPosition },
     thickness: 1,
     color: rgb(0, 0, 0),
   });
+
+  // Draw bottom line
 
   // Footer
   const now = new Date();

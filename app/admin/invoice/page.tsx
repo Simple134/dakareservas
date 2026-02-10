@@ -38,6 +38,7 @@ import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
 import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
+import { useAuth } from "@/src/context/AuthContext";
 
 interface InvoiceDisplay {
   id: string;
@@ -87,9 +88,11 @@ function mapGestionoToInvoice(
   }
 
   let attachedFileUrl: string | undefined;
-  const item = gestionoInvoice as any;
-  if (item.metadata && typeof item.metadata === "object") {
-    const meta = item.metadata;
+  if (
+    gestionoInvoice.metadata &&
+    typeof gestionoInvoice.metadata === "object"
+  ) {
+    const meta = gestionoInvoice.metadata;
     if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
       attachedFileUrl = meta.files[0].s3Key;
     } else if (meta.attachedfileurl) {
@@ -109,7 +112,22 @@ function mapGestionoToInvoice(
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
-    amount: gestionoInvoice.amount,
+    // Compute amount including ITBIS from elements (API amount does NOT include tax)
+    amount: (() => {
+      if (gestionoInvoice.elements && gestionoInvoice.elements.length > 0) {
+        const subtotal = gestionoInvoice.elements.reduce(
+          (sum, el) => sum + el.quantity * el.price,
+          0,
+        );
+        const itbis = gestionoInvoice.elements.reduce((sum, el) => {
+          const rate = el.salesTaxRate ?? 0.18;
+          const decimalRate = rate > 1 ? rate / 100 : rate;
+          return sum + el.quantity * el.price * decimalRate;
+        }, 0);
+        return subtotal + itbis;
+      }
+      return gestionoInvoice.amount;
+    })(),
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -124,6 +142,7 @@ function mapGestionoToInvoice(
 
 export default function InvoicesPage() {
   const { divisions, isLoading: isLoadingContext } = useGestiono();
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
   const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
@@ -225,6 +244,8 @@ export default function InvoicesPage() {
     isOpen: false,
     imageUrl: null,
   });
+
+  console.log(user?.user_metadata.full_name, "user");
 
   useEffect(() => {
     const fetchBeneficiaries = async () => {
@@ -533,10 +554,14 @@ export default function InvoicesPage() {
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ) => {
     try {
-      const payload: any = {
+      const payload: {
+        id: number;
+        type: string;
+        metadata?: Record<string, unknown>;
+      } = {
         id: parseInt(invoiceId),
         type: newType,
       };
@@ -588,6 +613,7 @@ export default function InvoicesPage() {
           recordWithElements = await detailsResponse.json();
         }
       }
+      console.log("🔍 recordWithElements type:", recordWithElements.type);
 
       // Fetch beneficiary details
       const beneficiaryResponse = await fetch(
@@ -597,8 +623,9 @@ export default function InvoicesPage() {
       if (beneficiaryResponse.ok) {
         const beneficiaries = await beneficiaryResponse.json();
         beneficiary =
-          beneficiaries.find((b: any) => b.id === fullRecord.beneficiaryId) ||
-          null;
+          beneficiaries.find(
+            (b: GestionoBeneficiary) => b.id === fullRecord.beneficiaryId,
+          ) || null;
       }
 
       // Check if it is a Local Quotation
@@ -608,11 +635,14 @@ export default function InvoicesPage() {
         (typeof recordWithElements.clientdata !== "string" &&
           recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
 
+      console.log("🔍 isLocalQuotation:", isLocalQuotation);
+
       if (
         isLocalQuotation &&
         recordWithElements.clientdata &&
         typeof recordWithElements.clientdata !== "string"
       ) {
+        console.log("🔍 Generating LOCAL quote PDF");
         // Parse local specific data
         const clientData = recordWithElements.clientdata;
         let localInfo;
@@ -638,7 +668,6 @@ export default function InvoicesPage() {
 
         // Get project name
         const division = divisions.find((d) => d.id === fullRecord.divisionId);
-
         await generateLocalQuotePDF({
           localData: {
             id: Number(clientData.localId),
@@ -646,7 +675,7 @@ export default function InvoicesPage() {
             area_mt2: localInfo.area,
             price_per_mt2: localInfo.pricePerM2,
             total_value: localInfo.totalValue,
-            status: "DISPONIBLE", // Status might not be needed for PDF or fetched from elsewhere, using filler or what's available
+            status: "DISPONIBLE",
           },
           beneficiary,
           projectName: division?.name || invoice.projectName,
@@ -654,23 +683,29 @@ export default function InvoicesPage() {
           quotationDate: recordWithElements.date,
         });
       } else {
-        // Check document type to determine which PDF generator to use
+        console.log("🔍 NOT a local quotation, checking document type");
         if (recordWithElements.type === "INVOICE") {
-          // Generate Invoice PDF
+          console.log("🔍 Generating INVOICE PDF");
+          console.log("About to generate invoice PDF", {
+            userName: user?.user_metadata?.full_name || user?.email || "",
+            user: user,
+          });
           await generateInvoicePDF({
             invoice: recordWithElements,
             beneficiary,
             elements: recordWithElements.elements || [],
             isSell: recordWithElements.isSell === 1,
+            userName: user?.user_metadata?.full_name || user?.email || "",
           });
         } else {
-          // Generate Quote or Order PDF
+          console.log("🔍 Generating QUOTE/ORDER PDF");
           await generateQuotePDF({
             quote: recordWithElements,
             beneficiary,
             elements: recordWithElements.elements || [],
             documentType: recordWithElements.type as "QUOTE" | "ORDER",
             isSell: recordWithElements.isSell === 1,
+            userName: user?.user_metadata?.full_name || user?.email || "",
           });
         }
       }

@@ -32,6 +32,9 @@ export {
   getAppDataTypes,
   getAppData,
   uploadFile,
+
+  // Taxes
+  getNextInvoiceNumeral,
 } from "./endpoints";
 
 export type {

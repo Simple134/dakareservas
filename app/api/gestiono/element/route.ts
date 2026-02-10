@@ -58,15 +58,16 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const body = await request.json();
-
-    if (!body.id) {
+    if (!body.id || !body.pendingRecordId) {
       return NextResponse.json(
-        { error: "Element ID is required" },
+        { error: "Element ID and Pending Record ID are required" },
         { status: 400 },
       );
     }
-
-    const result = await deletePendingRecordElement(body);
+    const result = await deletePendingRecordElement({
+      elementId: body.id, // ← mapea "id" a "elementId"
+      pendingRecordId: body.pendingRecordId,
+    });
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("Error deleting element:", error);

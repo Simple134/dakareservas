@@ -27,7 +27,7 @@ import {
 import type {
   GestionoInvoiceItem,
   GestionoInvoicesResponse,
-  // GestionoBeneficiary,
+  GestionoBeneficiary,
   // GestionoDivision,
 } from "@/src/types/gestiono";
 // import { useGestiono } from "@/src/context/Gestiono";
@@ -35,6 +35,7 @@ import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
+import { useAuth } from "@/src/context/AuthContext";
 
 interface FinancesModuleProps {
   projectId: string | number;
@@ -96,7 +97,22 @@ function mapGestionoToInvoice(
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
-    amount: gestionoInvoice.amount,
+    // Compute amount including ITBIS from elements (API amount does NOT include tax)
+    amount: (() => {
+      if (gestionoInvoice.elements && gestionoInvoice.elements.length > 0) {
+        const subtotal = gestionoInvoice.elements.reduce(
+          (sum, el) => sum + el.quantity * el.price,
+          0,
+        );
+        const itbis = gestionoInvoice.elements.reduce((sum, el) => {
+          const rate = el.salesTaxRate ?? 0.18;
+          const decimalRate = rate > 1 ? rate / 100 : rate;
+          return sum + el.quantity * el.price * decimalRate;
+        }, 0);
+        return subtotal + itbis;
+      }
+      return gestionoInvoice.amount;
+    })(),
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -142,6 +158,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const { user } = useAuth();
 
   const [createDialogState, setCreateDialogState] = useState<{
     isOpen: boolean;
@@ -374,8 +391,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       if (beneficiaryResponse.ok) {
         const beneficiaries = await beneficiaryResponse.json();
         beneficiary =
-          beneficiaries.find((b: any) => b.id === fullRecord.beneficiaryId) ||
-          null;
+          beneficiaries.find(
+            (b: GestionoBeneficiary) => b.id === fullRecord.beneficiaryId,
+          ) || null;
       }
 
       const isLocalQuotation =
@@ -438,6 +456,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             beneficiary,
             elements: recordWithElements.elements || [],
             isSell: recordWithElements.isSell === 1,
+            userName: user?.user_metadata?.full_name || user?.email || "",
           });
         } else {
           // Generate Quote or Order PDF
@@ -447,6 +466,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             elements: recordWithElements.elements || [],
             documentType: recordWithElements.type as "QUOTE" | "ORDER",
             isSell: recordWithElements.isSell === 1,
+            userName: user?.user_metadata?.full_name || user?.email || "",
           });
         }
       }

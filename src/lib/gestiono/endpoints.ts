@@ -381,7 +381,8 @@ export async function updatePendingRecordElement(data: {
 }
 
 export async function deletePendingRecordElement(data: {
-  id: number;
+  elementId: number;
+  pendingRecordId: number;
 }): Promise<V2GetPendingRecordsResponse> {
   return gestionoRequest<V2GetPendingRecordsResponse>(
     `/v1/record/pending/element`,
@@ -412,6 +413,21 @@ export async function updateContactData(data: { id: number }): Promise<any> {
 export async function deleteContactData(id: number): Promise<any> {
   return gestionoRequest<any>(`/v1/beneficiary/contact/${id}`, {
     method: "DELETE",
+  });
+}
+
+export async function getNextInvoiceNumeral(data: {
+  type:
+    | "GOVERNMENT"
+    | "CONSUMER"
+    | "TAX_CREDIT"
+    | "CREDIT_NOTE"
+    | "TAX_CREDIT_ELECTRONIC"
+    | "SPECIAL_REGIME";
+}) {
+  return gestionoRequest<string>(`/v1/taxes/numerals/next`, {
+    method: "GET",
+    query: data,
   });
 }
 
