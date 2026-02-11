@@ -173,7 +173,7 @@ export function EditInvoiceDialog({
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
   const isrRetentionAmount =
-    !record.isSell && isService ? subtotal * beneficiaryIsrRate : 0;
+    !record.isSell && isService ? taxAmount * beneficiaryIsrRate : 0;
 
   const total = subtotal + taxAmount - isrRetentionAmount;
 

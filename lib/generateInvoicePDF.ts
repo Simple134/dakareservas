@@ -26,7 +26,6 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
     retentionRate = 0,
   } = data;
 
-  console.log(data, "data");
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]); // Letter size: 8.5" x 11"

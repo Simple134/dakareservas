@@ -82,21 +82,15 @@ export async function generateQuotePDF(data: QuotePDFData) {
   let rightYPosition = leftStartY;
 
   // Determine document label based on type
-  let documentLabel = "COTIZACION No.";
+  let documentLabel = "COTIZACION";
   if (documentType === "ORDER") {
-    documentLabel = isSell ? "ORDEN DE VENTA No." : "ORDEN DE COMPRA No.";
+    documentLabel = isSell ? "ORDEN DE VENTA" : "ORDEN DE COMPRA";
   }
 
-  page.drawText(documentLabel, {
-    x: width - margin - 200,
-    y: rightYPosition,
-    size: 11,
-    font: fontBold,
-    color: rgb(0, 0, 0),
-  });
+  const documentTitle = `${documentLabel} Nº${quoteNumber}`;
 
-  page.drawText(quoteNumber, {
-    x: width - margin - 80,
+  page.drawText(documentTitle, {
+    x: width - margin - fontBold.widthOfTextAtSize(documentTitle, 11),
     y: rightYPosition,
     size: 11,
     font: fontBold,
