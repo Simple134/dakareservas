@@ -326,6 +326,7 @@ export function CreateInvoiceDialog({
           price: el.price,
           unit: el.unit,
           variation: el.variation || 0,
+          taxes: el.taxes || [],
         })),
       };
 

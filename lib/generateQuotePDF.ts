@@ -13,6 +13,8 @@ interface QuotePDFData {
   documentType?: "QUOTE" | "ORDER";
   isSell?: boolean;
   userName?: string;
+  applyRetention?: boolean;
+  retentionRate?: number;
 }
 
 export async function generateQuotePDF(data: QuotePDFData) {
@@ -23,6 +25,8 @@ export async function generateQuotePDF(data: QuotePDFData) {
     documentType = "QUOTE",
     isSell = true,
     userName = "",
+    applyRetention = false,
+    retentionRate = 0,
   } = data;
 
   // Create a new PDF document
@@ -372,18 +376,6 @@ export async function generateQuotePDF(data: QuotePDFData) {
     yPosition -= rowHeight;
   });
 
-  // Draw FIN marker
-  page.drawText(
-    "-------------------------------------- FIN --------------------------------------",
-    {
-      x: margin + 80,
-      y: yPosition,
-      size: 8,
-      font,
-      color: rgb(0, 0, 0),
-    },
-  );
-
   yPosition -= 40;
 
   // Row 1: Realizado por and Recibido Por
@@ -470,7 +462,38 @@ export async function generateQuotePDF(data: QuotePDFData) {
     yPosition -= 18;
   }
 
+  // Retención ISR (only when user chose to apply it)
+  let retentionAmount = 0;
+  if (applyRetention && retentionRate > 0) {
+    retentionAmount = totalItbis * retentionRate;
+
+    page.drawText(`ISR (${(retentionRate * 100).toFixed(0)}%) RD$`, {
+      x: width - margin - 170,
+      y: yPosition + 5,
+      size: 10,
+      font,
+      color: rgb(0, 0, 0),
+    });
+
+    page.drawText(
+      `-${retentionAmount.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      {
+        x: width - margin - 80,
+        y: yPosition + 5,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
+
+    yPosition -= 18;
+  }
+
   // TOTAL
+  const finalTotal = grandTotal - retentionAmount;
   page.drawText("TOTAL RD$", {
     x: width - margin - 170,
     y: yPosition + 5,
@@ -480,7 +503,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   });
 
   page.drawText(
-    grandTotal.toLocaleString("en-US", {
+    finalTotal.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }),
