@@ -173,7 +173,7 @@ export function EditInvoiceDialog({
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
   const isrRetentionAmount =
-    !record.isSell && isService ? subtotal * beneficiaryIsrRate : 0;
+    !record.isSell && isService ? taxAmount * beneficiaryIsrRate : 0;
 
   const total = subtotal + taxAmount - isrRetentionAmount;
 
@@ -196,13 +196,13 @@ export function EditInvoiceDialog({
       taxes:
         taxesList.length > 0
           ? [
-              {
-                taxRateId: taxesList[0].id,
-                id: 0,
-                pendingRecordElementId: 0,
-                isIncludedInPrice: false,
-              },
-            ]
+            {
+              taxRateId: taxesList[0].id,
+              id: 0,
+              pendingRecordElementId: 0,
+              isIncludedInPrice: false,
+            },
+          ]
           : [],
     } as PendingRecordElement);
   };
@@ -384,7 +384,7 @@ export function EditInvoiceDialog({
       original.price !== Number(currentElement.price) ||
       original.variation !== Number(currentElement.variation) ||
       (original.taxes?.[0]?.taxRateId ?? 0) !==
-        (currentElement.taxes?.[0]?.taxRateId ?? 0)
+      (currentElement.taxes?.[0]?.taxRateId ?? 0)
     );
   };
 

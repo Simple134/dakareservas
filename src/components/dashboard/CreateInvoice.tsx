@@ -236,7 +236,7 @@ export function CreateInvoiceDialog({
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
   const isrRetentionAmount =
-    !watchIsSell && isService ? subtotal * beneficiaryIsrRate : 0;
+    !watchIsSell && isService ? taxAmount * beneficiaryIsrRate : 0;
 
   const discountAmount = 0;
   const total = subtotal + taxAmount - discountAmount - isrRetentionAmount;
@@ -261,13 +261,13 @@ export function CreateInvoiceDialog({
       taxes:
         taxesList.length > 0
           ? [
-              {
-                taxRateId: taxesList[0].id,
-                id: 0,
-                pendingRecordElementId: 0,
-                isIncludedInPrice: false,
-              },
-            ]
+            {
+              taxRateId: taxesList[0].id,
+              id: 0,
+              pendingRecordElementId: 0,
+              isIncludedInPrice: false,
+            },
+          ]
           : [],
     } as PendingRecordElement);
   };
@@ -326,6 +326,7 @@ export function CreateInvoiceDialog({
           price: el.price,
           unit: el.unit,
           variation: el.variation || 0,
+          taxes: el.taxes || [],
         })),
       };
 

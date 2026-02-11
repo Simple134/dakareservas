@@ -372,17 +372,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
     yPosition -= rowHeight;
   });
 
-  // Draw FIN marker
-  page.drawText(
-    "-------------------------------------- FIN --------------------------------------",
-    {
-      x: margin + 80,
-      y: yPosition,
-      size: 8,
-      font,
-      color: rgb(0, 0, 0),
-    },
-  );
+
 
   yPosition -= 40;
 
