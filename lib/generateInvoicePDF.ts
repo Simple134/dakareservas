@@ -12,12 +12,20 @@ interface InvoicePDFData {
   elements: PendingRecordElement[];
   isSell?: boolean;
   userName: string;
+  applyRetention?: boolean;
+  retentionRate?: number;
 }
 
 export async function generateInvoicePDF(data: InvoicePDFData) {
-  const { invoice, beneficiary, elements, isSell = true, userName } = data;
+  const {
+    invoice,
+    beneficiary,
+    elements,
+    isSell = true,
+    applyRetention = false,
+    retentionRate = 0,
+  } = data;
 
-  console.log(data, "data");
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([612, 792]); // Letter size: 8.5" x 11"
@@ -299,11 +307,41 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
     yPosition -= 20;
   }
 
+  // Retención ISR (only when user chose to apply it)
+  let retentionAmount = 0;
+  if (applyRetention && retentionRate > 0) {
+    retentionAmount = totalItbis * retentionRate;
+
+    page.drawText(`Retención ISR (${(retentionRate * 100).toFixed(0)}%)`, {
+      x: rightColumnX,
+      y: yPosition,
+      size: 10,
+      font,
+      color: rgb(0, 0, 0),
+    });
+
+    page.drawText(
+      `-RD$${retentionAmount.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      {
+        x: amountColumnX,
+        y: yPosition,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
+
+    yPosition -= 20;
+  }
+
   drawDashedLine(yPosition);
   yPosition -= 20;
 
   // TOTAL
-  const total = subtotal + totalItbis;
+  const total = subtotal + totalItbis - retentionAmount;
   page.drawText("TOTAL", {
     x: rightColumnX,
     y: yPosition,
