@@ -30,7 +30,6 @@ import type {
   GestionoInvoicesResponse,
   GestionoBeneficiary,
   GestionoDivision,
-  PendingRecordElement,
 } from "@/src/types/gestiono";
 import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
@@ -40,7 +39,6 @@ import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
 import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
 import { useAuth } from "@/src/context/AuthContext";
-import { getTaxRateById } from "@/lib/taxRates";
 
 interface InvoiceDisplay {
   id: string;
@@ -114,21 +112,8 @@ function mapGestionoToInvoice(
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
-    // Compute amount including ITBIS from elements (API amount does NOT include tax)
-    amount: (() => {
-      if (gestionoInvoice.elements && gestionoInvoice.elements.length > 0) {
-        const subtotal = gestionoInvoice.elements.reduce(
-          (sum, el) => sum + el.quantity * el.price,
-          0,
-        );
-        const itbis = gestionoInvoice.elements.reduce((sum, el) => {
-          const rate = getTaxRateById(el.taxes?.[0]?.taxRateId ?? 0);
-          return sum + el.quantity * el.price * rate;
-        }, 0);
-        return subtotal + itbis;
-      }
-      return gestionoInvoice.amount;
-    })(),
+    // Use dueToPay: the per-record total after ISR retention deduction
+    amount: gestionoInvoice.dueToPay,
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -247,19 +232,6 @@ export default function InvoicesPage() {
   });
 
   // Retention modal state
-  const [retentionModalState, setRetentionModalState] = useState<{
-    isOpen: boolean;
-    invoice: InvoiceDisplay | null;
-    documentLabel: string;
-    retentionRate: number;
-    retentionAmount: number;
-  }>({
-    isOpen: false,
-    invoice: null,
-    documentLabel: "",
-    retentionRate: 0,
-    retentionAmount: 0,
-  });
 
   console.log(user?.user_metadata.full_name, "user");
 
@@ -648,37 +620,15 @@ export default function InvoicesPage() {
       const isrRate = beneficiary?.metadata?.isrTaxRetention
         ? Number(beneficiary.metadata.isrTaxRetention)
         : 0;
+      const hasRetention = isPurchase && isrRate > 0;
 
-      if (isPurchase && isrRate > 0) {
-        // Calculate ITBIS and retention amount for display
-        const elements = recordWithElements.elements || [];
-        let totalItbis = 0;
-        elements.forEach((el: PendingRecordElement) => {
-          const itemSubtotal = el.quantity * el.price;
-          const taxRateId = el.taxes?.[0]?.taxRateId ?? 0;
-          const rate = getTaxRateById(taxRateId);
-          totalItbis += itemSubtotal * rate;
-        });
-        const retentionAmt = totalItbis * isrRate;
-
-        // Determine document label
-        let docLabel = "Facturación";
-        if (recordWithElements.type === "QUOTE") docLabel = "Cotización";
-        else if (recordWithElements.type === "ORDER") docLabel = "Orden";
-
-        // Show the retention modal instead of generating immediately
-        setRetentionModalState({
-          isOpen: true,
-          invoice,
-          documentLabel: docLabel,
-          retentionRate: isrRate,
-          retentionAmount: retentionAmt,
-        });
-        return;
-      }
-
-      // No retention applicable — generate PDF directly
-      await generatePDFForRecord(recordWithElements, beneficiary, false, 0);
+      // Generate PDF directly, automatically applying retention if present
+      await generatePDFForRecord(
+        recordWithElements,
+        beneficiary,
+        hasRetention,
+        hasRetention ? isrRate : 0,
+      );
     } catch (error) {
       console.error("❌ Error generating PDF:", error);
       alert(
@@ -701,15 +651,11 @@ export default function InvoicesPage() {
         recordWithElements.reference.toLowerCase().includes("local")) ||
       (typeof recordWithElements.clientdata !== "string" &&
         recordWithElements.clientdata?.quotationType === "LOCAL_COMMERCIAL");
-
-    console.log("🔍 isLocalQuotation:", isLocalQuotation);
-
     if (
       isLocalQuotation &&
       recordWithElements.clientdata &&
       typeof recordWithElements.clientdata !== "string"
     ) {
-      console.log("🔍 Generating LOCAL quote PDF");
       // Parse local specific data
       const clientData = recordWithElements.clientdata;
       let localInfo;
@@ -778,70 +724,6 @@ export default function InvoicesPage() {
         });
       }
     }
-  };
-
-  const handleRetentionConfirm = async (applyRetention: boolean) => {
-    try {
-      const invoice = retentionModalState.invoice;
-      if (!invoice) return;
-
-      const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
-      if (!fullRecord) throw new Error("No se pudo encontrar el registro");
-
-      let recordWithElements = fullRecord;
-      if (!fullRecord.elements || fullRecord.elements.length === 0) {
-        const detailsResponse = await fetch(
-          `/api/gestiono/pendingRecord/${fullRecord.id}`,
-        );
-        if (detailsResponse.ok) {
-          recordWithElements = await detailsResponse.json();
-        }
-      }
-
-      const beneficiaryResponse = await fetch(
-        `/api/gestiono/beneficiaries?withContacts=true`,
-      );
-      let beneficiary = null;
-      if (beneficiaryResponse.ok) {
-        const beneficiaries = await beneficiaryResponse.json();
-        beneficiary =
-          beneficiaries.find(
-            (b: GestionoBeneficiary) => b.id === fullRecord.beneficiaryId,
-          ) || null;
-      }
-
-      setRetentionModalState({
-        isOpen: false,
-        invoice: null,
-        documentLabel: "",
-        retentionRate: 0,
-        retentionAmount: 0,
-      });
-
-      await generatePDFForRecord(
-        recordWithElements,
-        beneficiary,
-        applyRetention,
-        applyRetention ? retentionModalState.retentionRate : 0,
-      );
-    } catch (error) {
-      console.error("❌ Error generating PDF:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Error al generar el PDF. Por favor, intenta de nuevo.",
-      );
-    }
-  };
-
-  const handleRetentionCancel = () => {
-    setRetentionModalState({
-      isOpen: false,
-      invoice: null,
-      documentLabel: "",
-      retentionRate: 0,
-      retentionAmount: 0,
-    });
   };
 
   return (
@@ -1827,67 +1709,6 @@ export default function InvoicesPage() {
                 alt="Comprobante"
                 className="max-w-full h-auto rounded"
               />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Retention Modal */}
-      {retentionModalState.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Retención ISR
-              </h3>
-              <p className="text-gray-600 mb-4">
-                ¿Desea restar la retención a la{" "}
-                <span className="font-semibold">
-                  {retentionModalState.documentLabel}
-                </span>
-                ?
-              </p>
-              <div className="bg-gray-50 rounded-lg p-3 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Tasa de retención:</span>
-                  <span className="font-medium">
-                    {(retentionModalState.retentionRate * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm mt-1">
-                  <span className="text-gray-500">Monto de retención:</span>
-                  <span className="font-medium text-red-600">
-                    -RD${" "}
-                    {retentionModalState.retentionAmount.toLocaleString(
-                      "en-US",
-                      {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      },
-                    )}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => handleRetentionConfirm(true)}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Sí
-                </button>
-                <button
-                  onClick={() => handleRetentionConfirm(false)}
-                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                >
-                  No
-                </button>
-                <button
-                  onClick={handleRetentionCancel}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancelar
-                </button>
-              </div>
             </div>
           </div>
         </div>
