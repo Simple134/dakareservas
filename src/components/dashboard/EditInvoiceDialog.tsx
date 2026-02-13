@@ -37,7 +37,7 @@ export function EditInvoiceDialog({
   const [originalElements] = useState(record.elements || []);
   const [selectedBeneficiary, setSelectedBeneficiary] =
     useState<GestionoBeneficiary | null>(null);
-  const [isService, setIsService] = useState(false);
+
   const [taxesList, setTaxesList] = useState<TaxRate[]>([]);
 
   const { divisions: gestionoDivisions } = useGestiono();
@@ -141,15 +141,17 @@ export function EditInvoiceDialog({
     fetchTaxes();
   }, [isOpen]);
 
-  // Set selected beneficiary when beneficiaries are loaded
+  // Set selected beneficiary and re-sync form values when beneficiaries are loaded
   useEffect(() => {
     if (gestionoBeneficiaries.length > 0 && record.beneficiaryId) {
       const found = gestionoBeneficiaries.find(
         (b) => b.id === record.beneficiaryId,
       );
       setSelectedBeneficiary(found || null);
+      // Re-set form value so the <select> shows the correct beneficiary
+      setValue("beneficiaryId", record.beneficiaryId);
     }
-  }, [gestionoBeneficiaries, record.beneficiaryId]);
+  }, [gestionoBeneficiaries, record.beneficiaryId, setValue]);
 
   // Calculate totals with per-element tax
   const subtotal = (watchElements || []).reduce(
@@ -168,12 +170,14 @@ export function EditInvoiceDialog({
     0,
   );
 
-  // ISR Tax Retention — only for purchases (!isSell)
+  // ISR Tax Retention — automatically applied for purchases when beneficiary has ISR rate
   const beneficiaryIsrRate = selectedBeneficiary?.metadata?.isrTaxRetention
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
   const isrRetentionAmount =
-    !record.isSell && isService ? taxAmount * beneficiaryIsrRate : 0;
+    !record.isSell && beneficiaryIsrRate > 0
+      ? subtotal * beneficiaryIsrRate
+      : 0;
 
   const total = subtotal + taxAmount - isrRetentionAmount;
 
@@ -196,13 +200,13 @@ export function EditInvoiceDialog({
       taxes:
         taxesList.length > 0
           ? [
-            {
-              taxRateId: taxesList[0].id,
-              id: 0,
-              pendingRecordElementId: 0,
-              isIncludedInPrice: false,
-            },
-          ]
+              {
+                taxRateId: taxesList[0].id,
+                id: 0,
+                pendingRecordElementId: 0,
+                isIncludedInPrice: false,
+              },
+            ]
           : [],
     } as PendingRecordElement);
   };
@@ -384,7 +388,7 @@ export function EditInvoiceDialog({
       original.price !== Number(currentElement.price) ||
       original.variation !== Number(currentElement.variation) ||
       (original.taxes?.[0]?.taxRateId ?? 0) !==
-      (currentElement.taxes?.[0]?.taxRateId ?? 0)
+        (currentElement.taxes?.[0]?.taxRateId ?? 0)
     );
   };
 
@@ -406,13 +410,15 @@ export function EditInvoiceDialog({
         }
       };
 
-      // Only update record metadata (dates, notes, reference)
+      // Update record metadata + beneficiary/division
       const recordPayload = {
         id: record.id,
         date: formatDateToISO(data.date),
         dueDate: formatDateToISO(data.dueDate),
         reference: data.reference,
         notes: data.notes,
+        beneficiaryId: data.beneficiaryId,
+        divisionId: data.divisionId,
       };
 
       console.log("📦 Updating record metadata:", recordPayload);
@@ -592,33 +598,6 @@ export function EditInvoiceDialog({
             </div>
           </div>
 
-          {/* Toggle de Servicio — solo para compras */}
-          {!record.isSell && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isService}
-                  onChange={(e) => setIsService(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <span className="font-medium text-gray-900">
-                    ¿Es compra de servicio?
-                  </span>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Si es servicio, se aplicará retención ISR según el
-                    beneficiario (
-                    {beneficiaryIsrRate > 0
-                      ? `${(beneficiaryIsrRate * 100).toFixed(0)}%`
-                      : "no configurado"}
-                    )
-                  </p>
-                </div>
-              </label>
-            </div>
-          )}
-
           {/* Elementos de la Factura */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -647,8 +626,12 @@ export function EditInvoiceDialog({
 
               {fields.map((field, index) => {
                 const element = watchElements?.[index];
-                const itemTotal =
+                const itemSubtotal =
                   (element?.quantity || 0) * (element?.price || 0);
+                const elTaxRateId = element?.taxes?.[0]?.taxRateId;
+                const elTax = taxesList.find((t) => t.id === elTaxRateId);
+                const itemTotal =
+                  itemSubtotal + itemSubtotal * (elTax?.rate || 0);
                 const showSaveButton = hasElementChanges(index);
                 const isSaving = savingElementId === (element?.id || index);
 
@@ -799,7 +782,7 @@ export function EditInvoiceDialog({
                   </span>
                 </div>
 
-                {!record.isSell && isService && isrRetentionAmount > 0 && (
+                {isrRetentionAmount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-red-600">
                       Retención ISR ({(beneficiaryIsrRate * 100).toFixed(0)}%):

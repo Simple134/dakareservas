@@ -310,7 +310,7 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   // Retención ISR (only when user chose to apply it)
   let retentionAmount = 0;
   if (applyRetention && retentionRate > 0) {
-    retentionAmount = totalItbis * retentionRate;
+    retentionAmount = subtotal * retentionRate;
 
     page.drawText(`Retención ISR (${(retentionRate * 100).toFixed(0)}%)`, {
       x: rightColumnX,

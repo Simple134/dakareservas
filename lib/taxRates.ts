@@ -1,8 +1,3 @@
-/**
- * Local tax rates map — matches data from /api/gestiono/taxes
- * Used for fast tax rate resolution by taxRateId in PDF generators
- */
-
 export interface LocalTaxRate {
   id: number;
   slug: string;
@@ -42,17 +37,10 @@ export const TAX_RATES: Record<number, LocalTaxRate> = {
   },
 };
 
-/**
- * Get the tax rate for a given taxRateId.
- * Returns 0 if the taxRateId is not found.
- */
 export function getTaxRateById(taxRateId: number): number {
   return TAX_RATES[taxRateId]?.rate ?? 0;
 }
 
-/**
- * Get the tax slug (e.g. "ITBIS", "ISC") for a given taxRateId.
- */
 export function getTaxSlugById(taxRateId: number): string {
   return TAX_RATES[taxRateId]?.slug ?? "";
 }

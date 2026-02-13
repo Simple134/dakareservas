@@ -3,7 +3,10 @@
 import { X, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useState, useEffect } from "react";
-import type { CreateResourceBody, GestionoBeneficiary } from "@/src/types/gestiono";
+import type {
+  CreateResourceBody,
+  GestionoBeneficiary,
+} from "@/src/types/gestiono";
 
 type ItemFormData = {
   name: string;
@@ -24,11 +27,33 @@ interface ModalItemProps {
 // Mapa de categoría → subcategorías
 const categorySubcategories: Record<string, string[]> = {
   Materiales: [
-    "Cemento", "Acero", "Albañilería", "Madera", "Arena", "Grava", "Blocks",
-    "Acabados", "Pintura", "Cerámica", "Porcelanato", "Yeso", "Piso",
-    "Eléctricos", "Plomería", "Desagüe", "Gas", "Aire Acondicionado",
+    "Cemento",
+    "Acero",
+    "Albañilería",
+    "Madera",
+    "Arena",
+    "Grava",
+    "Blocks",
+    "Acabados",
+    "Pintura",
+    "Cerámica",
+    "Porcelanato",
+    "Yeso",
+    "Piso",
+    "Eléctricos",
+    "Plomería",
+    "Desagüe",
+    "Gas",
+    "Aire Acondicionado",
   ],
-  Servicios: ["Mano de Obra", "Transporte", "Alquiler de Equipos", "Consultoría", "Acabados", "Instalaciones"],
+  Servicios: [
+    "Mano de Obra",
+    "Transporte",
+    "Alquiler de Equipos",
+    "Consultoría",
+    "Acabados",
+    "Instalaciones",
+  ],
 };
 
 export const ModalItem = ({
@@ -214,8 +239,9 @@ export const ModalItem = ({
                       message: "El nombre debe tener al menos 2 caracteres",
                     },
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.name ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.name ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
                 {errors.name && (
                   <p className="text-xs text-red-500 mt-1">
@@ -247,8 +273,9 @@ export const ModalItem = ({
                   {...register("category", {
                     required: "La categoría es obligatoria",
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.category ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.category ? "border-red-500" : "border-gray-300"
+                  }`}
                 >
                   <option value="">Seleccionar categoría</option>
                   {Object.keys(categorySubcategories).map((cat) => (
@@ -272,8 +299,9 @@ export const ModalItem = ({
                     required: "La subcategoría es obligatoria",
                   })}
                   disabled={!selectedCategory}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.subcategory ? "border-red-500" : "border-gray-300"
-                    } ${!selectedCategory ? "bg-gray-100 cursor-not-allowed" : ""}`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.subcategory ? "border-red-500" : "border-gray-300"
+                  } ${!selectedCategory ? "bg-gray-100 cursor-not-allowed" : ""}`}
                 >
                   <option value="">
                     {selectedCategory
@@ -323,8 +351,9 @@ export const ModalItem = ({
                     },
                     valueAsNumber: true,
                   })}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.variation ? "border-red-500" : "border-gray-300"
-                    }`}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                    errors.variation ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
                 {errors.variation && (
                   <p className="text-xs text-red-500 mt-1">
@@ -339,10 +368,14 @@ export const ModalItem = ({
                   </label>
                   <select
                     {...register("unit", {
-                      required: selectedCategory !== "Servicios" ? "La unidad es obligatoria" : false,
+                      required:
+                        selectedCategory !== "Servicios"
+                          ? "La unidad es obligatoria"
+                          : false,
                     })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${errors.unit ? "border-red-500" : "border-gray-300"
-                      }`}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent ${
+                      errors.unit ? "border-red-500" : "border-gray-300"
+                    }`}
                   >
                     <option value="Unidad">Unidad</option>
                     <option value="Metro">Metro</option>

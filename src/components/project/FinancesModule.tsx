@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Search,
   Filter,
+  Eye,
   Edit2,
   Trash2,
   Download,
@@ -11,6 +12,7 @@ import {
   TrendingUp,
   ShoppingCart,
   Clock,
+  ArrowRight,
 } from "lucide-react";
 import {
   CustomCard,
@@ -26,6 +28,7 @@ import type {
 // import { useGestiono } from "@/src/context/Gestiono";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
+import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { useAuth } from "@/src/context/AuthContext";
@@ -51,13 +54,11 @@ interface InvoiceDisplay {
 
 function mapGestionoToInvoice(
   gestionoInvoice: GestionoInvoiceItem,
-  // beneficiariesMap: Record<number, string> = {},
-  // divisions: GestionoDivision[] = [],
+  beneficiariesMap: Record<number, string> = {},
 ): InvoiceDisplay {
-  // const beneficiaryName =
-  //   beneficiariesMap[gestionoInvoice.beneficiaryId] ||
-  //   `Beneficiario ${gestionoInvoice.beneficiaryId}`;
-  // const division = divisions.find((d) => d.id === gestionoInvoice.divisionId);
+  const beneficiaryName =
+    beneficiariesMap[gestionoInvoice.beneficiaryId] ||
+    `Beneficiario ${gestionoInvoice.beneficiaryId}`;
 
   let status = "pending";
 
@@ -84,9 +85,9 @@ function mapGestionoToInvoice(
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
-    projectName: gestionoInvoice.description || "Sin descripción", // Using description as project/concept placeholder
-    clientName: "N/A", // We might need to fetch beneficiaries if we want names
-    supplierName: "N/A",
+    projectName: gestionoInvoice.description || "Sin descripción",
+    clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
+    supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
     date: new Date(gestionoInvoice.date).toISOString().split("T")[0],
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
@@ -122,6 +123,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
   const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
+  const [beneficiariesMap, setBeneficiariesMap] = useState<
+    Record<number, string>
+  >({});
   const [resume, setResume] = useState<{
     toCharge: number;
     totalCharged: number;
@@ -210,15 +214,39 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     fetchInvoices();
   }, [projectId, refreshKey, activeTab, isSellFilter]);
 
+  // Fetch beneficiaries for name resolution
   useEffect(() => {
-    const mapped = rawInvoices.map((item) => mapGestionoToInvoice(item));
+    const fetchBeneficiaries = async () => {
+      try {
+        const response = await fetch(
+          `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
+        );
+        if (response.ok) {
+          const data: GestionoBeneficiary[] = await response.json();
+          const map: Record<number, string> = {};
+          data.forEach((b) => {
+            map[b.id] = b.name;
+          });
+          setBeneficiariesMap(map);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching beneficiaries:", error);
+      }
+    };
+    fetchBeneficiaries();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    const mapped = rawInvoices.map((item) =>
+      mapGestionoToInvoice(item, beneficiariesMap),
+    );
     const sorted = mapped.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
       return dateB - dateA;
     });
     setInvoices(sorted);
-  }, [rawInvoices]);
+  }, [rawInvoices, beneficiariesMap]);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -278,6 +306,24 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   }>({
     isOpen: false,
     record: null,
+  });
+
+  const [viewModalState, setViewModalState] = useState<{
+    isOpen: boolean;
+    invoice: InvoiceDisplay | null;
+  }>({
+    isOpen: false,
+    invoice: null,
+  });
+
+  const [convertModalState, setConvertModalState] = useState<{
+    isOpen: boolean;
+    invoiceId: string | null;
+    invoiceNumber: string | null;
+  }>({
+    isOpen: false,
+    invoiceId: null,
+    invoiceNumber: null,
   });
 
   const handleDeleteClick = (
@@ -342,6 +388,20 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     });
   };
 
+  const handleViewClick = (invoice: InvoiceDisplay) => {
+    setViewModalState({
+      isOpen: true,
+      invoice,
+    });
+  };
+
+  const handleViewClose = () => {
+    setViewModalState({
+      isOpen: false,
+      invoice: null,
+    });
+  };
+
   const handleEditClick = (invoice: InvoiceDisplay) => {
     const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
     if (fullRecord) {
@@ -349,6 +409,49 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
         isOpen: true,
         record: fullRecord,
       });
+    }
+  };
+
+  const handleConvertRecord = async (
+    invoiceId: string,
+    newType: "ORDER" | "INVOICE",
+    metadata?: Record<string, unknown>,
+  ) => {
+    try {
+      const payload: {
+        id: number;
+        type: string;
+        metadata?: Record<string, unknown>;
+      } = {
+        id: parseInt(invoiceId),
+        type: newType,
+      };
+
+      if (metadata) {
+        payload.metadata = metadata;
+      }
+
+      const response = await fetch(`/api/gestiono/pendingRecord/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || "Error al convertir el documento");
+      }
+
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("❌ Error converting record:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al convertir el documento. Por favor, intenta de nuevo.",
+      );
     }
   };
 
@@ -625,7 +728,13 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
 
         <CustomCard className="p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Compras Pendientes</h3>
+            <h3 className="text-sm font-medium">
+              {activeTab === "QUOTE"
+                ? "Cotizaciones Pendientes"
+                : activeTab === "ORDER"
+                  ? "Órdenes Pendientes"
+                  : "Facturas Pendientes"}
+            </h3>
           </div>
           <div className="text-2xl font-bold text-red-600">
             {isLoadingInvoices ? (
@@ -784,11 +893,11 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
               <tr>
                 <th className="px-6 py-3">Número</th>
                 <th className="px-6 py-3">Descripción</th>
-                <th className="px-6 py-3">Tipo</th>
-                <th className="px-6 py-3">Fecha</th>
-                <th className="px-6 py-3 text-right">Monto</th>
-                <th className="px-6 py-3">Estado</th>
-                <th className="px-6 py-3 text-right">Acciones</th>
+                <th className="px-6 py-3 text-center">Tipo</th>
+                <th className="px-6 py-3 text-center">Fecha</th>
+                <th className="px-6 py-3 text-center">Monto</th>
+                <th className="px-6 py-3 text-center">Estado</th>
+                <th className="px-6 py-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -826,7 +935,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                       <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
                         {invoice.projectName}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <CustomBadge
                           className={
                             invoice.type === "sale"
@@ -837,22 +946,29 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                           {invoice.type === "sale" ? "Venta" : "Compra"}
                         </CustomBadge>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">
+                      <td className="px-6 py-4 text-center text-gray-600">
                         {invoice.date}
                       </td>
-                      <td className="px-6 py-4 text-right font-medium text-gray-900">
+                      <td className="px-6 py-4 text-center font-medium text-gray-900">
                         RD${" "}
                         {invoice.amount.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-center">
                         <CustomBadge className={statusBadge.className}>
                           {statusBadge.label}
                         </CustomBadge>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleViewClick(invoice)}
+                            className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Ver detalles"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
                           <button
                             onClick={() => handleDownloadPDF(invoice)}
                             className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
@@ -948,6 +1064,200 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             </div>
           </div>
         </div>
+      )}
+      {/* View Details Modal */}
+      {viewModalState.isOpen && viewModalState.invoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Detalles del Documento
+              </h2>
+              <button
+                onClick={handleViewClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">Número</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.invoiceNumber}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Tipo</p>
+                  <div className="mt-1">
+                    <CustomBadge
+                      className={
+                        viewModalState.invoice.type === "sale"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }
+                    >
+                      {viewModalState.invoice.type === "sale"
+                        ? "Venta"
+                        : "Compra"}
+                    </CustomBadge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Descripción</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.projectName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">
+                    {viewModalState.invoice.type === "sale"
+                      ? "Cliente"
+                      : "Proveedor"}
+                  </p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.clientName ||
+                      viewModalState.invoice.supplierName ||
+                      "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Fecha</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.date}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Vencimiento</p>
+                  <p className="font-semibold text-gray-900">
+                    {viewModalState.invoice.dueDate}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Estado</p>
+                  <div className="mt-1">
+                    <CustomBadge
+                      className={
+                        getStatusBadge(viewModalState.invoice.status).className
+                      }
+                    >
+                      {getStatusBadge(viewModalState.invoice.status).label}
+                    </CustomBadge>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Monto Total</p>
+                  <p
+                    className={`text-lg font-bold ${viewModalState.invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                  >
+                    {viewModalState.invoice.type === "sale" ? "+" : "-"}RD${" "}
+                    {viewModalState.invoice.amount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 border-t border-gray-200 pt-4">
+                <CustomButton
+                  onClick={handleViewClose}
+                  className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  Cerrar
+                </CustomButton>
+
+                {/* Conversion Buttons - Only for Quotes and Orders */}
+                {viewModalState.invoice.documentType === "QUOTE" && (
+                  <>
+                    <CustomButton
+                      onClick={() => {
+                        handleConvertRecord(
+                          viewModalState.invoice!.id,
+                          "ORDER",
+                        );
+                        handleViewClose();
+                      }}
+                      className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Convertir a Orden
+                    </CustomButton>
+                    <CustomButton
+                      onClick={() => {
+                        handleConvertRecord(
+                          viewModalState.invoice!.id,
+                          "INVOICE",
+                        );
+                        handleViewClose();
+                      }}
+                      className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      Convertir a Factura
+                    </CustomButton>
+                  </>
+                )}
+
+                {viewModalState.invoice.documentType === "ORDER" && (
+                  <CustomButton
+                    onClick={() => {
+                      handleViewClose();
+                      setConvertModalState({
+                        isOpen: true,
+                        invoiceId: viewModalState.invoice!.id,
+                        invoiceNumber: viewModalState.invoice!.invoiceNumber,
+                      });
+                    }}
+                    className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    Convertir a Factura
+                  </CustomButton>
+                )}
+
+                <CustomButton
+                  onClick={() => {
+                    handleViewClose();
+                    handleEditClick(viewModalState.invoice!);
+                  }}
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Editar
+                </CustomButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Convert Modal (Order -> Invoice) */}
+      {convertModalState.isOpen && (
+        <ConvertModal
+          isOpen={convertModalState.isOpen}
+          onClose={() =>
+            setConvertModalState({
+              isOpen: false,
+              invoiceId: null,
+              invoiceNumber: null,
+            })
+          }
+          invoiceNumber={convertModalState.invoiceNumber || ""}
+          onConfirm={async (metadata) => {
+            if (convertModalState.invoiceId) {
+              await handleConvertRecord(
+                convertModalState.invoiceId,
+                "INVOICE",
+                metadata,
+              );
+            }
+          }}
+        />
       )}
     </div>
   );

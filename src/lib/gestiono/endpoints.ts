@@ -287,7 +287,7 @@ export async function archiveResource(id: number): Promise<CreateResourceBody> {
     method: "PATCH",
     body: JSON.stringify({
       id,
-      metadata: { disabled: true },
+      archived: true,
     }),
   });
 }
