@@ -46,7 +46,7 @@ export function CreateInvoiceDialog({
   >([]);
   const [selectedBeneficiary, setSelectedBeneficiary] =
     useState<GestionoBeneficiary | null>(null);
-  const [isService, setIsService] = useState(false);
+
   const [taxesList, setTaxesList] = useState<TaxRate[]>([]);
 
   const { divisions: gestionoDivisions } = useGestiono();
@@ -231,12 +231,12 @@ export function CreateInvoiceDialog({
     0,
   );
 
-  // ISR Tax Retention — only for service purchases (!isSell && isService)
+  // ISR Tax Retention — automatically applied for purchases when beneficiary has ISR rate
   const beneficiaryIsrRate = selectedBeneficiary?.metadata?.isrTaxRetention
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
   const isrRetentionAmount =
-    !watchIsSell && isService ? taxAmount * beneficiaryIsrRate : 0;
+    !watchIsSell && beneficiaryIsrRate > 0 ? subtotal * beneficiaryIsrRate : 0;
 
   const discountAmount = 0;
   const total = subtotal + taxAmount - discountAmount - isrRetentionAmount;
@@ -614,33 +614,6 @@ export function CreateInvoiceDialog({
             </div>
           </div>
 
-          {/* Toggle de Servicio — solo para compras */}
-          {!watchIsSell && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isService}
-                  onChange={(e) => setIsService(e.target.checked)}
-                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <span className="font-medium text-gray-900">
-                    ¿Es compra de servicio?
-                  </span>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Si es servicio, se aplicará retención ISR según el{" "}
-                    {watchIsSell ? "Cliente" : "Proveedor"} (
-                    {beneficiaryIsrRate > 0
-                      ? `${(beneficiaryIsrRate * 100).toFixed(0)}%`
-                      : "no configurado"}
-                    )
-                  </p>
-                </div>
-              </label>
-            </div>
-          )}
-
           {/* Elementos de la Factura */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -671,8 +644,12 @@ export function CreateInvoiceDialog({
 
               {fields.map((field, index) => {
                 const element = watchElements?.[index];
-                const itemTotal =
+                const itemSubtotal =
                   (element?.quantity || 0) * (element?.price || 0);
+                const elTaxRateId = element?.taxes?.[0]?.taxRateId;
+                const elTax = taxesList.find((t) => t.id === elTaxRateId);
+                const itemTotal =
+                  itemSubtotal + itemSubtotal * (elTax?.rate || 0);
 
                 return (
                   <div
@@ -718,7 +695,7 @@ export function CreateInvoiceDialog({
                       />
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="col-span-1">
                       <select
                         value={element?.taxes?.[0]?.taxRateId || ""}
                         onChange={(e) => {
@@ -747,7 +724,7 @@ export function CreateInvoiceDialog({
                       </select>
                     </div>
 
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       <input
                         type="text"
                         value={itemTotal.toFixed(2)}
@@ -834,7 +811,7 @@ export function CreateInvoiceDialog({
                   </span>
                 </div>
 
-                {!watchIsSell && isService && isrRetentionAmount > 0 && (
+                {isrRetentionAmount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-red-600">
                       Retención ISR ({(beneficiaryIsrRate * 100).toFixed(0)}%):

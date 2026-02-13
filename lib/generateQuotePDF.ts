@@ -459,7 +459,7 @@ export async function generateQuotePDF(data: QuotePDFData) {
   // Retención ISR (only when user chose to apply it)
   let retentionAmount = 0;
   if (applyRetention && retentionRate > 0) {
-    retentionAmount = totalItbis * retentionRate;
+    retentionAmount = totalAmount * retentionRate;
 
     page.drawText(`ISR (${(retentionRate * 100).toFixed(0)}%) RD$`, {
       x: width - margin - 170,

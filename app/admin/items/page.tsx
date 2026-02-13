@@ -7,12 +7,12 @@ import {
   List,
   Plus,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ModalItem } from "@/src/components/ModalItem";
 import { CategoryChart } from "@/src/components/charts/CategoryChart";
-import { UsageChart } from "@/src/components/charts/UsageChart";
 import { CategoryPieChart } from "@/src/components/charts/CategoryPieChart";
 import { V2GetResourcesResponse } from "@/src/types/gestiono";
 
@@ -37,6 +37,46 @@ const ItemsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [archiveModalState, setArchiveModalState] = useState<{
+    isOpen: boolean;
+    itemId: number | null;
+    itemName: string | null;
+  }>({
+    isOpen: false,
+    itemId: null,
+    itemName: null,
+  });
+  const [isArchiving, setIsArchiving] = useState(false);
+
+  const handleArchiveClick = (id: number, name: string) => {
+    setArchiveModalState({ isOpen: true, itemId: id, itemName: name });
+  };
+
+  const handleArchiveConfirm = async () => {
+    if (!archiveModalState.itemId) return;
+    setIsArchiving(true);
+    try {
+      const response = await fetch("/api/gestiono/resource/archive", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: archiveModalState.itemId }),
+      });
+      if (!response.ok) throw new Error("Failed to archive resource");
+      setItems((prev) =>
+        prev.filter((item) => item.id !== archiveModalState.itemId),
+      );
+      setArchiveModalState({ isOpen: false, itemId: null, itemName: null });
+    } catch (err) {
+      console.error("Error archiving resource:", err);
+      alert("Error al archivar el item. Intenta de nuevo.");
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleArchiveCancel = () => {
+    setArchiveModalState({ isOpen: false, itemId: null, itemName: null });
+  };
 
   // Fetch items from API
   useEffect(() => {
@@ -314,6 +354,9 @@ const ItemsPage = () => {
                             <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                               Unidad
                             </th>
+                            <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                              Acciones
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -371,6 +414,18 @@ const ItemsPage = () => {
                                   <span className="text-sm text-gray-600">
                                     {item.unit || "N/A"}
                                   </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleArchiveClick(item.id, item.name);
+                                    }}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                                    title="Archivar item"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -609,6 +664,42 @@ const ItemsPage = () => {
             window.location.reload();
           }}
         />
+      )}
+      {/* Archive Confirmation Modal */}
+      {archiveModalState.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-full">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-semibold">Confirmar Archivado</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              ¿Estás seguro que quieres archivar el item{" "}
+              <span className="font-semibold">
+                {archiveModalState.itemName}
+              </span>
+              ? El item será archivado pero no eliminado permanentemente.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleArchiveCancel}
+                disabled={isArchiving}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleArchiveConfirm}
+                disabled={isArchiving}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isArchiving ? "Archivando..." : "Archivar"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

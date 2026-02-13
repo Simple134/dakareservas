@@ -7,6 +7,7 @@ import {
   GestionoDivisionPayload,
   GestionoBeneficiary,
 } from "@/src/types/gestiono";
+import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
 
 interface BudgetCategory {
   id: string;
@@ -19,21 +20,23 @@ const CreateProject = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<GestionoBeneficiary[]>([]);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch(
+        "/api/gestiono/beneficiaries?withContacts=true&withTaxData=false",
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setClients(Array.isArray(data) ? data : data.items || []);
+      }
+    } catch (error) {
+      console.error("Error loading clients:", error);
+    }
+  };
 
   useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const response = await fetch(
-          "/api/gestiono/beneficiaries?withContacts=true&withTaxData=false",
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setClients(Array.isArray(data) ? data : data.items || []);
-        }
-      } catch (error) {
-        console.error("Error loading clients:", error);
-      }
-    };
     fetchClients();
   }, []);
 
@@ -282,9 +285,19 @@ const CreateProject = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Cliente *
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-900">
+                    Cliente *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsClientModalOpen(true)}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Añadir nuevo Cliente
+                  </button>
+                </div>
                 <select
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
@@ -648,6 +661,12 @@ const CreateProject = () => {
           </button>
         </div>
       </div>
+
+      <AddBeneficiaryModal
+        isOpen={isClientModalOpen}
+        onClose={() => setIsClientModalOpen(false)}
+        onSuccess={fetchClients}
+      />
     </div>
   );
 };
