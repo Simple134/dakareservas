@@ -236,7 +236,7 @@ export function CreateInvoiceDialog({
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
   const isrRetentionAmount =
-    !watchIsSell && beneficiaryIsrRate > 0 ? subtotal * beneficiaryIsrRate : 0;
+    !watchIsSell && beneficiaryIsrRate > 0 ? taxAmount * beneficiaryIsrRate : 0;
 
   const discountAmount = 0;
   const total = subtotal + taxAmount - discountAmount - isrRetentionAmount;

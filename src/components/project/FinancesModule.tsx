@@ -32,7 +32,6 @@ import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { useAuth } from "@/src/context/AuthContext";
-import { getTaxRateById } from "@/lib/taxRates";
 
 interface FinancesModuleProps {
   projectId: string | number;
@@ -55,6 +54,7 @@ interface InvoiceDisplay {
 function mapGestionoToInvoice(
   gestionoInvoice: GestionoInvoiceItem,
   beneficiariesMap: Record<number, string> = {},
+  beneficiaryIsrMap: Record<number, number> = {},
 ): InvoiceDisplay {
   const beneficiaryName =
     beneficiariesMap[gestionoInvoice.beneficiaryId] ||
@@ -82,6 +82,16 @@ function mapGestionoToInvoice(
     status = "draft";
   }
 
+  // Recalculate amount with ISR from ITBIS instead of subtotal
+  let displayAmount = gestionoInvoice.dueToPay;
+  const isPurchase = gestionoInvoice.isSell === 0;
+  const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
+  if (isPurchase && isrRate > 0 && gestionoInvoice.taxes > 0) {
+    const correctIsrAmount = gestionoInvoice.taxes * isrRate;
+    displayAmount =
+      gestionoInvoice.subTotal + gestionoInvoice.taxes - correctIsrAmount;
+  }
+
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
@@ -92,21 +102,7 @@ function mapGestionoToInvoice(
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
-    // Compute amount including ITBIS from elements (API amount does NOT include tax)
-    amount: (() => {
-      if (gestionoInvoice.elements && gestionoInvoice.elements.length > 0) {
-        const subtotal = gestionoInvoice.elements.reduce(
-          (sum, el) => sum + el.quantity * el.price,
-          0,
-        );
-        const itbis = gestionoInvoice.elements.reduce((sum, el) => {
-          const rate = getTaxRateById(el.taxes?.[0]?.taxRateId ?? 0);
-          return sum + el.quantity * el.price * rate;
-        }, 0);
-        return subtotal + itbis;
-      }
-      return gestionoInvoice.amount;
-    })(),
+    amount: displayAmount,
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -125,6 +121,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
   const [beneficiariesMap, setBeneficiariesMap] = useState<
     Record<number, string>
+  >({});
+  const [beneficiaryIsrMap, setBeneficiaryIsrMap] = useState<
+    Record<number, number>
   >({});
   const [resume, setResume] = useState<{
     toCharge: number;
@@ -224,10 +223,16 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
         if (response.ok) {
           const data: GestionoBeneficiary[] = await response.json();
           const map: Record<number, string> = {};
+          const isrMap: Record<number, number> = {};
           data.forEach((b) => {
             map[b.id] = b.name;
+            const isr = b.metadata?.isrTaxRetention;
+            if (isr) {
+              isrMap[b.id] = Number(isr);
+            }
           });
           setBeneficiariesMap(map);
+          setBeneficiaryIsrMap(isrMap);
         }
       } catch (error) {
         console.error("❌ Error fetching beneficiaries:", error);
@@ -238,7 +243,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
 
   useEffect(() => {
     const mapped = rawInvoices.map((item) =>
-      mapGestionoToInvoice(item, beneficiariesMap),
+      mapGestionoToInvoice(item, beneficiariesMap, beneficiaryIsrMap),
     );
     const sorted = mapped.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
@@ -246,7 +251,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       return dateB - dateA;
     });
     setInvoices(sorted);
-  }, [rawInvoices, beneficiariesMap]);
+  }, [rawInvoices, beneficiariesMap, beneficiaryIsrMap]);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -266,10 +271,28 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  // KPIs specific to the current tab/filter context or general project context
-  // Note: resume from API is based on the query. If we filter by type=INVOICE, it shows invoice totals.
-  const totalSalesToCharge = resume.toCharge;
-  const totalPurchasesToPay = resume.toPay;
+  // Recalculate resume totals with corrected ISR (from ITBIS instead of subtotal)
+  const { correctedToPay, correctedToCharge } = (() => {
+    let toPay = 0;
+    let toCharge = 0;
+    rawInvoices.forEach((inv) => {
+      const isPurchase = inv.isSell === 0;
+      const isrRate = beneficiaryIsrMap[inv.beneficiaryId] || 0;
+      let amount = inv.dueToPay;
+      if (isPurchase && isrRate > 0 && inv.taxes > 0) {
+        const correctIsr = inv.taxes * isrRate;
+        amount = inv.subTotal + inv.taxes - correctIsr;
+      }
+      if (isPurchase) {
+        toPay += amount;
+      } else {
+        toCharge += amount;
+      }
+    });
+    return { correctedToPay: toPay, correctedToCharge: toCharge };
+  })();
+  const totalSalesToCharge = correctedToCharge;
+  const totalPurchasesToPay = correctedToPay;
   const pendingRecordsCount =
     resume.toChargeRecordsCount + resume.toPayRecordsCount;
 
@@ -544,6 +567,13 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
           quotationDate: recordWithElements.date,
         });
       } else {
+        // Check if it's a purchase record with ISR retention
+        const isPurchase = recordWithElements.isSell === 0;
+        const isrRate = beneficiary?.metadata?.isrTaxRetention
+          ? Number(beneficiary.metadata.isrTaxRetention)
+          : 0;
+        const hasRetention = isPurchase && isrRate > 0;
+
         // Check document type to determine which PDF generator to use
         if (recordWithElements.type === "INVOICE") {
           // Generate Invoice PDF
@@ -553,6 +583,8 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             elements: recordWithElements.elements || [],
             isSell: recordWithElements.isSell === 1,
             userName: user?.user_metadata?.full_name || user?.email || "",
+            applyRetention: hasRetention,
+            retentionRate: hasRetention ? isrRate : 0,
           });
         } else {
           // Generate Quote or Order PDF
@@ -563,6 +595,8 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             documentType: recordWithElements.type as "QUOTE" | "ORDER",
             isSell: recordWithElements.isSell === 1,
             userName: user?.user_metadata?.full_name || user?.email || "",
+            applyRetention: hasRetention,
+            retentionRate: hasRetention ? isrRate : 0,
           });
         }
       }

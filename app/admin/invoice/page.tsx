@@ -59,6 +59,7 @@ function mapGestionoToInvoice(
   gestionoInvoice: GestionoInvoiceItem,
   beneficiariesMap: Record<number, string> = {},
   divisions: GestionoDivision[] = [],
+  beneficiaryIsrMap: Record<number, number> = {},
 ): InvoiceDisplay {
   const beneficiaryName =
     beneficiariesMap[gestionoInvoice.beneficiaryId] ||
@@ -96,9 +97,16 @@ function mapGestionoToInvoice(
     if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
       attachedFileUrl = meta.files[0].s3Key as string;
     } else if (meta.attachedfileurl) {
-      // Fallback for old data
       attachedFileUrl = meta.attachedfileurl as string;
     }
+  }
+  let displayAmount = gestionoInvoice.dueToPay;
+  const isPurchase = gestionoInvoice.isSell === 0;
+  const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
+  if (isPurchase && isrRate > 0 && gestionoInvoice.taxes > 0) {
+    const correctIsrAmount = gestionoInvoice.taxes * isrRate;
+    displayAmount =
+      gestionoInvoice.subTotal + gestionoInvoice.taxes - correctIsrAmount;
   }
 
   return {
@@ -112,8 +120,7 @@ function mapGestionoToInvoice(
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
-    // Use dueToPay: the per-record total after ISR retention deduction
-    amount: gestionoInvoice.dueToPay,
+    amount: displayAmount,
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -167,6 +174,9 @@ export default function InvoicesPage() {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [beneficiariesMap, setBeneficiariesMap] = useState<
     Record<number, string>
+  >({});
+  const [beneficiaryIsrMap, setBeneficiaryIsrMap] = useState<
+    Record<number, number>
   >({});
   const [refreshKey, setRefreshKey] = useState(0);
   const [createDialogState, setCreateDialogState] = useState<{
@@ -231,10 +241,6 @@ export default function InvoicesPage() {
     imageUrl: null,
   });
 
-  // Retention modal state
-
-  console.log(user?.user_metadata.full_name, "user");
-
   useEffect(() => {
     const fetchBeneficiaries = async () => {
       setIsLoadingBeneficiaries(true);
@@ -243,10 +249,16 @@ export default function InvoicesPage() {
         if (response.ok) {
           const beneficiaries: GestionoBeneficiary[] = await response.json();
           const map: Record<number, string> = {};
+          const isrMap: Record<number, number> = {};
           beneficiaries.forEach((b) => {
             map[b.id] = b.name;
+            const isr = b.metadata?.isrTaxRetention;
+            if (isr) {
+              isrMap[b.id] = Number(isr);
+            }
           });
           setBeneficiariesMap(map);
+          setBeneficiaryIsrMap(isrMap);
         }
       } catch (error) {
         console.error("Error fetching beneficiaries:", error);
@@ -326,7 +338,12 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     const mapped = rawInvoices.map((item) =>
-      mapGestionoToInvoice(item, beneficiariesMap, divisions),
+      mapGestionoToInvoice(
+        item,
+        beneficiariesMap,
+        divisions,
+        beneficiaryIsrMap,
+      ),
     );
 
     // Sort by date descending (newest first)
@@ -337,7 +354,7 @@ export default function InvoicesPage() {
     });
 
     setInvoices(sorted);
-  }, [rawInvoices, beneficiariesMap, divisions]);
+  }, [rawInvoices, beneficiariesMap, divisions, beneficiaryIsrMap]);
 
   const isLoading =
     isLoadingInvoices || isLoadingBeneficiaries || isLoadingContext;
@@ -362,11 +379,30 @@ export default function InvoicesPage() {
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  // Usar datos del API resume en lugar de cálculos locales
-  const totalSalesToCharge = resume.toCharge; // Monto pendiente a cobrar
-  const totalPurchasesToPay = resume.toPay; // Monto pendiente a pagar
+  // Recalculate resume totals with corrected ISR (from ITBIS instead of subtotal)
+  const { correctedToPay, correctedToCharge } = (() => {
+    let toPay = 0;
+    let toCharge = 0;
+    rawInvoices.forEach((inv) => {
+      const isPurchase = inv.isSell === 0;
+      const isrRate = beneficiaryIsrMap[inv.beneficiaryId] || 0;
+      let amount = inv.dueToPay;
+      if (isPurchase && isrRate > 0 && inv.taxes > 0) {
+        const correctIsr = inv.taxes * isrRate;
+        amount = inv.subTotal + inv.taxes - correctIsr;
+      }
+      if (isPurchase) {
+        toPay += amount;
+      } else {
+        toCharge += amount;
+      }
+    });
+    return { correctedToPay: toPay, correctedToCharge: toCharge };
+  })();
+  const totalSalesToCharge = correctedToCharge;
+  const totalPurchasesToPay = correctedToPay;
   const pendingRecordsCount =
-    resume.toChargeRecordsCount + resume.toPayRecordsCount; // Total de registros pendientes
+    resume.toChargeRecordsCount + resume.toPayRecordsCount;
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -698,9 +734,7 @@ export default function InvoicesPage() {
         quotationDate: recordWithElements.date,
       });
     } else {
-      console.log("🔍 NOT a local quotation, checking document type");
       if (recordWithElements.type === "INVOICE") {
-        console.log("🔍 Generating INVOICE PDF");
         await generateInvoicePDF({
           invoice: recordWithElements,
           beneficiary,
@@ -711,7 +745,6 @@ export default function InvoicesPage() {
           retentionRate,
         });
       } else {
-        console.log("🔍 Generating QUOTE/ORDER PDF");
         await generateQuotePDF({
           quote: recordWithElements,
           beneficiary,

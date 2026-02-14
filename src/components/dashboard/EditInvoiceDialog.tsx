@@ -176,7 +176,7 @@ export function EditInvoiceDialog({
     : 0;
   const isrRetentionAmount =
     !record.isSell && beneficiaryIsrRate > 0
-      ? subtotal * beneficiaryIsrRate
+      ? taxAmount * beneficiaryIsrRate
       : 0;
 
   const total = subtotal + taxAmount - isrRetentionAmount;
@@ -585,6 +585,14 @@ export function EditInvoiceDialog({
                 </label>
                 <select
                   {...register("beneficiaryId", { valueAsNumber: true })}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    setValue("beneficiaryId", id);
+                    const found = gestionoBeneficiaries.find(
+                      (b) => b.id === id,
+                    );
+                    setSelectedBeneficiary(found || null);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   {gestionoBeneficiaries.map((beneficiary) => (
