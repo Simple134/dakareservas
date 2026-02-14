@@ -279,7 +279,10 @@ export async function generateQuotePDF(data: QuotePDFData) {
     const descriptionLines = wrapText(element.description, 165, 8);
     const quantity = element.quantity.toString();
     const unit = element.unit;
-    const price = element.price.toFixed(2);
+    const price = element.price.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
 
     const itemSubtotal = element.quantity * element.price;
     totalAmount += itemSubtotal;
@@ -350,22 +353,34 @@ export async function generateQuotePDF(data: QuotePDFData) {
     });
 
     // ITBIS per element
-    page.drawText(itemItbis.toFixed(2), {
-      x: columnPositions[6],
-      y: yPosition,
-      size: 8,
-      font,
-      color: rgb(0, 0, 0),
-    });
+    page.drawText(
+      itemItbis.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      {
+        x: columnPositions[6],
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
 
     // Total per element (subtotal + itbis)
-    page.drawText((itemSubtotal + itemItbis).toFixed(2), {
-      x: columnPositions[7],
-      y: yPosition,
-      size: 8,
-      font,
-      color: rgb(0, 0, 0),
-    });
+    page.drawText(
+      (itemSubtotal + itemItbis).toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+      {
+        x: columnPositions[7],
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
 
     yPosition -= rowHeight;
   });
