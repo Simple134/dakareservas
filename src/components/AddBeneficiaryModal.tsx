@@ -353,6 +353,47 @@ export default function AddBeneficiaryModal({
         throw new Error(errorMessage);
       }
 
+      // In CREATE mode: if ISR retention was set, immediately update metadata
+      if (!isEditMode && isrTaxRetentionVar > 0) {
+        try {
+          const createdBeneficiary = await response.json();
+          const newId =
+            createdBeneficiary?.id || createdBeneficiary?.beneficiaryId;
+          if (newId) {
+            console.log(
+              `🔄 Updating ISR retention for new beneficiary ${newId}...`,
+            );
+            const updateRes = await fetch(
+              `/api/gestiono/beneficiaries/${newId}`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  id: newId,
+                  name: data.name,
+                  type: data.type,
+                  metadata: {
+                    isrTaxRetention: isrTaxRetentionVar,
+                  },
+                }),
+              },
+            );
+            if (!updateRes.ok) {
+              console.warn(
+                "⚠️ Beneficiary created but failed to set ISR retention",
+              );
+            } else {
+              console.log("✅ ISR retention set successfully");
+            }
+          }
+        } catch (retentionErr) {
+          console.warn(
+            "⚠️ Beneficiary created but failed to set ISR retention:",
+            retentionErr,
+          );
+        }
+      }
+
       reset();
       onSuccess?.();
       onClose();
@@ -480,34 +521,32 @@ export default function AddBeneficiaryModal({
             </div> */}
           </div>
 
-          {/* ISR Tax Retention - Only in edit mode */}
-          {isEditMode && (
-            <div className="border-t border-gray-100 pt-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">
-                    Retención ISR (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="100"
-                    value={isrTaxRetentionVar}
-                    onChange={(e) =>
-                      setIsrTaxRetentionVar(parseFloat(e.target.value) || 0)
-                    }
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
-                    placeholder="Ej. 0.10 para 10%"
-                  />
-                  <p className="text-xs text-gray-500">
-                    Porcentaje de retención ISR aplicado al crear facturas. Ej:
-                    0.10 = 10%
-                  </p>
-                </div>
+          {/* ISR Tax Retention */}
+          <div className="border-t border-gray-100 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-gray-700">
+                  Retención ISR (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={isrTaxRetentionVar}
+                  onChange={(e) =>
+                    setIsrTaxRetentionVar(parseFloat(e.target.value) || 0)
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
+                  placeholder="Ej. 0.10 para 10%"
+                />
+                <p className="text-xs text-gray-500">
+                  Porcentaje de retención ISR aplicado al crear facturas. Ej:
+                  0.10 = 10%
+                </p>
               </div>
             </div>
-          )}
+          </div>
 
           <div className="border-t border-gray-100 pt-6">
             <div className="flex items-center justify-between mb-4">

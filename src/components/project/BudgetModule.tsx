@@ -28,8 +28,18 @@ export function BudgetModule({
   divisionData,
   onUpdate,
 }: BudgetModuleProps) {
-  const [budgetCategories, setBudgetCategories] =
-    useState<BudgetCategory[]>(categories);
+  // Sanitize categories to ensure all fields have valid defaults
+  const sanitizeCategories = (cats: BudgetCategory[]): BudgetCategory[] =>
+    (cats || []).map((cat) => ({
+      id: cat.id || Date.now().toString(),
+      name: cat.name || "Sin nombre",
+      amount: Number(cat.amount) || 0,
+      percentage: Number(cat.percentage) || 0,
+    }));
+
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>(
+    () => sanitizeCategories(categories),
+  );
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,13 +174,13 @@ export function BudgetModule({
   };
 
   const cancelEditing = () => {
-    setBudgetCategories(categories);
+    setBudgetCategories(sanitizeCategories(categories));
     setIsEditing(false);
     setError(null);
   };
 
   const totalPercentage = budgetCategories.reduce(
-    (sum, cat) => sum + cat.percentage,
+    (sum, cat) => sum + (cat.percentage || 0),
     0,
   );
 
@@ -351,9 +361,10 @@ export function BudgetModule({
                         {item.category}
                       </td>
                       <td className="py-4 text-left text-gray-600 text-sm">
-                        {budgetCategories
-                          .find((c) => c.id === item.id)
-                          ?.percentage.toFixed(1)}
+                        {(
+                          budgetCategories.find((c) => c.id === item.id)
+                            ?.percentage ?? 0
+                        ).toFixed(1)}
                         %
                       </td>
                       <td className="py-4 text-left font-medium text-gray-900 text-sm">

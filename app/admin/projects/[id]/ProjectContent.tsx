@@ -10,12 +10,11 @@ import {
   Calculator,
   CreditCard,
   Banknote,
-  ShoppingCart,
-  HardHat,
   Users,
   Briefcase,
   TrendingDown,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import { BudgetModule } from "@/src/components/project/BudgetModule";
 import { FinancesModule } from "@/src/components/project/FinancesModule";
@@ -37,6 +36,7 @@ import { MaterialsModule } from "@/src/components/project/MaterialsModule";
 import { PersonnelModule } from "@/src/components/project/PersonnelModule";
 import { LocalesSection } from "@/src/components/projects/LocalesSection";
 import { ClientesSection } from "@/src/components/projects/ClientesSection";
+import { EditProjectModal } from "@/src/components/project/EditProjectModal";
 
 const sections = [
   {
@@ -71,6 +71,7 @@ export function ProjectContent({
   const [selectedSection, setSelectedSection] = useState("presupuesto-general");
   const selectRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Expenses State
   const [expensesTotal, setExpensesTotal] = useState<number>(0);
@@ -198,9 +199,18 @@ export function ProjectContent({
       <main className="flex-1 p-2 lg:p-6 space-y-6 animate-fade-in">
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              {project?.name}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+                {project?.name}
+              </h1>
+              <button
+                onClick={() => setIsEditModalOpen(true)}
+                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Editar proyecto"
+              >
+                <Pencil className="w-5 h-5" />
+              </button>
+            </div>
             <p className="text-gray-500 mt-1">Cliente: {project?.client}</p>
             <div className="flex items-center gap-2 mt-2">
               <MapPin className="w-4 h-4 text-gray-400" />
@@ -540,6 +550,46 @@ export function ProjectContent({
             documentType={documentDialogState.documentType}
             transactionType={documentDialogState.transactionType}
             projectId={projectId}
+          />
+
+          {/* Modal para editar proyecto */}
+          <EditProjectModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            divisionId={division?.id ?? 0}
+            metadata={division?.metadata}
+            currentData={{
+              name: project?.name || "",
+              client: project?.client || "",
+              location: project?.location || "",
+              status: project?.status || "planning",
+              projectType:
+                (division?.metadata?.projectType as string) || "Residencial",
+              permissionCategory:
+                (division?.metadata?.permissionCategory as string) || "Mayor",
+              totalBudget: project?.totalBudget || 0,
+              startDate: project?.startDate || "",
+              endDate: project?.endDate || "",
+              description: (division?.metadata?.description as string) || "",
+            }}
+            onSave={() => {
+              const fetchDivision = async () => {
+                if (!projectId) return;
+                try {
+                  const res = await fetch(
+                    `/api/gestiono/divisions/${projectId}`,
+                  );
+                  if (res.ok) {
+                    const data = await res.json();
+                    const divData = Array.isArray(data) ? data[0] : data;
+                    setDivision(divData);
+                  }
+                } catch (error) {
+                  console.error("Error refreshing division:", error);
+                }
+              };
+              fetchDivision();
+            }}
           />
         </div>
       </main>
