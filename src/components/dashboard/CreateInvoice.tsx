@@ -255,7 +255,7 @@ export function CreateInvoiceDialog({
       pendingRecordId: 0,
       description: "",
       quantity: 1,
-      unit: "unidad",
+      unit: "UD",
       price: 0,
       variation: 0,
       taxes:
@@ -618,7 +618,7 @@ export function CreateInvoiceDialog({
           <div className="bg-white border border-gray-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">
-                Elementos de la Factura
+                Elementos de la {getDocumentName()}
               </h3>
               <button
                 type="button"
@@ -676,12 +676,30 @@ export function CreateInvoiceDialog({
                     </div>
 
                     <div className="col-span-1">
-                      <input
-                        type="text"
+                      <select
                         {...register(`elements.${index}.unit`)}
-                        placeholder="und"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
+                        className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                      >
+                        <option value="UND">UND</option>
+                        <option value="M">M</option>
+                        <option value="M²">M²</option>
+                        <option value="ML">ML</option>
+                        <option value="M³">M³</option>
+                        <option value="GL">GL</option>
+                        <option value="PA">PA</option>
+                        <option value="P²">P²</option>
+                        <option value="PL">PL</option>
+                        <option value="KG">KG</option>
+                        <option value="LB">LB</option>
+                        <option value="TON">TON</option>
+                        <option value="LT">LT</option>
+                        <option value="GL (líq)">GL (líq)</option>
+                        <option value="ROLLO">ROLLO</option>
+                        <option value="SACO">SACO</option>
+                        <option value="CUBETA">CUBETA</option>
+                        <option value="LÁMINA">LÁMINA</option>
+                        <option value="VARILLA">VARILLA</option>
+                      </select>
                     </div>
 
                     <div className="col-span-2">

@@ -156,7 +156,10 @@ export default function AddBeneficiaryModal({
 
     try {
       const contactData = watchedContacts?.[index];
-      if (!contactData) return;
+      if (!contactData || !contactData.data) {
+        setError("Por favor complete los datos del contacto");
+        return;
+      }
 
       const contactId = beneficiaryData?.contact?.[index]?.id;
 
@@ -168,14 +171,14 @@ export default function AddBeneficiaryModal({
           body: JSON.stringify({
             id: contactId,
             beneficiaryId, // Required by Gestiono API
-            type: contactData.type,
+            type: contactData.type || "phone",
             dataType: contactData.dataType || "string",
             data: contactData.data,
           }),
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || "Error al actualizar contacto");
         }
 
@@ -187,22 +190,22 @@ export default function AddBeneficiaryModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             beneficiaryId,
-            type: contactData.type,
+            type: contactData.type || "phone",
             dataType: contactData.dataType || "string",
             data: contactData.data,
           }),
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || "Error al crear contacto");
         }
 
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
         console.log("✅ Contact created successfully:", result);
 
         // Update the field with the new contact ID
-        if (result.contactId) {
+        if (result.contactId && contactData) {
           update(index, { ...contactData, id: result.contactId });
         }
       }
@@ -303,19 +306,20 @@ export default function AddBeneficiaryModal({
 
     try {
       // Separate contact data from beneficiary data
-      const { contact, ...beneficiaryData } = data;
+      // Use a different variable name to avoid shadowing the prop "beneficiaryData"
+      const { contact: _contactFields, ...beneficiaryFields } = data;
 
       const payload = isEditMode
         ? {
             // EDIT MODE: Only send beneficiary data, NO contact data
             // Contacts are managed separately via individual save buttons
             id: beneficiaryId,
-            name: beneficiaryData.name,
-            type: beneficiaryData.type,
-            taxId: beneficiaryData.taxId || undefined,
-            reference: beneficiaryData.reference || undefined,
-            creditLimit: beneficiaryData.creditLimit
-              ? Number(String(beneficiaryData.creditLimit).replace(/,/g, ""))
+            name: beneficiaryFields.name,
+            type: beneficiaryFields.type,
+            taxId: beneficiaryFields.taxId || undefined,
+            reference: beneficiaryFields.reference || undefined,
+            creditLimit: beneficiaryFields.creditLimit
+              ? Number(String(beneficiaryFields.creditLimit).replace(/,/g, ""))
               : undefined,
             metadata: {
               isrTaxRetention: isrTaxRetentionVar || 0,
@@ -356,9 +360,8 @@ export default function AddBeneficiaryModal({
       // In CREATE mode: if ISR retention was set, immediately update metadata
       if (!isEditMode && isrTaxRetentionVar > 0) {
         try {
-          const createdBeneficiary = await response.json();
-          const newId =
-            createdBeneficiary?.id || createdBeneficiary?.beneficiaryId;
+          const responseData = await response.json().catch(() => null);
+          const newId = responseData?.id || responseData?.beneficiaryId;
           if (newId) {
             console.log(
               `🔄 Updating ISR retention for new beneficiary ${newId}...`,

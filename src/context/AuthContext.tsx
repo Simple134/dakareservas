@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { useRouter, usePathname } from "next/navigation";
@@ -9,6 +9,7 @@ import { useRouter, usePathname } from "next/navigation";
 type AuthContextType = {
   user: User | null;
   role: "admin" | "user" | null;
+  roleLoaded: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (
@@ -24,10 +25,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<"admin" | "user" | null>(null);
+  const [roleLoaded, setRoleLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const initCompleteRef = useRef(false);
+  const roleFetchingRef = useRef(false);
 
   const fetchAndSetRole = async (userId: string) => {
+    // Prevent concurrent role fetches
+    if (roleFetchingRef.current) return;
+    roleFetchingRef.current = true;
+
     try {
       const { data: profile, error } = await supabase
         .from("profiles")
@@ -36,7 +44,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single();
 
       if (error) {
+        console.warn(
+          "⚠️ Error fetching role, defaulting to user:",
+          error.message,
+        );
         setRole("user");
+        setRoleLoaded(true);
         return;
       }
 
@@ -49,16 +62,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         setRole("user");
       }
+      setRoleLoaded(true);
     } catch (error) {
       console.error("💥 Unexpected error fetching role:", error);
       setRole("user");
+      setRoleLoaded(true);
+    } finally {
+      roleFetchingRef.current = false;
     }
   };
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
+    setRoleLoaded(false);
+    roleFetchingRef.current = false; // Reset so fetchAndSetRole can run
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -69,23 +88,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error };
       }
 
-      if (data.user) {
-        setUser(data.user);
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
 
-        if (profile) {
-          if (profile.role === "admin") {
-            setRole("admin");
-          } else {
-            setRole("user");
-          }
-        } else {
-          setRole("user");
-        }
+      if (currentUser) {
+        setUser(currentUser);
+        await fetchAndSetRole(currentUser.id);
       }
 
       setLoading(false);
@@ -131,6 +140,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut();
     setUser(null);
     setRole(null);
+    setRoleLoaded(false);
+    initCompleteRef.current = false;
     router.push("/login");
   };
 
@@ -149,24 +160,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (user && !error) {
           setUser(user);
-          // Fetch role with timeout to prevent hanging
-          try {
-            await Promise.race([
-              fetchAndSetRole(user.id),
-              new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Timeout")), 5000),
-              ),
-            ]);
-          } catch (roleError) {
-            console.error(
-              "⚠️ Role fetch timeout or error, defaulting to user:",
-              roleError,
-            );
-            setRole("user");
-          }
+          await fetchAndSetRole(user.id);
         } else {
           setUser(null);
           setRole(null);
+          setRoleLoaded(true);
         }
       } catch (error) {
         console.error("❌ Error initializing auth:", error);
@@ -178,6 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // CRITICAL: Always set loading to false
         if (mounted) {
           setLoading(false);
+          initCompleteRef.current = true;
         }
       }
     };
@@ -191,20 +190,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           if (event === "SIGNED_IN" && session?.user) {
             setUser(session.user);
-            try {
-              await Promise.race([
-                fetchAndSetRole(session.user.id),
-                new Promise((_, reject) =>
-                  setTimeout(() => reject(new Error("Timeout")), 5000),
-                ),
-              ]);
-            } catch (roleError) {
-              setRole("user");
-            }
+            // Skip if initializeAuth already handled this
+            if (!initCompleteRef.current) return;
+            await fetchAndSetRole(session.user.id);
             setLoading(false);
           } else if (event === "SIGNED_OUT") {
             setUser(null);
             setRole(null);
+            setRoleLoaded(false);
             setLoading(false);
           } else if (event === "TOKEN_REFRESHED" && session?.user) {
             setUser(session.user);
@@ -225,7 +218,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && pathname === "/") {
+    if (!loading && roleLoaded && pathname === "/") {
       if (user) {
         if (role === "admin") {
           router.replace("/admin");
@@ -236,11 +229,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         router.replace("/login");
       }
     }
-  }, [user, role, loading, pathname, router]);
+  }, [user, role, loading, roleLoaded, pathname, router]);
 
   return (
     <AuthContext.Provider
-      value={{ user, role, loading, signIn, signUp, signOut }}
+      value={{ user, role, roleLoaded, loading, signIn, signUp, signOut }}
     >
       {children}
     </AuthContext.Provider>

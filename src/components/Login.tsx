@@ -12,7 +12,14 @@ type AuthInputs = {
 };
 
 export const Login = () => {
-  const { signIn, signUp, role, user, loading: authLoading } = useAuth();
+  const {
+    signIn,
+    signUp,
+    role,
+    roleLoaded,
+    user,
+    loading: authLoading,
+  } = useAuth();
   const router = useRouter();
 
   const [view, setView] = useState<"login" | "register">("login");
@@ -21,7 +28,7 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && roleLoaded) {
       try {
         if (role === "admin") {
           router.push("/admin");
@@ -32,7 +39,7 @@ export const Login = () => {
         console.error("Error redirecting:", err);
       }
     }
-  }, [user, role, authLoading, router]);
+  }, [user, role, roleLoaded, authLoading, router]);
 
   const {
     register,
