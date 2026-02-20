@@ -578,28 +578,65 @@ export default function InvoicesPage() {
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
-    metadata?: Record<string, unknown>,
   ) => {
     try {
-      const payload: {
-        id: number;
-        type: string;
-        metadata?: Record<string, unknown>;
-      } = {
-        id: parseInt(invoiceId),
-        type: newType,
-      };
-
-      if (metadata) {
-        payload.metadata = metadata;
+      // 1. Buscar el registro original completo
+      const originalRecord = rawInvoices.find(
+        (r) => String(r.id) === invoiceId,
+      );
+      if (!originalRecord) {
+        throw new Error("No se encontró el registro original");
       }
 
-      const response = await fetch(`/api/gestiono/pendingRecord/update`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+      // 2. Si no tiene elements, obtenerlos del API
+      let recordWithElements = originalRecord;
+      if (!originalRecord.elements || originalRecord.elements.length === 0) {
+        const detailsResponse = await fetch(
+          `/api/gestiono/pendingRecord/${originalRecord.id}`,
+        );
+        if (detailsResponse.ok) {
+          recordWithElements = await detailsResponse.json();
+        }
+      }
+
+      // 3. Crear el nuevo registro con los datos del original
+      const createFromData = {
+        description: recordWithElements.description,
+        notes: recordWithElements.notes,
+        divisionId: recordWithElements.divisionId,
+        beneficiaryId: recordWithElements.beneficiaryId,
+        type: newType,
+        isSell: Boolean(recordWithElements.isSell), // Convertir 0/1 a boolean
+        date: recordWithElements.date,
+        dueDate: recordWithElements.dueDate,
+        currency: recordWithElements.currency,
+        generateTaxId: "none",
+        taxId: "",
+        updatePrices: false,
+        createFirstInvoice: false,
+        sourcePendingRecordId: recordWithElements.id,
+        clientdata:
+          typeof recordWithElements.clientdata === "object" &&
+          recordWithElements.clientdata !== null
+            ? recordWithElements.clientdata
+            : undefined,
+        metadata: recordWithElements.metadata,
+        elements:
+          recordWithElements.elements?.map((el) => ({
+            description: el.description,
+            unit: el.unit,
+            quantity: el.quantity,
+            price: el.price,
+            variation: el.variation,
+            ...(el.resourceId ? { resourceId: el.resourceId } : {}), // ← Solo incluir si existe
+            taxes: el.taxes?.map((tax) => ({ taxRateId: tax.taxRateId })) ?? [],
+          })) ?? [],
+      };
+
+      const response = await fetch(`/api/gestiono/pendingRecord`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createFromData),
       });
 
       if (!response.ok) {
@@ -607,14 +644,14 @@ export default function InvoicesPage() {
         throw new Error(errorData.details || "Error al convertir el documento");
       }
 
-      // Refresh list
+      // 4. Refresh list
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("❌ Error converting record:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Error al convertir el documento. Por favor, intenta de nuevo.",
+          : "Error al convertir el documento.",
       );
     }
   };
@@ -1713,13 +1750,9 @@ export default function InvoicesPage() {
             })
           }
           invoiceNumber={convertModalState.invoiceNumber || ""}
-          onConfirm={async (metadata) => {
+          onConfirm={async () => {
             if (convertModalState.invoiceId) {
-              await handleConvertRecord(
-                convertModalState.invoiceId,
-                "INVOICE",
-                metadata,
-              );
+              await handleConvertRecord(convertModalState.invoiceId, "INVOICE");
             }
           }}
         />
