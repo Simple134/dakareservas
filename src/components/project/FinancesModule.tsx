@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Clock,
   ArrowRight,
+  Image as ImageIcon,
 } from "lucide-react";
 import {
   CustomCard,
@@ -49,6 +50,7 @@ interface InvoiceDisplay {
   status: string;
   type: string;
   documentType: string;
+  attachedFileUrl?: string;
 }
 
 function mapGestionoToInvoice(
@@ -92,6 +94,19 @@ function mapGestionoToInvoice(
       gestionoInvoice.subTotal + gestionoInvoice.taxes - correctIsrAmount;
   }
 
+  let attachedFileUrl: string | undefined;
+  if (
+    gestionoInvoice.metadata &&
+    typeof gestionoInvoice.metadata === "object"
+  ) {
+    const meta = gestionoInvoice.metadata;
+    if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
+      attachedFileUrl = meta.files[0].s3Key as string;
+    } else if (meta.attachedfileurl) {
+      attachedFileUrl = meta.attachedfileurl as string;
+    }
+  }
+
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
@@ -111,6 +126,7 @@ function mapGestionoToInvoice(
         : gestionoInvoice.type === "ORDER"
           ? "ORDER"
           : "INVOICE",
+    attachedFileUrl,
   };
 }
 
@@ -349,6 +365,14 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     invoiceNumber: null,
   });
 
+  const [imagePreviewState, setImagePreviewState] = useState<{
+    isOpen: boolean;
+    imageUrl: string | null;
+  }>({
+    isOpen: false,
+    imageUrl: null,
+  });
+
   const handleDeleteClick = (
     invoiceId: string,
     invoiceNumber: string,
@@ -438,28 +462,69 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
-    metadata?: Record<string, unknown>,
+    metadata?: { files: { s3Key: string; fileName: string }[] },
   ) => {
     try {
-      const payload: {
-        id: number;
-        type: string;
-        metadata?: Record<string, unknown>;
-      } = {
-        id: parseInt(invoiceId),
-        type: newType,
-      };
-
-      if (metadata) {
-        payload.metadata = metadata;
+      // 1. Find the original record
+      const originalRecord = rawInvoices.find(
+        (r) => String(r.id) === invoiceId,
+      );
+      if (!originalRecord) {
+        throw new Error("No se encontró el registro original");
       }
 
-      const response = await fetch(`/api/gestiono/pendingRecord/update`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      // 2. Fetch full details with elements if needed
+      let recordWithElements = originalRecord;
+      if (!originalRecord.elements || originalRecord.elements.length === 0) {
+        const detailsResponse = await fetch(
+          `/api/gestiono/pendingRecord/${originalRecord.id}`,
+        );
+        if (detailsResponse.ok) {
+          recordWithElements = await detailsResponse.json();
+        }
+      }
+
+      // 3. Create new record with data from original
+      const createFromData = {
+        description: recordWithElements.description,
+        notes: recordWithElements.notes,
+        divisionId: recordWithElements.divisionId,
+        beneficiaryId: recordWithElements.beneficiaryId,
+        type: newType,
+        isSell: Boolean(recordWithElements.isSell),
+        date: recordWithElements.date,
+        dueDate: recordWithElements.dueDate,
+        currency: recordWithElements.currency,
+        generateTaxId: "none",
+        taxId: "",
+        updatePrices: false,
+        createFirstInvoice: false,
+        sourcePendingRecordId: recordWithElements.id,
+        clientdata:
+          typeof recordWithElements.clientdata === "object" &&
+          recordWithElements.clientdata !== null
+            ? recordWithElements.clientdata
+            : undefined,
+        metadata: {
+          ...(recordWithElements.metadata || {}),
+          ...(metadata || {}),
         },
-        body: JSON.stringify(payload),
+        elements:
+          recordWithElements.elements?.map((el) => ({
+            description: el.description,
+            unit: el.unit,
+            quantity: el.quantity,
+            price: el.price,
+            variation: el.variation,
+            ...(el.resourceId ? { resourceId: el.resourceId } : {}),
+            taxes: el.taxes?.map((tax) => ({ taxRateId: tax.taxRateId })) ?? [],
+          })) ?? [],
+      };
+
+      const response = await fetch(`/api/gestiono/pendingRecord`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(createFromData),
       });
 
       if (!response.ok) {
@@ -467,13 +532,14 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
         throw new Error(errorData.details || "Error al convertir el documento");
       }
 
+      // 4. Refresh list
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("❌ Error converting record:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Error al convertir el documento. Por favor, intenta de nuevo.",
+          : "Error al convertir el documento.",
       );
     }
   };
@@ -1030,6 +1096,20 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
+                          {invoice.attachedFileUrl && (
+                            <button
+                              onClick={() =>
+                                setImagePreviewState({
+                                  isOpen: true,
+                                  imageUrl: invoice.attachedFileUrl!,
+                                })
+                              }
+                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Ver Comprobante"
+                            >
+                              <ImageIcon className="w-5 h-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1224,11 +1304,12 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                     </CustomButton>
                     <CustomButton
                       onClick={() => {
-                        handleConvertRecord(
-                          viewModalState.invoice!.id,
-                          "INVOICE",
-                        );
                         handleViewClose();
+                        setConvertModalState({
+                          isOpen: true,
+                          invoiceId: viewModalState.invoice!.id,
+                          invoiceNumber: viewModalState.invoice!.invoiceNumber,
+                        });
                       }}
                       className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
                     >
@@ -1270,7 +1351,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
         </div>
       )}
 
-      {/* Convert Modal (Order -> Invoice) */}
+      {/* Convert Modal (Quote/Order -> Invoice) */}
       {convertModalState.isOpen && (
         <ConvertModal
           isOpen={convertModalState.isOpen}
@@ -1282,16 +1363,39 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             })
           }
           invoiceNumber={convertModalState.invoiceNumber || ""}
-          onConfirm={async (metadata) => {
+          onConfirm={async (fileMetadata) => {
             if (convertModalState.invoiceId) {
               await handleConvertRecord(
                 convertModalState.invoiceId,
                 "INVOICE",
-                metadata,
+                fileMetadata,
               );
             }
           }}
         />
+      )}
+
+      {/* Image Preview Modal */}
+      {imagePreviewState.isOpen && imagePreviewState.imageUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="relative bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] overflow-auto">
+            <button
+              onClick={() =>
+                setImagePreviewState({ isOpen: false, imageUrl: null })
+              }
+              className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors z-10"
+            >
+              <X className="w-6 h-6 text-gray-600" />
+            </button>
+            <div className="p-2">
+              <img
+                src={imagePreviewState.imageUrl}
+                alt="Comprobante"
+                className="max-w-full h-auto rounded"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

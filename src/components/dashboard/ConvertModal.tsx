@@ -4,11 +4,15 @@ import { useState } from "react";
 import { X, Upload, FileText, ArrowRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 
+interface ConvertMetadata {
+  files: { s3Key: string; fileName: string }[];
+}
+
 interface ConvertModalProps {
   isOpen: boolean;
   onClose: () => void;
   invoiceNumber: string;
-  onConfirm: (metadata?: any) => Promise<void>;
+  onConfirm: (metadata?: ConvertMetadata) => Promise<void>;
 }
 
 interface ConvertFormData {
@@ -112,26 +116,60 @@ export function ConvertModal({
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Comprobante / Documento Firmado (Opcional)
             </label>
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500">
-                  {selectedFile
-                    ? selectedFile.name
-                    : "Click para subir archivo"}
-                </p>
+            {selectedFile && selectedFile.type.startsWith("image/") ? (
+              <div className="relative w-full rounded-lg border-2 border-indigo-200 bg-indigo-50 overflow-hidden">
+                <img
+                  src={URL.createObjectURL(selectedFile)}
+                  alt="Preview"
+                  className="w-full max-h-48 object-contain"
+                />
+                <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-indigo-100">
+                  <p className="text-sm text-gray-700 truncate flex-1">
+                    {selectedFile.name}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFile(null)}
+                    className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <input
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setSelectedFile(e.target.files[0]);
-                  }
-                }}
-                accept="image/*,application/pdf"
-              />
-            </label>
+            ) : selectedFile ? (
+              <div className="flex items-center gap-3 w-full p-4 border-2 border-indigo-200 bg-indigo-50 rounded-lg">
+                <FileText className="w-8 h-8 text-indigo-500 flex-shrink-0" />
+                <p className="text-sm text-gray-700 truncate flex-1">
+                  {selectedFile.name}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedFile(null)}
+                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-500">
+                    Click para subir archivo
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setSelectedFile(e.target.files[0]);
+                    }
+                  }}
+                  accept="image/*,application/pdf"
+                />
+              </label>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">

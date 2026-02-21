@@ -1648,11 +1648,12 @@ export default function InvoicesPage() {
                     </CustomButton>
                     <CustomButton
                       onClick={() => {
-                        handleConvertRecord(
-                          viewModalState.invoice!.id,
-                          "INVOICE",
-                        );
                         handleViewClose();
+                        setConvertModalState({
+                          isOpen: true,
+                          invoiceId: viewModalState.invoice!.id,
+                          invoiceNumber: viewModalState.invoice!.invoiceNumber,
+                        });
                       }}
                       className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
                     >

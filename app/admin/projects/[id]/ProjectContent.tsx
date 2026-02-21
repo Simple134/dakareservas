@@ -590,6 +590,7 @@ export function ProjectContent({
               };
               fetchDivision();
             }}
+            onDelete={() => router.push("/admin")}
           />
         </div>
       </main>

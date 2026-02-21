@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Loader2, Plus } from "lucide-react";
+import { X, Loader2, Plus, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { GestionoBeneficiary } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
@@ -9,6 +9,7 @@ interface EditProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
+  onDelete?: () => void;
   divisionId: number;
   currentData: {
     name: string;
@@ -29,11 +30,14 @@ export function EditProjectModal({
   isOpen,
   onClose,
   onSave,
+  onDelete,
   divisionId,
   currentData,
   metadata,
 }: EditProjectModalProps) {
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<GestionoBeneficiary[]>([]);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -101,6 +105,7 @@ export function EditProjectModal({
       );
       setDescription(currentData.description || "");
       setError(null);
+      setConfirmDelete(false);
     }
   }, [isOpen, currentData]);
 
@@ -148,6 +153,39 @@ export function EditProjectModal({
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/gestiono/divisions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: divisionId,
+          metadata: { disabled: true },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al eliminar el proyecto");
+      }
+
+      onClose();
+      onDelete?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -386,29 +424,55 @@ export function EditProjectModal({
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end gap-3 rounded-b-xl">
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center rounded-b-xl">
             <button
-              onClick={onClose}
-              disabled={saving}
-              className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              onClick={handleDelete}
+              disabled={saving || deleting}
+              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 ${
+                confirmDelete
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "text-red-600 hover:bg-red-50 border border-red-200"
+              }`}
             >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving || !projectName}
-              style={{ borderRadius: "1rem" }}
-              className="px-5 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] transition-colors flex items-center gap-2 disabled:opacity-50"
-            >
-              {saving ? (
+              {deleting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
+                  Eliminando...
                 </>
+              ) : confirmDelete ? (
+                "¿Estás seguro?"
               ) : (
-                "Guardar Cambios"
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Eliminar
+                </>
               )}
             </button>
+            <div className="flex-1" />
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={saving}
+                className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !projectName}
+                style={{ borderRadius: "1rem" }}
+                className="px-5 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  "Guardar Cambios"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
