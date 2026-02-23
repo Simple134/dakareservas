@@ -615,16 +615,16 @@ export function CreateInvoiceDialog({
           </div>
 
           {/* Elementos de la Factura */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+          <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                 Elementos de la {getDocumentName()}
               </h3>
               <button
                 type="button"
                 onClick={addItem}
                 style={{ borderRadius: "50px" }}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition-colors text-sm font-medium"
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-900 text-white rounded-md hover:bg-blue-800 transition-colors text-sm font-medium w-full sm:w-auto"
               >
                 <Plus className="w-4 h-4" />
                 <span className="font-bold">Agregar Elemento</span>
@@ -632,7 +632,8 @@ export function CreateInvoiceDialog({
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
+              {/* Desktop Header - hidden on mobile */}
+              <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
                 <div className="col-span-4">Descripción</div>
                 <div className="col-span-1">Cant.</div>
                 <div className="col-span-1">Unidad</div>
@@ -652,114 +653,217 @@ export function CreateInvoiceDialog({
                   itemSubtotal + itemSubtotal * (elTax?.rate || 0);
 
                 return (
-                  <div
-                    key={field.id}
-                    className="grid grid-cols-12 gap-2 items-center"
-                  >
-                    <div className="col-span-4">
-                      <input
-                        type="text"
-                        {...register(`elements.${index}.description`)}
-                        placeholder="Descripción del elemento"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
+                  <div key={field.id}>
+                    {/* Mobile Card Layout */}
+                    <div className="block md:hidden p-3 border border-gray-100 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-500">Elemento {index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          disabled={fields.length === 1}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-md disabled:opacity-30"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Descripción</label>
+                        <input
+                          type="text"
+                          {...register(`elements.${index}.description`)}
+                          placeholder="Descripción del elemento"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500">Cant.</label>
+                          <input
+                            type="text"
+                            {...register(`elements.${index}.quantity`, { valueAsNumber: true })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Unidad</label>
+                          <select
+                            {...register(`elements.${index}.unit`)}
+                            className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                          >
+                            <option value="UND">UND</option>
+                            <option value="M">M</option>
+                            <option value="M²">M²</option>
+                            <option value="ML">ML</option>
+                            <option value="M³">M³</option>
+                            <option value="GL">GL</option>
+                            <option value="PA">PA</option>
+                            <option value="P²">P²</option>
+                            <option value="PL">PL</option>
+                            <option value="KG">KG</option>
+                            <option value="LB">LB</option>
+                            <option value="TON">TON</option>
+                            <option value="LT">LT</option>
+                            <option value="GL (líq)">GL (líq)</option>
+                            <option value="ROLLO">ROLLO</option>
+                            <option value="SACO">SACO</option>
+                            <option value="CUBETA">CUBETA</option>
+                            <option value="LÁMINA">LÁMINA</option>
+                            <option value="VARILLA">VARILLA</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Precio</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            {...register(`elements.${index}.price`, { valueAsNumber: true })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-500">Impuesto</label>
+                          <select
+                            value={element?.taxes?.[0]?.taxRateId || ""}
+                            onChange={(e) => {
+                              const taxRateId = Number(e.target.value);
+                              if (taxRateId) {
+                                setValue(`elements.${index}.taxes`, [{ taxRateId, id: 0, pendingRecordElementId: 0, isIncludedInPrice: false }]);
+                              } else {
+                                setValue(`elements.${index}.taxes`, []);
+                              }
+                            }}
+                            className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                          >
+                            <option value="">Sin impuesto</option>
+                            {taxesList.map((tax) => (
+                              <option key={tax.id} value={tax.id}>
+                                {tax.slug} ({(tax.rate * 100).toFixed(0)}%)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500">Total</label>
+                          <input
+                            type="text"
+                            value={itemTotal.toFixed(2)}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-600"
+                          />
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="col-span-1">
-                      <input
-                        type="text"
-                        {...register(`elements.${index}.quantity`, {
-                          valueAsNumber: true,
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
+                    {/* Desktop Grid Layout */}
+                    <div className="hidden md:grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-4">
+                        <input
+                          type="text"
+                          {...register(`elements.${index}.description`)}
+                          placeholder="Descripción del elemento"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
 
-                    <div className="col-span-1">
-                      <select
-                        {...register(`elements.${index}.unit`)}
-                        className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
-                      >
-                        <option value="UND">UND</option>
-                        <option value="M">M</option>
-                        <option value="M²">M²</option>
-                        <option value="ML">ML</option>
-                        <option value="M³">M³</option>
-                        <option value="GL">GL</option>
-                        <option value="PA">PA</option>
-                        <option value="P²">P²</option>
-                        <option value="PL">PL</option>
-                        <option value="KG">KG</option>
-                        <option value="LB">LB</option>
-                        <option value="TON">TON</option>
-                        <option value="LT">LT</option>
-                        <option value="GL (líq)">GL (líq)</option>
-                        <option value="ROLLO">ROLLO</option>
-                        <option value="SACO">SACO</option>
-                        <option value="CUBETA">CUBETA</option>
-                        <option value="LÁMINA">LÁMINA</option>
-                        <option value="VARILLA">VARILLA</option>
-                      </select>
-                    </div>
+                      <div className="col-span-1">
+                        <input
+                          type="text"
+                          {...register(`elements.${index}.quantity`, {
+                            valueAsNumber: true,
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
 
-                    <div className="col-span-2">
-                      <input
-                        type="number"
-                        step="0.01"
-                        {...register(`elements.${index}.price`, {
-                          valueAsNumber: true,
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      />
-                    </div>
+                      <div className="col-span-1">
+                        <select
+                          {...register(`elements.${index}.unit`)}
+                          className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                        >
+                          <option value="UND">UND</option>
+                          <option value="M">M</option>
+                          <option value="M²">M²</option>
+                          <option value="ML">ML</option>
+                          <option value="M³">M³</option>
+                          <option value="GL">GL</option>
+                          <option value="PA">PA</option>
+                          <option value="P²">P²</option>
+                          <option value="PL">PL</option>
+                          <option value="KG">KG</option>
+                          <option value="LB">LB</option>
+                          <option value="TON">TON</option>
+                          <option value="LT">LT</option>
+                          <option value="GL (líq)">GL (líq)</option>
+                          <option value="ROLLO">ROLLO</option>
+                          <option value="SACO">SACO</option>
+                          <option value="CUBETA">CUBETA</option>
+                          <option value="LÁMINA">LÁMINA</option>
+                          <option value="VARILLA">VARILLA</option>
+                        </select>
+                      </div>
 
-                    <div className="col-span-1">
-                      <select
-                        value={element?.taxes?.[0]?.taxRateId || ""}
-                        onChange={(e) => {
-                          const taxRateId = Number(e.target.value);
-                          if (taxRateId) {
-                            setValue(`elements.${index}.taxes`, [
-                              {
-                                taxRateId,
-                                id: 0,
-                                pendingRecordElementId: 0,
-                                isIncludedInPrice: false,
-                              },
-                            ]);
-                          } else {
-                            setValue(`elements.${index}.taxes`, []);
-                          }
-                        }}
-                        className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
-                      >
-                        <option value="">Sin impuesto</option>
-                        {taxesList.map((tax) => (
-                          <option key={tax.id} value={tax.id}>
-                            {tax.slug} ({(tax.rate * 100).toFixed(0)}%)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          {...register(`elements.${index}.price`, {
+                            valueAsNumber: true,
+                          })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
+                      </div>
 
-                    <div className="col-span-2">
-                      <input
-                        type="text"
-                        value={itemTotal.toFixed(2)}
-                        disabled
-                        className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-600"
-                      />
-                    </div>
+                      <div className="col-span-1">
+                        <select
+                          value={element?.taxes?.[0]?.taxRateId || ""}
+                          onChange={(e) => {
+                            const taxRateId = Number(e.target.value);
+                            if (taxRateId) {
+                              setValue(`elements.${index}.taxes`, [
+                                {
+                                  taxRateId,
+                                  id: 0,
+                                  pendingRecordElementId: 0,
+                                  isIncludedInPrice: false,
+                                },
+                              ]);
+                            } else {
+                              setValue(`elements.${index}.taxes`, []);
+                            }
+                          }}
+                          className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm"
+                        >
+                          <option value="">Sin impuesto</option>
+                          {taxesList.map((tax) => (
+                            <option key={tax.id} value={tax.id}>
+                              {tax.slug} ({(tax.rate * 100).toFixed(0)}%)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div className="col-span-1 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(index)}
-                        disabled={fields.length === 1}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-30"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="col-span-2">
+                        <input
+                          type="text"
+                          value={itemTotal.toFixed(2)}
+                          disabled
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-sm text-gray-600"
+                        />
+                      </div>
+
+                      <div className="col-span-1 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          disabled={fields.length === 1}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-30"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

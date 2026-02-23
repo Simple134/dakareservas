@@ -23,21 +23,21 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-white p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Configuración</h1>
-          <p className="text-gray-500 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Configuración</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">
             Personaliza tu experiencia en el sistema
           </p>
         </div>
-        <CustomButton className="bg-[#07234B] text-white hover:bg-[#0a2d5c]">
+        <CustomButton className="bg-[#07234B] text-white hover:bg-[#0a2d5c] w-full sm:w-auto justify-center">
           Guardar Cambios
         </CustomButton>
       </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="flex w-full justify-between items-center bg-gray-100 rounded-lg px-2 py-1">
+        <nav className="flex w-full overflow-x-auto bg-gray-100 rounded-lg px-2 py-1 gap-1">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -45,14 +45,13 @@ export default function SettingsPage() {
                 key={tab.id}
                 style={{ borderRadius: "10px" }}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-center gap-2 p-2 w-full font-medium text-sm transition-colors ${
-                  activeTab === tab.id
+                className={`flex items-center justify-center gap-2 p-2 flex-1 min-w-0 font-medium text-sm transition-colors whitespace-nowrap shrink-0 ${activeTab === tab.id
                     ? "bg-white text-black"
                     : "bg-gray-100 text-gray-900"
-                }`}
+                  }`}
               >
-                <Icon className="w-4 h-4" />
-                {tab.label}
+                <Icon className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             );
           })}
@@ -447,7 +446,7 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-6">
                 Información del Sistema
               </h2>
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm text-gray-500 mb-1">
                     Versión

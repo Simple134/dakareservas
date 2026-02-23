@@ -195,29 +195,29 @@ export function ProjectContent({
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      <main className="flex-1 p-2 lg:p-6 space-y-6 animate-fade-in">
-        <div className="flex items-start justify-between">
-          <div>
+    <div className="flex min-h-screen bg-white w-full">
+      <main className="flex-1 p-2 lg:p-6 space-y-6 animate-fade-in w-full">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 truncate">
                 {project?.name}
               </h1>
               <button
                 onClick={() => setIsEditModalOpen(true)}
-                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors shrink-0"
                 title="Editar proyecto"
               >
                 <Pencil className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-gray-500 mt-1">Cliente: {project?.client}</p>
+            <p className="text-gray-500 mt-1 text-sm sm:text-base">Cliente: {project?.client}</p>
             <div className="flex items-center gap-2 mt-2">
               <MapPin className="w-4 h-4 text-gray-400" />
               <span className="text-sm text-gray-500">{project?.location}</span>
             </div>
           </div>
-          <div className="flex flex-col lg:flex-row items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <CustomBadge
               className={getStatusColor(project?.status || "planning")}
             >
@@ -265,59 +265,59 @@ export function ProjectContent({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <CustomCard className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-50 rounded-full">
-                <DollarSign className="w-6 h-6 text-green-600" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+          <CustomCard className="p-3 md:p-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+              <div className="p-2 md:p-3 bg-green-50 rounded-full w-fit">
+                <DollarSign className="w-5 h-5 md:w-6 md:h-6 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-500">
                   Presupuesto Total
                 </p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-lg md:text-2xl font-bold text-gray-900 truncate">
                   {formatCurrency(project?.totalBudget || 0)}
                 </p>
               </div>
             </div>
           </CustomCard>
 
-          <CustomCard className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-50 rounded-full">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
+          <CustomCard className="p-3 md:p-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+              <div className="p-2 md:p-3 bg-blue-50 rounded-full w-fit">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Ejecutado</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-500">Ejecutado</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900 truncate">
                   {formatCurrency(project?.executedBudget || 0)}
                 </p>
               </div>
             </div>
           </CustomCard>
 
-          <CustomCard className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-purple-50 rounded-full">
-                <CalendarDays className="w-6 h-6 text-purple-600" />
+          <CustomCard className="p-3 md:p-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+              <div className="p-2 md:p-3 bg-purple-50 rounded-full w-fit">
+                <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Progreso</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-500">Progreso</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">
                   {project?.completionPercentage || 0}%
                 </p>
               </div>
             </div>
           </CustomCard>
 
-          <CustomCard className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-orange-50 rounded-full">
-                <TrendingUp className="w-6 h-6 text-orange-600" />
+          <CustomCard className="p-3 md:p-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+              <div className="p-2 md:p-3 bg-orange-50 rounded-full w-fit">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Margen</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="min-w-0">
+                <p className="text-xs md:text-sm font-medium text-gray-500">Margen</p>
+                <p className="text-lg md:text-2xl font-bold text-gray-900">
                   {project?.profitMargin || 0}%
                 </p>
               </div>
@@ -325,8 +325,8 @@ export function ProjectContent({
           </CustomCard>
         </div>
 
-        <CustomCard className="p-6">
-          <div className="flex items-center justify-between">
+        <CustomCard className="p-4 md:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-semibold text-gray-900">
               Secciones del Proyecto
             </h3>

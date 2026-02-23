@@ -106,16 +106,16 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen bg-white p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Reporte del Proyecto
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">
             Análisis detallado: {projectData.name}
           </p>
         </div>
-        <CustomButton className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
+        <CustomButton className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 w-full sm:w-auto justify-center">
           <Download className="w-4 h-4 mr-2" />
           Exportar PDF
         </CustomButton>
@@ -139,12 +139,12 @@ export default function ReportsPage() {
       </div>
 
       {/* Project Selector */}
-      <CustomCard className="p-6">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">
+      <CustomCard className="p-4 sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <label className="text-sm font-medium text-gray-700 shrink-0">
             Proyecto a Analizar:
           </label>
-          <select className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
             <option>
               {projectData.name} - {projectData.client}
             </option>
@@ -214,7 +214,7 @@ export default function ReportsPage() {
       {/* Tabs */}
       <div className="space-y-6">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-8">
+          <nav className="flex overflow-x-auto -mx-1 px-1 space-x-2 sm:space-x-8">
             {[
               "control-presupuesto",
               "analisis-financiero",
@@ -233,11 +233,10 @@ export default function ReportsPage() {
                 <button
                   key={tab}
                   onClick={() => setSelectedTab(tab)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    selectedTab === tab
+                  className={`py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap shrink-0 ${selectedTab === tab
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
+                    }`}
                 >
                   {labels[tab as keyof typeof labels]}
                 </button>
@@ -290,13 +289,12 @@ export default function ReportsPage() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-8">
                           <div
-                            className={`h-8 rounded-full flex items-center justify-end pr-2 ${
-                              category.percentage >= 100
+                            className={`h-8 rounded-full flex items-center justify-end pr-2 ${category.percentage >= 100
                                 ? "bg-red-500"
                                 : category.percentage >= 75
                                   ? "bg-yellow-500"
                                   : "bg-blue-500"
-                            }`}
+                              }`}
                             style={{
                               width: `${Math.min(category.percentage, 100)}%`,
                             }}
@@ -325,13 +323,12 @@ export default function ReportsPage() {
                     >
                       <div className="flex items-center gap-3">
                         <AlertTriangle
-                          className={`w-4 h-4 ${
-                            category.status === "critical"
+                          className={`w-4 h-4 ${category.status === "critical"
                               ? "text-red-600"
                               : category.status === "warning"
                                 ? "text-yellow-600"
                                 : "text-green-600"
-                          }`}
+                            }`}
                         />
                         <span className="text-sm font-medium text-gray-700">
                           {category.name}
@@ -364,13 +361,12 @@ export default function ReportsPage() {
                         {category.name}
                       </h4>
                       <CustomBadge
-                        className={`${
-                          category.percentage >= 100
+                        className={`${category.percentage >= 100
                             ? "bg-red-600 text-white"
                             : category.percentage >= 75
                               ? "bg-yellow-600 text-white"
                               : "bg-blue-600 text-white"
-                        }`}
+                          }`}
                       >
                         {category.percentage}%
                       </CustomBadge>
@@ -391,11 +387,10 @@ export default function ReportsPage() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Restante:</span>
                         <span
-                          className={`font-medium ${
-                            category.percentage > 100
+                          className={`font-medium ${category.percentage > 100
                               ? "text-red-600"
                               : "text-green-600"
-                          }`}
+                            }`}
                         >
                           {formatCurrency(
                             category.budgeted - category.consumed,
@@ -404,13 +399,12 @@ export default function ReportsPage() {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
                         <div
-                          className={`h-2 rounded-full ${
-                            category.percentage >= 100
+                          className={`h-2 rounded-full ${category.percentage >= 100
                               ? "bg-red-600"
                               : category.percentage >= 75
                                 ? "bg-yellow-600"
                                 : "bg-blue-600"
-                          }`}
+                            }`}
                           style={{
                             width: `${Math.min(category.percentage, 100)}%`,
                           }}

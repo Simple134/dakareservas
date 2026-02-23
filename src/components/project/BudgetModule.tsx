@@ -246,7 +246,7 @@ export function BudgetModule({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="p-6 flex flex-row items-center justify-between border-b border-gray-100">
+      <div className="p-4 md:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100">
         <div>
           <h3 className="font-semibold text-lg text-gray-900">
             Desglose por Categorias
@@ -320,30 +320,79 @@ export function BudgetModule({
         </div>
       )}
 
-      <div className="p-6">
-        <div className="overflow-x-auto">
+      <div className="p-4 md:p-6">
+        {/* Mobile Card Layout */}
+        <div className="block md:hidden space-y-3">
+          {isEditing
+            ? budgetCategories.map((category) => (
+              <div key={category.id} className="p-3 border border-gray-100 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <input
+                    type="text"
+                    value={category.name}
+                    onChange={(e) => updateCategoryName(category.id, e.target.value)}
+                    className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                  />
+                  <button type="button" onClick={() => removeCategory(category.id)} className="ml-2 text-gray-400 hover:text-red-600 p-1">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs text-gray-500">%</label>
+                    <input
+                      type="number"
+                      value={getNumberInputValue(category.percentage, 2)}
+                      onChange={(e) => updateCategoryPercentage(category.id, parseFloat(e.target.value) || 0)}
+                      step="0.1" min="0" max="100" placeholder="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">Monto</label>
+                    <input
+                      type="number"
+                      value={getNumberInputValue(category.amount)}
+                      onChange={(e) => updateCategoryAmount(category.id, parseFloat(e.target.value) || 0)}
+                      step="0.01" min="0" placeholder="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))
+            : budgetItems.map((item) => (
+              <div key={item.id} className="p-3 border border-gray-100 rounded-lg">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium text-gray-900">{item.category}</span>
+                  {getStatusBadge(item.status)}
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">
+                    {formatPercentage(budgetCategories.find((c) => c.id === item.id)?.percentage ?? 0)}%
+                  </span>
+                  <span className="font-medium text-gray-900">{formatCurrency(item.budgeted)}</span>
+                </div>
+                <div className="mt-2">
+                  <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#131E29] rounded-full" style={{ width: `${getProgress(item.budgeted, item.executed)}%` }} />
+                  </div>
+                  <span className="text-xs text-gray-500">{getProgress(item.budgeted, item.executed)}% ejecutado</span>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Desktop Table Layout */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100">
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[40%]" : "w-[30%]"}`}
-                >
-                  Categoría
-                </th>
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[20%]" : "w-[15%]"}`}
-                >
-                  %
-                </th>
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[30%]" : "w-[20%]"}`}
-                >
-                  Presupuestado
-                </th>
+                <th className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[40%]" : "w-[30%]"}`}>Categoría</th>
+                <th className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[20%]" : "w-[15%]"}`}>%</th>
+                <th className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[30%]" : "w-[20%]"}`}>Presupuestado</th>
                 {!isEditing && (
-                  <th className="text-left py-3 font-medium text-gray-500 text-sm w-[25%]">
-                    Progreso
-                  </th>
+                  <th className="text-left py-3 font-medium text-gray-500 text-sm w-[25%]">Progreso</th>
                 )}
                 <th className="text-left py-3 font-medium text-gray-500 text-sm w-[10%]">
                   {isEditing ? "" : "Estado"}
@@ -353,102 +402,58 @@ export function BudgetModule({
             <tbody>
               {isEditing
                 ? budgetCategories.map((category) => (
-                    <tr
-                      key={category.id}
-                      className="border-b border-gray-50 last:border-0"
-                    >
-                      <td className="py-3">
-                        <input
-                          type="text"
-                          value={category.name}
-                          onChange={(e) =>
-                            updateCategoryName(category.id, e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                        />
-                      </td>
-                      <td className="py-3">
-                        <input
-                          type="number"
-                          value={getNumberInputValue(category.percentage, 2)}
-                          onChange={(e) =>
-                            updateCategoryPercentage(
-                              category.id,
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          step="0.1"
-                          min="0"
-                          max="100"
-                          placeholder="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                        />
-                      </td>
-                      <td className="py-3">
-                        <input
-                          type="number"
-                          value={getNumberInputValue(category.amount)}
-                          onChange={(e) =>
-                            updateCategoryAmount(
-                              category.id,
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          step="0.01"
-                          min="0"
-                          placeholder="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                        />
-                      </td>
-                      <td className="py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeCategory(category.id)}
-                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  <tr key={category.id} className="border-b border-gray-50 last:border-0">
+                    <td className="py-3">
+                      <input
+                        type="text"
+                        value={category.name}
+                        onChange={(e) => updateCategoryName(category.id, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                      />
+                    </td>
+                    <td className="py-3">
+                      <input
+                        type="number"
+                        value={getNumberInputValue(category.percentage, 2)}
+                        onChange={(e) => updateCategoryPercentage(category.id, parseFloat(e.target.value) || 0)}
+                        step="0.1" min="0" max="100" placeholder="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                      />
+                    </td>
+                    <td className="py-3">
+                      <input
+                        type="number"
+                        value={getNumberInputValue(category.amount)}
+                        onChange={(e) => updateCategoryAmount(category.id, parseFloat(e.target.value) || 0)}
+                        step="0.01" min="0" placeholder="0"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
+                      />
+                    </td>
+                    <td className="py-3 text-center">
+                      <button type="button" onClick={() => removeCategory(category.id)} className="text-gray-400 hover:text-red-600 transition-colors p-1">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
                 : budgetItems.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
-                    >
-                      <td className="py-4 font-medium text-gray-900 text-sm">
-                        {item.category}
-                      </td>
-                      <td className="py-4 text-left text-gray-600 text-sm">
-                        {formatPercentage(
-                          budgetCategories.find((c) => c.id === item.id)
-                            ?.percentage ?? 0,
-                        )}
-                        %
-                      </td>
-                      <td className="py-4 text-left font-medium text-gray-900 text-sm">
-                        {formatCurrency(item.budgeted)}
-                      </td>
-                      <td className="py-4 w-[25%]">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[#131E29] rounded-full"
-                              style={{
-                                width: `${getProgress(item.budgeted, item.executed)}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-500 min-w-[2rem]">
-                            {getProgress(item.budgeted, item.executed)}%
-                          </span>
+                  <tr key={item.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors">
+                    <td className="py-4 font-medium text-gray-900 text-sm">{item.category}</td>
+                    <td className="py-4 text-left text-gray-600 text-sm">
+                      {formatPercentage(budgetCategories.find((c) => c.id === item.id)?.percentage ?? 0)}%
+                    </td>
+                    <td className="py-4 text-left font-medium text-gray-900 text-sm">{formatCurrency(item.budgeted)}</td>
+                    <td className="py-4 w-[25%]">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#131E29] rounded-full" style={{ width: `${getProgress(item.budgeted, item.executed)}%` }} />
                         </div>
-                      </td>
-                      <td className="py-4 text-left">
-                        {getStatusBadge(item.status)}
-                      </td>
-                    </tr>
-                  ))}
+                        <span className="text-xs text-gray-500 min-w-[2rem]">{getProgress(item.budgeted, item.executed)}%</span>
+                      </div>
+                    </td>
+                    <td className="py-4 text-left">{getStatusBadge(item.status)}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
 

@@ -172,10 +172,10 @@ const ContactsPage = () => {
   return (
     <div className="flex min-h-screen bg-white">
       <div className="flex-1">
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="p-4 md:p-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-[#131E29] mb-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#131E29] mb-1">
                 Contactos
               </h1>
               <p className="text-sm text-gray-500">
@@ -185,7 +185,7 @@ const ContactsPage = () => {
             <button
               style={{ borderRadius: "10px" }}
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#07234B] text-white px-5 py-2.5 rounded-lg hover:bg-[#0a2d5c] transition-colors font-medium flex items-center gap-2"
+              className="bg-[#07234B] text-white px-5 py-2.5 rounded-lg hover:bg-[#0a2d5c] transition-colors font-medium flex items-center gap-2 justify-center sm:w-auto"
             >
               <span className="text-lg">+</span>
               Nuevo Contacto
@@ -339,11 +339,10 @@ const ContactsPage = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${
-                            isOrganization
+                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${isOrganization
                               ? "bg-[#F59E0B]/10"
                               : "bg-[#10B981]/10"
-                          }`}
+                            }`}
                         >
                           {isOrganization ? (
                             <Building2 className="w-5 h-5 text-[#F59E0B]" />
@@ -443,24 +442,24 @@ const ContactsPage = () => {
           beneficiaryData={
             editBeneficiary
               ? {
-                  name: editBeneficiary.name,
-                  type: editBeneficiary.type,
-                  contact: editBeneficiary.contacts?.map((c) => ({
-                    id: c.id, // ✅ IMPORTANTE: Incluir el ID del contacto
-                    type: c.type,
-                    data: c.data,
-                    dataType: c.dataType as
-                      | "string"
-                      | "json"
-                      | "image"
-                      | "date"
-                      | undefined,
-                    beneficiaryId: c.beneficiaryId, // También incluir beneficiaryId
-                  })) || [{ type: "phone", data: "", dataType: "string" }],
-                  taxId: editBeneficiary.taxId || undefined,
-                  reference: editBeneficiary.reference || undefined,
-                  creditLimit: editBeneficiary.creditLimit || undefined,
-                }
+                name: editBeneficiary.name,
+                type: editBeneficiary.type,
+                contact: editBeneficiary.contacts?.map((c) => ({
+                  id: c.id, // ✅ IMPORTANTE: Incluir el ID del contacto
+                  type: c.type,
+                  data: c.data,
+                  dataType: c.dataType as
+                    | "string"
+                    | "json"
+                    | "image"
+                    | "date"
+                    | undefined,
+                  beneficiaryId: c.beneficiaryId, // También incluir beneficiaryId
+                })) || [{ type: "phone", data: "", dataType: "string" }],
+                taxId: editBeneficiary.taxId || undefined,
+                reference: editBeneficiary.reference || undefined,
+                creditLimit: editBeneficiary.creditLimit || undefined,
+              }
               : undefined
           }
           beneficiaryId={editBeneficiary?.id}

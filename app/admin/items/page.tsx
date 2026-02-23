@@ -192,7 +192,7 @@ const ItemsPage = () => {
   return (
     <div className="flex min-h-screen w-full bg-gray-50">
       <main className="flex-1 overflow-auto h-screen relative">
-        <div className="min-h-screen bg-white p-8">
+        <div className="min-h-screen bg-white p-4 md:p-8">
           {loading ? (
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="text-center">
@@ -215,32 +215,32 @@ const ItemsPage = () => {
             </div>
           ) : (
             <div className="mx-auto space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Items</h1>
-                  <p className="text-gray-600 mt-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Items</h1>
+                  <p className="text-gray-600 mt-1 text-sm sm:text-base">
                     Gestiona tu inventario de materiales y servicios
                   </p>
                 </div>
-                <div className="flex gap-3">
-                  <button
+                <div className="flex gap-2 sm:gap-3">
+                  {/* <button
                     style={{ borderRadius: "10px" }}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     <Upload className="w-4 h-4" />
-                    Importar
+                    <span className="hidden sm:inline">Importar</span>
                   </button>
                   <button
                     style={{ borderRadius: "10px" }}
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     <Download className="w-4 h-4" />
-                    Exportar
-                  </button>
+                    <span className="hidden sm:inline">Exportar</span>
+                  </button> */}
                   <button
                     onClick={() => setShowNewItemModal(true)}
                     style={{ borderRadius: "10px" }}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5f] transition-colors"
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5f] transition-colors flex-1 sm:flex-initial justify-center"
                   >
                     <Plus className="w-4 h-4" />
                     Nuevo Item
@@ -251,22 +251,20 @@ const ItemsPage = () => {
               <div className="flex items-center gap-4 border-b border-gray-200">
                 <button
                   onClick={() => setCurrentView("lista")}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                    currentView === "lista"
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${currentView === "lista"
                       ? "border-[#07234B] text-[#07234B] font-medium"
                       : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                 >
                   <List className="w-4 h-4" />
                   Lista de Items
                 </button>
                 <button
                   onClick={() => setCurrentView("analytics")}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                    currentView === "analytics"
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${currentView === "analytics"
                       ? "border-[#07234B] text-[#07234B] font-medium"
                       : "border-transparent text-gray-500 hover:text-gray-700"
-                  }`}
+                    }`}
                 >
                   <BarChart3 className="w-4 h-4" />
                   Analíticas
@@ -324,12 +322,57 @@ const ItemsPage = () => {
                   </div>
 
                   <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200">
+                    <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
                       <h2 className="text-lg font-semibold text-gray-900">
                         Items ({filteredItems.length})
                       </h2>
                     </div>
-                    <div className="overflow-x-auto">
+
+                    {/* Mobile Card Layout */}
+                    <div className="block md:hidden divide-y divide-gray-200">
+                      {filteredItems.map((item) => {
+                        const clientData =
+                          typeof item.clientdata === "object" &&
+                            item.clientdata !== null
+                            ? item.clientdata
+                            : {};
+                        return (
+                          <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                                <p className="text-xs text-gray-500 truncate">{item.description || "Sin descripción"}</p>
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleArchiveClick(item.id, item.name);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-red-600 transition-colors ml-2 flex-shrink-0"
+                                title="Archivar item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
+                              <span className="bg-gray-100 px-2 py-0.5 rounded">{(clientData.category as string) || item.type}</span>
+                              <span>{(clientData.subcategory as string) || item.relation}</span>
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {item.sellPriceCurrency || "DOP"} {item.sellPrice?.toFixed(2) || "0.00"}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Stock: {item.canSellWithoutStock || 0} • {item.unit || "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop Table Layout */}
+                    <div className="hidden md:block overflow-x-auto">
                       <table className="w-full">
                         <thead className="bg-gray-50 border-b border-gray-200">
                           <tr>
@@ -363,7 +406,7 @@ const ItemsPage = () => {
                           {filteredItems.map((item) => {
                             const clientData =
                               typeof item.clientdata === "object" &&
-                              item.clientdata !== null
+                                item.clientdata !== null
                                 ? item.clientdata
                                 : {};
 
@@ -434,7 +477,7 @@ const ItemsPage = () => {
                       </table>
                     </div>
                     {filteredItems.length === 0 && (
-                      <div className="p-12 text-center">
+                      <div className="p-8 sm:p-12 text-center">
                         <p className="text-gray-500 text-lg">
                           No se encontraron ítems con estos filtros.
                         </p>
@@ -443,7 +486,7 @@ const ItemsPage = () => {
                   </div>
 
                   {/* Pagination Controls */}
-                  <div className="flex items-center justify-between bg-white px-6 py-4 rounded-lg border border-gray-200">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white px-4 sm:px-6 py-4 rounded-lg border border-gray-200">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span>
                         Mostrando {(currentPage - 1) * itemsPerPage + 1} -{" "}
@@ -460,9 +503,9 @@ const ItemsPage = () => {
                         className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <ChevronLeft className="w-4 h-4" />
-                        Anterior
+                        <span className="hidden sm:inline">Anterior</span>
                       </button>
-                      <div className="flex items-center gap-1">
+                      <div className="hidden sm:flex items-center gap-1">
                         {Array.from(
                           { length: totalPages },
                           (_, i) => i + 1,
@@ -470,16 +513,18 @@ const ItemsPage = () => {
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                              currentPage === page
+                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === page
                                 ? "bg-[#07234B] text-white"
                                 : "text-gray-700 hover:bg-gray-100"
-                            }`}
+                              }`}
                           >
                             {page}
                           </button>
                         ))}
                       </div>
+                      <span className="sm:hidden text-sm text-gray-600">
+                        {currentPage} / {totalPages}
+                      </span>
                       <button
                         onClick={() =>
                           setCurrentPage((prev) =>
@@ -489,7 +534,7 @@ const ItemsPage = () => {
                         disabled={currentPage === totalPages}
                         className="flex items-center gap-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Siguiente
+                        <span className="hidden sm:inline">Siguiente</span>
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>

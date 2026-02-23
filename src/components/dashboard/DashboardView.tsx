@@ -163,7 +163,7 @@ export function DashboardView() {
   }
 
   return (
-    <div className="space-y-8 animate-fade-in p-8">
+    <div className="space-y-8 animate-fade-in p-4 md:p-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="lg:text-4xl text-2xl font-bold text-foreground tracking-tight">
@@ -224,8 +224,8 @@ export function DashboardView() {
       <ProjectChart />
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Proyectos Activos
           </h2>
           <p className="text-sm text-muted-foreground font-medium">
