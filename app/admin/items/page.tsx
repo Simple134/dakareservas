@@ -217,7 +217,9 @@ const ItemsPage = () => {
             <div className="mx-auto space-y-6">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Items</h1>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                    Items
+                  </h1>
                   <p className="text-gray-600 mt-1 text-sm sm:text-base">
                     Gestiona tu inventario de materiales y servicios
                   </p>
@@ -251,20 +253,22 @@ const ItemsPage = () => {
               <div className="flex items-center gap-4 border-b border-gray-200">
                 <button
                   onClick={() => setCurrentView("lista")}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${currentView === "lista"
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                    currentView === "lista"
                       ? "border-[#07234B] text-[#07234B] font-medium"
                       : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
+                  }`}
                 >
                   <List className="w-4 h-4" />
                   Lista de Items
                 </button>
                 <button
                   onClick={() => setCurrentView("analytics")}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${currentView === "analytics"
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
+                    currentView === "analytics"
                       ? "border-[#07234B] text-[#07234B] font-medium"
                       : "border-transparent text-gray-500 hover:text-gray-700"
-                    }`}
+                  }`}
                 >
                   <BarChart3 className="w-4 h-4" />
                   Analíticas
@@ -333,15 +337,22 @@ const ItemsPage = () => {
                       {filteredItems.map((item) => {
                         const clientData =
                           typeof item.clientdata === "object" &&
-                            item.clientdata !== null
+                          item.clientdata !== null
                             ? item.clientdata
                             : {};
                         return (
-                          <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+                          <div
+                            key={item.id}
+                            className="p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                                <p className="text-xs text-gray-500 truncate">{item.description || "Sin descripción"}</p>
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {item.name}
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {item.description || "Sin descripción"}
+                                </p>
                               </div>
                               <button
                                 onClick={(e) => {
@@ -355,15 +366,22 @@ const ItemsPage = () => {
                               </button>
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-600">
-                              <span className="bg-gray-100 px-2 py-0.5 rounded">{(clientData.category as string) || item.type}</span>
-                              <span>{(clientData.subcategory as string) || item.relation}</span>
+                              <span className="bg-gray-100 px-2 py-0.5 rounded">
+                                {(clientData.category as string) || item.type}
+                              </span>
+                              <span>
+                                {(clientData.subcategory as string) ||
+                                  item.relation}
+                              </span>
                             </div>
                             <div className="flex items-center justify-between mt-2">
                               <span className="text-sm font-medium text-gray-900">
-                                {item.sellPriceCurrency || "DOP"} {item.sellPrice?.toFixed(2) || "0.00"}
+                                {item.sellPriceCurrency || "DOP"}{" "}
+                                {item.sellPrice?.toFixed(2) || "0.00"}
                               </span>
                               <span className="text-xs text-gray-500">
-                                Stock: {item.canSellWithoutStock || 0} • {item.unit || "N/A"}
+                                Stock: {item.canSellWithoutStock || 0} •{" "}
+                                {item.unit || "N/A"}
                               </span>
                             </div>
                           </div>
@@ -406,7 +424,7 @@ const ItemsPage = () => {
                           {filteredItems.map((item) => {
                             const clientData =
                               typeof item.clientdata === "object" &&
-                                item.clientdata !== null
+                              item.clientdata !== null
                                 ? item.clientdata
                                 : {};
 
@@ -513,10 +531,11 @@ const ItemsPage = () => {
                           <button
                             key={page}
                             onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === page
+                            className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                              currentPage === page
                                 ? "bg-[#07234B] text-white"
                                 : "text-gray-700 hover:bg-gray-100"
-                              }`}
+                            }`}
                           >
                             {page}
                           </button>

@@ -780,28 +780,31 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       <div className="flex gap-1 sm:gap-2 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab("QUOTE")}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${activeTab === "QUOTE"
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "QUOTE"
               ? "border-blue-600 text-blue-600"
               : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          }`}
         >
           Cotizaciones
         </button>
         <button
           onClick={() => setActiveTab("ORDER")}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${activeTab === "ORDER"
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "ORDER"
               ? "border-purple-600 text-purple-600"
               : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          }`}
         >
           Órdenes
         </button>
         <button
           onClick={() => setActiveTab("INVOICE")}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${activeTab === "INVOICE"
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "INVOICE"
               ? "border-indigo-600 text-indigo-600"
               : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          }`}
         >
           Facturas
         </button>
@@ -987,7 +990,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
         {/* Mobile Card Layout */}
         <div className="block md:hidden p-4 space-y-3">
           {isLoadingInvoices ? (
-            <div className="py-8 text-center text-gray-500">Cargando documentos...</div>
+            <div className="py-8 text-center text-gray-500">
+              Cargando documentos...
+            </div>
           ) : filteredInvoices.length === 0 ? (
             <div className="py-8 text-center text-gray-500">
               {hasActiveFilters
@@ -998,50 +1003,107 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             filteredInvoices.map((invoice) => {
               const statusBadge = getStatusBadge(invoice.status);
               return (
-                <div key={invoice.id} className="p-3 border border-gray-100 rounded-lg">
+                <div
+                  key={invoice.id}
+                  className="p-3 border border-gray-100 rounded-lg"
+                >
                   <div className="flex items-start justify-between mb-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">{invoice.invoiceNumber}</p>
-                      <p className="text-xs text-gray-500 truncate">{invoice.projectName}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {invoice.invoiceNumber}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {invoice.projectName}
+                      </p>
                     </div>
                     <CustomBadge
-                      className={invoice.type === "sale" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+                      className={
+                        invoice.type === "sale"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }
                     >
                       {invoice.type === "sale" ? "Venta" : "Compra"}
                     </CustomBadge>
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-900">
-                      RD$ {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                      RD${" "}
+                      {invoice.amount.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                      })}
                     </span>
                     <CustomBadge className={statusBadge.className}>
                       {statusBadge.label}
                     </CustomBadge>
                   </div>
-                  <div className="text-xs text-gray-500 mb-2">{invoice.date}</div>
+                  <div className="text-xs text-gray-500 mb-2">
+                    {invoice.date}
+                  </div>
                   <div className="flex items-center gap-1 pt-2 border-t border-gray-100">
-                    <button onClick={() => handleViewClick(invoice)} className="p-1.5 text-gray-400 hover:text-blue-600" title="Ver">
+                    <button
+                      onClick={() => handleViewClick(invoice)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600"
+                      title="Ver"
+                    >
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDownloadPDF(invoice)} className="p-1.5 text-gray-400 hover:text-blue-600" title="PDF">
+                    <button
+                      onClick={() => handleDownloadPDF(invoice)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600"
+                      title="PDF"
+                    >
                       <Download className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleEditClick(invoice)} className="p-1.5 text-gray-400 hover:text-blue-600" title="Editar">
+                    <button
+                      onClick={() => handleEditClick(invoice)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600"
+                      title="Editar"
+                    >
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDeleteClick(invoice.id, invoice.invoiceNumber, invoice.documentType)} className="p-1.5 text-gray-400 hover:text-red-600" title="Eliminar">
+                    <button
+                      onClick={() =>
+                        handleDeleteClick(
+                          invoice.id,
+                          invoice.invoiceNumber,
+                          invoice.documentType,
+                        )
+                      }
+                      className="p-1.5 text-gray-400 hover:text-red-600"
+                      title="Eliminar"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                     {invoice.attachedFileUrl && (
-                      <button onClick={() => setImagePreviewState({ isOpen: true, imageUrl: invoice.attachedFileUrl! })} className="p-1.5 text-gray-400 hover:text-blue-600" title="Ver Comprobante">
+                      <button
+                        onClick={() =>
+                          setImagePreviewState({
+                            isOpen: true,
+                            imageUrl: invoice.attachedFileUrl!,
+                          })
+                        }
+                        className="p-1.5 text-gray-400 hover:text-blue-600"
+                        title="Ver Comprobante"
+                      >
                         <ImageIcon className="w-4 h-4" />
                       </button>
                     )}
                     {(activeTab === "QUOTE" || activeTab === "ORDER") && (
                       <button
-                        onClick={() => setConvertModalState({ isOpen: true, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber })}
+                        onClick={() =>
+                          setConvertModalState({
+                            isOpen: true,
+                            invoiceId: invoice.id,
+                            invoiceNumber: invoice.invoiceNumber,
+                          })
+                        }
                         className="ml-auto p-1.5 text-blue-600 hover:text-blue-800"
-                        title={activeTab === "QUOTE" ? "Convertir a Orden/Factura" : "Convertir a Factura"}
+                        title={
+                          activeTab === "QUOTE"
+                            ? "Convertir a Orden/Factura"
+                            : "Convertir a Factura"
+                        }
                       >
                         <ArrowRight className="w-4 h-4" />
                       </button>
@@ -1070,11 +1132,19 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             <tbody>
               {isLoadingInvoices ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">Cargando documentos...</td>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
+                    Cargando documentos...
+                  </td>
                 </tr>
               ) : filteredInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={7}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
                     {hasActiveFilters
                       ? "No se encontraron documentos con los filtros aplicados"
                       : "No hay documentos registrados para este proyecto"}
@@ -1084,45 +1154,106 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                 filteredInvoices.map((invoice) => {
                   const statusBadge = getStatusBadge(invoice.status);
                   return (
-                    <tr key={invoice.id} className="bg-white border-b hover:bg-gray-50">
-                      <td className="px-6 py-4 font-medium text-gray-900">{invoice.invoiceNumber}</td>
-                      <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{invoice.projectName}</td>
+                    <tr
+                      key={invoice.id}
+                      className="bg-white border-b hover:bg-gray-50"
+                    >
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        {invoice.invoiceNumber}
+                      </td>
+                      <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                        {invoice.projectName}
+                      </td>
                       <td className="px-6 py-4 text-center">
-                        <CustomBadge className={invoice.type === "sale" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                        <CustomBadge
+                          className={
+                            invoice.type === "sale"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }
+                        >
                           {invoice.type === "sale" ? "Venta" : "Compra"}
                         </CustomBadge>
                       </td>
-                      <td className="px-6 py-4 text-center text-gray-600">{invoice.date}</td>
+                      <td className="px-6 py-4 text-center text-gray-600">
+                        {invoice.date}
+                      </td>
                       <td className="px-6 py-4 text-center font-medium text-gray-900">
-                        RD$ {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                        RD${" "}
+                        {invoice.amount.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <CustomBadge className={statusBadge.className}>{statusBadge.label}</CustomBadge>
+                        <CustomBadge className={statusBadge.className}>
+                          {statusBadge.label}
+                        </CustomBadge>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center gap-2">
-                          <button onClick={() => handleViewClick(invoice)} className="p-1 text-gray-400 hover:text-blue-600" title="Ver detalles">
+                          <button
+                            onClick={() => handleViewClick(invoice)}
+                            className="p-1 text-gray-400 hover:text-blue-600"
+                            title="Ver detalles"
+                          >
                             <Eye className="w-5 h-5" />
                           </button>
-                          <button onClick={() => handleDownloadPDF(invoice)} className="p-1 text-gray-400 hover:text-blue-600" title="Descargar PDF">
+                          <button
+                            onClick={() => handleDownloadPDF(invoice)}
+                            className="p-1 text-gray-400 hover:text-blue-600"
+                            title="Descargar PDF"
+                          >
                             <Download className="w-5 h-5" />
                           </button>
-                          <button onClick={() => handleEditClick(invoice)} className="p-1 text-gray-400 hover:text-blue-600" title="Editar">
+                          <button
+                            onClick={() => handleEditClick(invoice)}
+                            className="p-1 text-gray-400 hover:text-blue-600"
+                            title="Editar"
+                          >
                             <Edit2 className="w-5 h-5" />
                           </button>
-                          <button onClick={() => handleDeleteClick(invoice.id, invoice.invoiceNumber, invoice.documentType)} className="p-1 text-gray-400 hover:text-red-600" title="Eliminar">
+                          <button
+                            onClick={() =>
+                              handleDeleteClick(
+                                invoice.id,
+                                invoice.invoiceNumber,
+                                invoice.documentType,
+                              )
+                            }
+                            className="p-1 text-gray-400 hover:text-red-600"
+                            title="Eliminar"
+                          >
                             <Trash2 className="w-5 h-5" />
                           </button>
                           {invoice.attachedFileUrl && (
-                            <button onClick={() => setImagePreviewState({ isOpen: true, imageUrl: invoice.attachedFileUrl! })} className="p-1 text-gray-400 hover:text-blue-600" title="Ver Comprobante">
+                            <button
+                              onClick={() =>
+                                setImagePreviewState({
+                                  isOpen: true,
+                                  imageUrl: invoice.attachedFileUrl!,
+                                })
+                              }
+                              className="p-1 text-gray-400 hover:text-blue-600"
+                              title="Ver Comprobante"
+                            >
                               <ImageIcon className="w-5 h-5" />
                             </button>
                           )}
                           {(activeTab === "QUOTE" || activeTab === "ORDER") && (
                             <button
-                              onClick={() => setConvertModalState({ isOpen: true, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber })}
+                              onClick={() =>
+                                setConvertModalState({
+                                  isOpen: true,
+                                  invoiceId: invoice.id,
+                                  invoiceNumber: invoice.invoiceNumber,
+                                })
+                              }
                               className="p-1 text-blue-600 hover:text-blue-800"
-                              title={activeTab === "QUOTE" ? "Convertir a Orden/Factura" : "Convertir a Factura"}
+                              title={
+                                activeTab === "QUOTE"
+                                  ? "Convertir a Orden/Factura"
+                                  : "Convertir a Factura"
+                              }
                             >
                               <ArrowRight className="w-5 h-5" />
                             </button>

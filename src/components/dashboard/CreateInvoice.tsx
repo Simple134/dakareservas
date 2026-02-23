@@ -657,7 +657,9 @@ export function CreateInvoiceDialog({
                     {/* Mobile Card Layout */}
                     <div className="block md:hidden p-3 border border-gray-100 rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-500">Elemento {index + 1}</span>
+                        <span className="text-xs font-semibold text-gray-500">
+                          Elemento {index + 1}
+                        </span>
                         <button
                           type="button"
                           onClick={() => removeItem(index)}
@@ -668,7 +670,9 @@ export function CreateInvoiceDialog({
                         </button>
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500">Descripción</label>
+                        <label className="text-xs text-gray-500">
+                          Descripción
+                        </label>
                         <input
                           type="text"
                           {...register(`elements.${index}.description`)}
@@ -681,12 +685,16 @@ export function CreateInvoiceDialog({
                           <label className="text-xs text-gray-500">Cant.</label>
                           <input
                             type="text"
-                            {...register(`elements.${index}.quantity`, { valueAsNumber: true })}
+                            {...register(`elements.${index}.quantity`, {
+                              valueAsNumber: true,
+                            })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">Unidad</label>
+                          <label className="text-xs text-gray-500">
+                            Unidad
+                          </label>
                           <select
                             {...register(`elements.${index}.unit`)}
                             className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
@@ -713,24 +721,37 @@ export function CreateInvoiceDialog({
                           </select>
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">Precio</label>
+                          <label className="text-xs text-gray-500">
+                            Precio
+                          </label>
                           <input
                             type="number"
                             step="0.01"
-                            {...register(`elements.${index}.price`, { valueAsNumber: true })}
+                            {...register(`elements.${index}.price`, {
+                              valueAsNumber: true,
+                            })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-xs text-gray-500">Impuesto</label>
+                          <label className="text-xs text-gray-500">
+                            Impuesto
+                          </label>
                           <select
                             value={element?.taxes?.[0]?.taxRateId || ""}
                             onChange={(e) => {
                               const taxRateId = Number(e.target.value);
                               if (taxRateId) {
-                                setValue(`elements.${index}.taxes`, [{ taxRateId, id: 0, pendingRecordElementId: 0, isIncludedInPrice: false }]);
+                                setValue(`elements.${index}.taxes`, [
+                                  {
+                                    taxRateId,
+                                    id: 0,
+                                    pendingRecordElementId: 0,
+                                    isIncludedInPrice: false,
+                                  },
+                                ]);
                               } else {
                                 setValue(`elements.${index}.taxes`, []);
                               }

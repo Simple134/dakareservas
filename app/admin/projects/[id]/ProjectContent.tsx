@@ -211,7 +211,9 @@ export function ProjectContent({
                 <Pencil className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-gray-500 mt-1 text-sm sm:text-base">Cliente: {project?.client}</p>
+            <p className="text-gray-500 mt-1 text-sm sm:text-base">
+              Cliente: {project?.client}
+            </p>
             <div className="flex items-center gap-2 mt-2">
               <MapPin className="w-4 h-4 text-gray-400" />
               <span className="text-sm text-gray-500">{project?.location}</span>
@@ -288,7 +290,9 @@ export function ProjectContent({
                 <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-blue-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs md:text-sm font-medium text-gray-500">Ejecutado</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">
+                  Ejecutado
+                </p>
                 <p className="text-lg md:text-2xl font-bold text-gray-900 truncate">
                   {formatCurrency(project?.executedBudget || 0)}
                 </p>
@@ -302,7 +306,9 @@ export function ProjectContent({
                 <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-purple-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs md:text-sm font-medium text-gray-500">Progreso</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">
+                  Progreso
+                </p>
                 <p className="text-lg md:text-2xl font-bold text-gray-900">
                   {project?.completionPercentage || 0}%
                 </p>
@@ -316,7 +322,9 @@ export function ProjectContent({
                 <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-orange-600" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs md:text-sm font-medium text-gray-500">Margen</p>
+                <p className="text-xs md:text-sm font-medium text-gray-500">
+                  Margen
+                </p>
                 <p className="text-lg md:text-2xl font-bold text-gray-900">
                   {project?.profitMargin || 0}%
                 </p>

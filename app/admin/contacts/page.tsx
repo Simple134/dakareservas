@@ -339,10 +339,11 @@ const ContactsPage = () => {
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${isOrganization
+                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${
+                            isOrganization
                               ? "bg-[#F59E0B]/10"
                               : "bg-[#10B981]/10"
-                            }`}
+                          }`}
                         >
                           {isOrganization ? (
                             <Building2 className="w-5 h-5 text-[#F59E0B]" />
@@ -442,24 +443,24 @@ const ContactsPage = () => {
           beneficiaryData={
             editBeneficiary
               ? {
-                name: editBeneficiary.name,
-                type: editBeneficiary.type,
-                contact: editBeneficiary.contacts?.map((c) => ({
-                  id: c.id, // ✅ IMPORTANTE: Incluir el ID del contacto
-                  type: c.type,
-                  data: c.data,
-                  dataType: c.dataType as
-                    | "string"
-                    | "json"
-                    | "image"
-                    | "date"
-                    | undefined,
-                  beneficiaryId: c.beneficiaryId, // También incluir beneficiaryId
-                })) || [{ type: "phone", data: "", dataType: "string" }],
-                taxId: editBeneficiary.taxId || undefined,
-                reference: editBeneficiary.reference || undefined,
-                creditLimit: editBeneficiary.creditLimit || undefined,
-              }
+                  name: editBeneficiary.name,
+                  type: editBeneficiary.type,
+                  contact: editBeneficiary.contacts?.map((c) => ({
+                    id: c.id, // ✅ IMPORTANTE: Incluir el ID del contacto
+                    type: c.type,
+                    data: c.data,
+                    dataType: c.dataType as
+                      | "string"
+                      | "json"
+                      | "image"
+                      | "date"
+                      | undefined,
+                    beneficiaryId: c.beneficiaryId, // También incluir beneficiaryId
+                  })) || [{ type: "phone", data: "", dataType: "string" }],
+                  taxId: editBeneficiary.taxId || undefined,
+                  reference: editBeneficiary.reference || undefined,
+                  creditLimit: editBeneficiary.creditLimit || undefined,
+                }
               : undefined
           }
           beneficiaryId={editBeneficiary?.id}

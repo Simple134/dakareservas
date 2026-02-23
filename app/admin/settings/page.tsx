@@ -25,7 +25,9 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Configuración</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Configuración
+          </h1>
           <p className="text-gray-500 mt-1 text-sm sm:text-base">
             Personaliza tu experiencia en el sistema
           </p>
@@ -45,10 +47,11 @@ export default function SettingsPage() {
                 key={tab.id}
                 style={{ borderRadius: "10px" }}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-center gap-2 p-2 flex-1 min-w-0 font-medium text-sm transition-colors whitespace-nowrap shrink-0 ${activeTab === tab.id
+                className={`flex items-center justify-center gap-2 p-2 flex-1 min-w-0 font-medium text-sm transition-colors whitespace-nowrap shrink-0 ${
+                  activeTab === tab.id
                     ? "bg-white text-black"
                     : "bg-gray-100 text-gray-900"
-                  }`}
+                }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className="hidden sm:inline">{tab.label}</span>

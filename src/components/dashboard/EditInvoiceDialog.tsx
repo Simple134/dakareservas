@@ -388,7 +388,7 @@ export function EditInvoiceDialog({
       original.price !== Number(currentElement.price) ||
       original.variation !== Number(currentElement.variation) ||
       (original.taxes?.[0]?.taxRateId ?? 0) !==
-      (currentElement.taxes?.[0]?.taxRateId ?? 0)
+        (currentElement.taxes?.[0]?.taxRateId ?? 0)
     );
   };
 
@@ -609,7 +609,9 @@ export function EditInvoiceDialog({
           {/* Elementos de la Factura */}
           <div className="bg-white border border-gray-200 rounded-lg p-4 md:p-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Elementos</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                Elementos
+              </h3>
               <button
                 type="button"
                 onClick={addItem}
@@ -649,7 +651,9 @@ export function EditInvoiceDialog({
                     {/* Mobile Card Layout */}
                     <div className="block md:hidden p-3 border border-gray-100 rounded-lg space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-gray-500">Elemento {index + 1}</span>
+                        <span className="text-xs font-semibold text-gray-500">
+                          Elemento {index + 1}
+                        </span>
                         <div className="flex items-center gap-1">
                           {showSaveButton && (
                             <button
@@ -672,7 +676,9 @@ export function EditInvoiceDialog({
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500">Descripción</label>
+                        <label className="text-xs text-gray-500">
+                          Descripción
+                        </label>
                         <input
                           type="text"
                           {...register(`elements.${index}.description`)}
@@ -685,12 +691,16 @@ export function EditInvoiceDialog({
                           <label className="text-xs text-gray-500">Cant.</label>
                           <input
                             type="text"
-                            {...register(`elements.${index}.quantity`, { valueAsNumber: true })}
+                            {...register(`elements.${index}.quantity`, {
+                              valueAsNumber: true,
+                            })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">Unidad</label>
+                          <label className="text-xs text-gray-500">
+                            Unidad
+                          </label>
                           <select
                             {...register(`elements.${index}.unit`)}
                             className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
@@ -723,24 +733,37 @@ export function EditInvoiceDialog({
                           </select>
                         </div>
                         <div>
-                          <label className="text-xs text-gray-500">Precio</label>
+                          <label className="text-xs text-gray-500">
+                            Precio
+                          </label>
                           <input
                             type="number"
                             step="0.01"
-                            {...register(`elements.${index}.price`, { valueAsNumber: true })}
+                            {...register(`elements.${index}.price`, {
+                              valueAsNumber: true,
+                            })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="text-xs text-gray-500">Impuesto</label>
+                          <label className="text-xs text-gray-500">
+                            Impuesto
+                          </label>
                           <select
                             value={element?.taxes?.[0]?.taxRateId || ""}
                             onChange={(e) => {
                               const taxRateId = Number(e.target.value);
                               if (taxRateId) {
-                                setValue(`elements.${index}.taxes`, [{ taxRateId, id: 0, pendingRecordElementId: 0, isIncludedInPrice: false }]);
+                                setValue(`elements.${index}.taxes`, [
+                                  {
+                                    taxRateId,
+                                    id: 0,
+                                    pendingRecordElementId: 0,
+                                    isIncludedInPrice: false,
+                                  },
+                                ]);
                               } else {
                                 setValue(`elements.${index}.taxes`, []);
                               }

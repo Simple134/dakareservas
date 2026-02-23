@@ -233,10 +233,11 @@ export default function ReportsPage() {
                 <button
                   key={tab}
                   onClick={() => setSelectedTab(tab)}
-                  className={`py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap shrink-0 ${selectedTab === tab
+                  className={`py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap shrink-0 ${
+                    selectedTab === tab
                       ? "border-blue-600 text-blue-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                    }`}
+                  }`}
                 >
                   {labels[tab as keyof typeof labels]}
                 </button>
@@ -289,12 +290,13 @@ export default function ReportsPage() {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-8">
                           <div
-                            className={`h-8 rounded-full flex items-center justify-end pr-2 ${category.percentage >= 100
+                            className={`h-8 rounded-full flex items-center justify-end pr-2 ${
+                              category.percentage >= 100
                                 ? "bg-red-500"
                                 : category.percentage >= 75
                                   ? "bg-yellow-500"
                                   : "bg-blue-500"
-                              }`}
+                            }`}
                             style={{
                               width: `${Math.min(category.percentage, 100)}%`,
                             }}
@@ -323,12 +325,13 @@ export default function ReportsPage() {
                     >
                       <div className="flex items-center gap-3">
                         <AlertTriangle
-                          className={`w-4 h-4 ${category.status === "critical"
+                          className={`w-4 h-4 ${
+                            category.status === "critical"
                               ? "text-red-600"
                               : category.status === "warning"
                                 ? "text-yellow-600"
                                 : "text-green-600"
-                            }`}
+                          }`}
                         />
                         <span className="text-sm font-medium text-gray-700">
                           {category.name}
@@ -361,12 +364,13 @@ export default function ReportsPage() {
                         {category.name}
                       </h4>
                       <CustomBadge
-                        className={`${category.percentage >= 100
+                        className={`${
+                          category.percentage >= 100
                             ? "bg-red-600 text-white"
                             : category.percentage >= 75
                               ? "bg-yellow-600 text-white"
                               : "bg-blue-600 text-white"
-                          }`}
+                        }`}
                       >
                         {category.percentage}%
                       </CustomBadge>
@@ -387,10 +391,11 @@ export default function ReportsPage() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">Restante:</span>
                         <span
-                          className={`font-medium ${category.percentage > 100
+                          className={`font-medium ${
+                            category.percentage > 100
                               ? "text-red-600"
                               : "text-green-600"
-                            }`}
+                          }`}
                         >
                           {formatCurrency(
                             category.budgeted - category.consumed,
@@ -399,12 +404,13 @@ export default function ReportsPage() {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
                         <div
-                          className={`h-2 rounded-full ${category.percentage >= 100
+                          className={`h-2 rounded-full ${
+                            category.percentage >= 100
                               ? "bg-red-600"
                               : category.percentage >= 75
                                 ? "bg-yellow-600"
                                 : "bg-blue-600"
-                            }`}
+                          }`}
                           style={{
                             width: `${Math.min(category.percentage, 100)}%`,
                           }}

@@ -617,7 +617,7 @@ export default function InvoicesPage() {
         sourcePendingRecordId: recordWithElements.id,
         clientdata:
           typeof recordWithElements.clientdata === "object" &&
-            recordWithElements.clientdata !== null
+          recordWithElements.clientdata !== null
             ? recordWithElements.clientdata
             : undefined,
         metadata: recordWithElements.metadata,
@@ -883,28 +883,31 @@ export default function InvoicesPage() {
       <div className="flex gap-1 sm:gap-2 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab("QUOTE")}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${activeTab === "QUOTE"
-            ? "border-blue-600 text-blue-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "QUOTE"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Cotizaciones
         </button>
         <button
           onClick={() => setActiveTab("ORDER")}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${activeTab === "ORDER"
-            ? "border-purple-600 text-purple-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "ORDER"
+              ? "border-purple-600 text-purple-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Órdenes
         </button>
         <button
           onClick={() => setActiveTab("INVOICE")}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${activeTab === "INVOICE"
-            ? "border-indigo-600 text-indigo-600"
-            : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "INVOICE"
+              ? "border-indigo-600 text-indigo-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
         >
           Facturas
         </button>
@@ -1065,29 +1068,32 @@ export default function InvoicesPage() {
                 <div className="space-y-2">
                   <button
                     onClick={() => setIsSellFilter("all")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "all"
-                      ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                      }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "all"
+                        ? "bg-blue-50 border-blue-500 text-blue-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     Todas
                   </button>
                   <button
                     onClick={() => setIsSellFilter("true")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "true"
-                      ? "bg-green-50 border-green-500 text-green-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                      }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "true"
+                        ? "bg-green-50 border-green-500 text-green-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     <TrendingUp className="w-4 h-4" />
                     Ventas
                   </button>
                   <button
                     onClick={() => setIsSellFilter("false")}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${isSellFilter === "false"
-                      ? "bg-red-50 border-red-500 text-red-700 font-medium"
-                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                      }`}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg border transition-colors ${
+                      isSellFilter === "false"
+                        ? "bg-red-50 border-red-500 text-red-700 font-medium"
+                        : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    }`}
                   >
                     <ShoppingCart className="w-4 h-4" />
                     Compras
@@ -1145,10 +1151,11 @@ export default function InvoicesPage() {
                 </label>
                 <button
                   onClick={() => setShowWithImages(!showWithImages)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${showWithImages
-                    ? "bg-blue-50 border-blue-500 text-blue-700"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                    showWithImages
+                      ? "bg-blue-50 border-blue-500 text-blue-700"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   <ImageIcon className="w-4 h-4" />
                   Con Imágenes
@@ -1172,7 +1179,9 @@ export default function InvoicesPage() {
       <CustomCard>
         <div className="p-4 md:p-6">
           <div className="mb-4">
-            <h2 className="text-lg sm:text-xl font-semibold">Lista de Facturas</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">
+              Lista de Facturas
+            </h2>
             <p className="text-sm text-gray-600">
               {filteredInvoices.length} facturas encontradas
             </p>
@@ -1182,7 +1191,10 @@ export default function InvoicesPage() {
           <div className="block md:hidden space-y-3">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, idx) => (
-                <div key={idx} className="p-4 border border-gray-100 rounded-lg animate-pulse space-y-2">
+                <div
+                  key={idx}
+                  className="p-4 border border-gray-100 rounded-lg animate-pulse space-y-2"
+                >
                   <div className="h-4 w-24 bg-gray-200 rounded" />
                   <div className="h-4 w-40 bg-gray-200 rounded" />
                   <div className="h-4 w-20 bg-gray-200 rounded" />
@@ -1195,21 +1207,37 @@ export default function InvoicesPage() {
             ) : (
               filteredInvoices.map((invoice) => {
                 const statusBadge = getStatusBadge(invoice.status);
-                const typeBadge = getTypeBadge(invoice.type, invoice.documentType);
+                const typeBadge = getTypeBadge(
+                  invoice.type,
+                  invoice.documentType,
+                );
                 return (
-                  <div key={invoice.id} className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div
+                    key={invoice.id}
+                    className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{invoice.invoiceNumber}</p>
-                        <p className="text-xs text-gray-500 truncate">{invoice.projectName}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {invoice.invoiceNumber}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {invoice.projectName}
+                        </p>
                       </div>
                       <CustomBadge className={typeBadge.className}>
                         {typeBadge.label}
                       </CustomBadge>
                     </div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}>
-                        {invoice.type === "sale" ? "+" : "-"}RD$ {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span
+                        className={`text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                      >
+                        {invoice.type === "sale" ? "+" : "-"}RD${" "}
+                        {invoice.amount.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
                       </span>
                       <CustomBadge className={statusBadge.className}>
                         {statusBadge.label}
@@ -1220,20 +1248,51 @@ export default function InvoicesPage() {
                       <span>{invoice.date}</span>
                     </div>
                     <div className="flex items-center gap-1 mt-3 pt-2 border-t border-gray-100">
-                      <button onClick={() => handleViewClick(invoice)} className="p-1.5 hover:bg-gray-100 rounded-lg" title="Ver">
+                      <button
+                        onClick={() => handleViewClick(invoice)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg"
+                        title="Ver"
+                      >
                         <Eye className="w-4 h-4 text-gray-600" />
                       </button>
-                      <button onClick={() => handleEditClick(invoice)} className="p-1.5 hover:bg-gray-100 rounded-lg" title="Editar">
+                      <button
+                        onClick={() => handleEditClick(invoice)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg"
+                        title="Editar"
+                      >
                         <Edit2 className="w-4 h-4 text-gray-600" />
                       </button>
-                      <button onClick={() => handleDownloadPDF(invoice)} className="p-1.5 hover:bg-gray-100 rounded-lg" title="PDF">
+                      <button
+                        onClick={() => handleDownloadPDF(invoice)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg"
+                        title="PDF"
+                      >
                         <Download className="w-4 h-4 text-gray-600" />
                       </button>
-                      <button onClick={() => handleDeleteClick(invoice.id, invoice.invoiceNumber, invoice.documentType)} className="p-1.5 hover:bg-gray-100 rounded-lg" title="Eliminar">
+                      <button
+                        onClick={() =>
+                          handleDeleteClick(
+                            invoice.id,
+                            invoice.invoiceNumber,
+                            invoice.documentType,
+                          )
+                        }
+                        className="p-1.5 hover:bg-gray-100 rounded-lg"
+                        title="Eliminar"
+                      >
                         <Trash2 className="w-4 h-4 text-red-600" />
                       </button>
                       {invoice.attachedFileUrl && (
-                        <button onClick={() => setImagePreviewState({ isOpen: true, imageUrl: invoice.attachedFileUrl! })} className="p-1.5 hover:bg-gray-100 rounded-lg" title="Ver Comprobante">
+                        <button
+                          onClick={() =>
+                            setImagePreviewState({
+                              isOpen: true,
+                              imageUrl: invoice.attachedFileUrl!,
+                            })
+                          }
+                          className="p-1.5 hover:bg-gray-100 rounded-lg"
+                          title="Ver Comprobante"
+                        >
                           <ImageIcon className="w-4 h-4 text-blue-600" />
                         </button>
                       )}
@@ -1249,30 +1308,69 @@ export default function InvoicesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Número</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Tipo</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Proyecto</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Cliente/Proveedor</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Fecha</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Vencimiento</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Monto</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Estado</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Acciones</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Número
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Tipo
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Proyecto
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Cliente/Proveedor
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Fecha
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Vencimiento
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Monto
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Estado
+                  </th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, idx) => (
-                    <tr key={idx} className="border-b border-gray-100 animate-pulse">
-                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-6 w-20 bg-gray-200 rounded-full" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-32 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-40 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-24 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-4 w-20 bg-gray-200 rounded" /></td>
-                      <td className="py-3 px-4"><div className="h-6 w-24 bg-gray-200 rounded-full" /></td>
-                      <td className="py-3 px-4"><div className="h-8 w-24 bg-gray-200 rounded" /></td>
+                    <tr
+                      key={idx}
+                      className="border-b border-gray-100 animate-pulse"
+                    >
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-6 w-20 bg-gray-200 rounded-full" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-32 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-40 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-24 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-4 w-20 bg-gray-200 rounded" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-6 w-24 bg-gray-200 rounded-full" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="h-8 w-24 bg-gray-200 rounded" />
+                      </td>
                     </tr>
                   ))
                 ) : filteredInvoices.length === 0 ? (
@@ -1284,39 +1382,92 @@ export default function InvoicesPage() {
                 ) : (
                   filteredInvoices.map((invoice) => {
                     const statusBadge = getStatusBadge(invoice.status);
-                    const typeBadge = getTypeBadge(invoice.type, invoice.documentType);
+                    const typeBadge = getTypeBadge(
+                      invoice.type,
+                      invoice.documentType,
+                    );
                     return (
-                      <tr key={invoice.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium text-sm">{invoice.invoiceNumber}</td>
-                        <td className="py-3 px-4">
-                          <CustomBadge className={typeBadge.className}>{typeBadge.label}</CustomBadge>
+                      <tr
+                        key={invoice.id}
+                        className="border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <td className="py-3 px-4 font-medium text-sm">
+                          {invoice.invoiceNumber}
                         </td>
-                        <td className="py-3 px-4 text-sm">{invoice.projectName}</td>
-                        <td className="py-3 px-4 text-sm">{invoice.clientName || invoice.supplierName}</td>
+                        <td className="py-3 px-4">
+                          <CustomBadge className={typeBadge.className}>
+                            {typeBadge.label}
+                          </CustomBadge>
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {invoice.projectName}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          {invoice.clientName || invoice.supplierName}
+                        </td>
                         <td className="py-3 px-4 text-sm">{invoice.date}</td>
                         <td className="py-3 px-4 text-sm">{invoice.dueDate}</td>
-                        <td className={`py-3 px-4 text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}>
-                          {invoice.type === "sale" ? "+" : "-"}RD$ {invoice.amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <td
+                          className={`py-3 px-4 text-sm font-medium ${invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
+                        >
+                          {invoice.type === "sale" ? "+" : "-"}RD${" "}
+                          {invoice.amount.toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                         <td className="py-3 px-4">
-                          <CustomBadge className={statusBadge.className}>{statusBadge.label}</CustomBadge>
+                          <CustomBadge className={statusBadge.className}>
+                            {statusBadge.label}
+                          </CustomBadge>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => handleViewClick(invoice)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Ver">
+                            <button
+                              onClick={() => handleViewClick(invoice)}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Ver"
+                            >
                               <Eye className="w-4 h-4 text-gray-600" />
                             </button>
-                            <button onClick={() => handleEditClick(invoice)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Editar">
+                            <button
+                              onClick={() => handleEditClick(invoice)}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Editar"
+                            >
                               <Edit2 className="w-4 h-4 text-gray-600" />
                             </button>
-                            <button onClick={() => handleDownloadPDF(invoice)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Descargar PDF">
+                            <button
+                              onClick={() => handleDownloadPDF(invoice)}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Descargar PDF"
+                            >
                               <Download className="w-4 h-4 text-gray-600" />
                             </button>
-                            <button onClick={() => handleDeleteClick(invoice.id, invoice.invoiceNumber, invoice.documentType)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Eliminar">
+                            <button
+                              onClick={() =>
+                                handleDeleteClick(
+                                  invoice.id,
+                                  invoice.invoiceNumber,
+                                  invoice.documentType,
+                                )
+                              }
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
                               <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
                             {invoice.attachedFileUrl && (
-                              <button onClick={() => setImagePreviewState({ isOpen: true, imageUrl: invoice.attachedFileUrl! })} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Ver Comprobante">
+                              <button
+                                onClick={() =>
+                                  setImagePreviewState({
+                                    isOpen: true,
+                                    imageUrl: invoice.attachedFileUrl!,
+                                  })
+                                }
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Ver Comprobante"
+                              >
                                 <ImageIcon className="w-4 h-4 text-blue-600" />
                               </button>
                             )}
@@ -1350,10 +1501,11 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.max(prev - 1, 1))
                   }
                   disabled={currentPage === 1 || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === 1 || isLoading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    currentPage === 1 || isLoading
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   Anterior
                 </button>
@@ -1381,10 +1533,11 @@ export default function InvoicesPage() {
                           <button
                             onClick={() => setCurrentPage(page)}
                             disabled={isLoading}
-                            className={`px-3 py-1 text-sm rounded transition-colors ${page === currentPage
-                              ? "bg-blue-600 text-white border border-blue-600"
-                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                              } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
+                            className={`px-3 py-1 text-sm rounded transition-colors ${
+                              page === currentPage
+                                ? "bg-blue-600 text-white border border-blue-600"
+                                : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                            } ${isLoading ? "cursor-not-allowed opacity-50" : ""}`}
                           >
                             {page}
                           </button>
@@ -1398,10 +1551,11 @@ export default function InvoicesPage() {
                     setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                   }
                   disabled={currentPage === totalPages || isLoading}
-                  className={`px-3 py-2 text-sm rounded border transition-colors ${currentPage === totalPages || isLoading
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-                    }`}
+                  className={`px-3 py-2 text-sm rounded border transition-colors ${
+                    currentPage === totalPages || isLoading
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                      : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                  }`}
                 >
                   Siguiente
                 </button>
