@@ -691,9 +691,15 @@ export function EditInvoiceDialog({
                           <label className="text-xs text-gray-500">Cant.</label>
                           <input
                             type="text"
-                            {...register(`elements.${index}.quantity`, {
-                              valueAsNumber: true,
-                            })}
+                            inputMode="decimal"
+                            value={element?.quantity ?? 0}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setValue(
+                                `elements.${index}.quantity`,
+                                v === "" ? 0 : Number(v) || 0,
+                              );
+                            }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
@@ -737,11 +743,16 @@ export function EditInvoiceDialog({
                             Precio
                           </label>
                           <input
-                            type="number"
-                            step="0.01"
-                            {...register(`elements.${index}.price`, {
-                              valueAsNumber: true,
-                            })}
+                            type="text"
+                            inputMode="decimal"
+                            value={element?.price ?? 0}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setValue(
+                                `elements.${index}.price`,
+                                v === "" ? 0 : Number(v) || 0,
+                              );
+                            }}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                           />
                         </div>
@@ -805,7 +816,8 @@ export function EditInvoiceDialog({
                         <input
                           type="text"
                           {...register(`elements.${index}.quantity`, {
-                            valueAsNumber: true,
+                            setValueAs: (v: string) =>
+                              v === "" ? 0 : Number(v),
                           })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                         />
@@ -846,10 +858,10 @@ export function EditInvoiceDialog({
 
                       <div className="col-span-2">
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
                           {...register(`elements.${index}.price`, {
-                            valueAsNumber: true,
+                            setValueAs: (v: string) =>
+                              v === "" ? 0 : Number(v),
                           })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                         />
