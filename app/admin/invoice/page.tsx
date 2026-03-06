@@ -129,11 +129,16 @@ function mapGestionoToInvoice(
     }
   }
 
+  const elementTitle = gestionoInvoice.elements?.[0]?.comment;
+
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
     projectName:
-      division?.name || gestionoInvoice.description || "Sin proyecto",
+      elementTitle ||
+      division?.name ||
+      gestionoInvoice.description ||
+      "Sin proyecto",
     clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
     supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
     date: new Date(gestionoInvoice.date).toISOString().split("T")[0],

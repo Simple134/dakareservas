@@ -135,10 +135,14 @@ function mapGestionoToInvoice(
     }
   }
 
+  // Si los elementos tienen un título (comment), usarlo como descripción
+  const elementTitle = gestionoInvoice.elements?.[0]?.comment;
+
   return {
     id: String(gestionoInvoice.id),
     invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
-    projectName: gestionoInvoice.description || "Sin descripción",
+    projectName:
+      elementTitle || gestionoInvoice.description || "Sin descripción",
     clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
     supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
     date: new Date(gestionoInvoice.date).toISOString().split("T")[0],

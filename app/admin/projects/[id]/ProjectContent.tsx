@@ -565,6 +565,7 @@ export function ProjectContent({
             budgetCategories={project?.budgetCategories}
             onCreateInvoice={async (data) => {
               const elements = data.elements || [];
+              console.log("Elements arriba", elements);
               const docTotal = elements.reduce(
                 (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
                 0,
@@ -586,23 +587,24 @@ export function ProjectContent({
                 documentDialogState.documentType === "quote" &&
                 documentDialogState.transactionType === "sale"
               ) {
-                // Cotización de venta: sumar al presupuesto y crear categorías
                 updatedBudget = currentBudget + docTotal;
-                const newCategories = elements.map((el) => ({
+                console.log("Elements", elements[0].comment);
+
+                const title = elements[0]?.comment || "Sin nombre";
+
+                const newCategory = {
                   id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  name: el.description || "Sin nombre",
-                  amount: (el.quantity || 0) * (el.price || 0),
+                  name: title,
+                  amount: docTotal,
                   percentage: 0,
-                }));
-                updatedCategories = [...currentCategories, ...newCategories];
+                };
+                updatedCategories = [...currentCategories, newCategory];
               } else if (
                 documentDialogState.transactionType === "purchase" &&
                 currentCategories.length > 0
               ) {
-                // Compra: sumar el monto al presupuesto y a la categoría seleccionada
                 updatedBudget = currentBudget + docTotal;
                 updatedCategories = currentCategories.map((cat) => {
-                  // Buscar elementos que coincidan con esta categoría
                   const matchingElements = elements.filter(
                     (el) => el.description === cat.name,
                   );
