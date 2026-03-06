@@ -19,6 +19,9 @@ import {
   XCircle,
   DollarSign,
   Image as ImageIcon,
+  History,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   CustomCard,
@@ -180,9 +183,36 @@ export default function InvoicesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDocumentType, setSelectedDocumentType] = useState("all");
-  const [activeTab, setActiveTab] = useState<"QUOTE" | "INVOICE" | "ORDER">(
-    "QUOTE",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "QUOTE" | "INVOICE" | "ORDER" | "HISTORY"
+  >("QUOTE");
+
+  // History tab state
+  const [historyFromDate, setHistoryFromDate] = useState(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString();
+  });
+  const [historyToDate, setHistoryToDate] = useState(() => {
+    const now = new Date();
+    const lastDay = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    return lastDay.toISOString();
+  });
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyInvoices, setHistoryInvoices] = useState<InvoiceDisplay[]>([]);
+  const [historyRawInvoices, setHistoryRawInvoices] = useState<
+    GestionoInvoiceItem[]
+  >([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
     "all",
   );
@@ -344,7 +374,9 @@ export default function InvoicesPage() {
       }
     };
 
-    fetchInvoices();
+    if (activeTab !== "HISTORY") {
+      fetchInvoices();
+    }
   }, [
     currentPage,
     itemsPerPage,
@@ -352,6 +384,69 @@ export default function InvoicesPage() {
     activeTab,
     isSellFilter,
     showWithImages,
+  ]);
+
+  // Fetch history (paid) invoices
+  useEffect(() => {
+    if (activeTab !== "HISTORY") return;
+
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const params = new URLSearchParams({
+          itemsPerPage: "10",
+          amountMethod: "ALL",
+          amount: "0",
+          fromDate: historyFromDate,
+          state: "COMPLETED",
+          toDate: historyToDate,
+          page: String(historyPage),
+        });
+
+        const response = await fetch(
+          `/api/gestiono/pendingRecord?${params.toString()}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: GestionoInvoicesResponse = await response.json();
+        setHistoryRawInvoices(data.items || []);
+        setHistoryTotalPages(data.totalPages || 1);
+      } catch (error) {
+        console.error("❌ Error fetching history:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, [activeTab, historyFromDate, historyToDate, historyPage, refreshKey]);
+
+  // Map history raw invoices to display format
+  useEffect(() => {
+    if (activeTab !== "HISTORY") return;
+    const mapped = historyRawInvoices.map((item) =>
+      mapGestionoToInvoice(
+        item,
+        beneficiariesMap,
+        divisions,
+        beneficiaryIsrMap,
+      ),
+    );
+    const sorted = mapped.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+    setHistoryInvoices(sorted);
+  }, [
+    historyRawInvoices,
+    beneficiariesMap,
+    divisions,
+    beneficiaryIsrMap,
+    activeTab,
   ]);
 
   useEffect(() => {
@@ -949,142 +1044,200 @@ export default function InvoicesPage() {
         >
           Facturas
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("HISTORY");
+            setHistoryPage(1);
+          }}
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "HISTORY"
+              ? "border-amber-600 text-amber-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <History className="w-4 h-4" />
+            Historial
+          </span>
+        </button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <CustomCard>
-          <div className="p-6">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="text-sm font-medium">Ventas Totales</h3>
+      {/* KPIs - Hide in History mode */}
+      {activeTab !== "HISTORY" ? (
+        <div className="grid gap-4 md:grid-cols-3">
+          <CustomCard>
+            <div className="p-6">
+              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 className="text-sm font-medium">Ventas Totales</h3>
+              </div>
+              <div className="text-2xl font-bold text-green-600">
+                {isLoading ? (
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  `RD$ ${totalSalesToCharge.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                )}
+              </div>
+              <p className="text-xs text-gray-600">Pendiente a cobrar</p>
             </div>
-            <div className="text-2xl font-bold text-green-600">
-              {isLoading ? (
-                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
-              ) : (
-                `RD$ ${totalSalesToCharge.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              )}
-            </div>
-            <p className="text-xs text-gray-600">Pendiente a cobrar</p>
-          </div>
-        </CustomCard>
+          </CustomCard>
 
-        <CustomCard>
-          <div className="p-6">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="text-sm font-medium">Compras Totales</h3>
+          <CustomCard>
+            <div className="p-6">
+              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 className="text-sm font-medium">Compras Totales</h3>
+              </div>
+              <div className="text-2xl font-bold text-red-600">
+                {isLoading ? (
+                  <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  `RD$ ${totalPurchasesToPay.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                )}
+              </div>
+              <p className="text-xs text-gray-600">Pendiente a pagar</p>
             </div>
-            <div className="text-2xl font-bold text-red-600">
-              {isLoading ? (
-                <div className="h-8 w-32 bg-gray-200 rounded animate-pulse" />
-              ) : (
-                `RD$ ${totalPurchasesToPay.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              )}
-            </div>
-            <p className="text-xs text-gray-600">Pendiente a pagar</p>
-          </div>
-        </CustomCard>
+          </CustomCard>
 
-        <CustomCard>
-          <div className="p-6">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="text-sm font-medium">Pendientes</h3>
+          <CustomCard>
+            <div className="p-6">
+              <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <h3 className="text-sm font-medium">Pendientes</h3>
+              </div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {isLoading ? (
+                  <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+                ) : (
+                  pendingRecordsCount
+                )}
+              </div>
+              <p className="text-xs text-gray-600">Registros pendientes</p>
             </div>
-            <div className="text-2xl font-bold text-yellow-600">
-              {isLoading ? (
-                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
-              ) : (
-                pendingRecordsCount
-              )}
-            </div>
-            <p className="text-xs text-gray-600">Registros pendientes</p>
-          </div>
-        </CustomCard>
-      </div>
-
-      {/* Search and Filters */}
-      <CustomCard>
-        <div className="p-4 md:p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por número, proyecto, cliente o proveedor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <CustomButton
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              Filtros
-              {hasActiveFilters || showWithImages ? (
-                <CustomBadge className="ml-2 bg-blue-100 text-blue-800">
-                  {(selectedType !== "all" ? 1 : 0) +
-                    (selectedDocumentType !== "all" ? 1 : 0) +
-                    selectedStatuses.length +
-                    (showWithImages ? 1 : 0)}
-                </CustomBadge>
-              ) : null}
-            </CustomButton>
-          </div>
-
-          {/* Active Filters Summary */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              {selectedType !== "all" && (
-                <button onClick={() => setSelectedType("all")}>
-                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                    {selectedType === "sale" ? "Ventas" : "Compras"}
-                    <X className="w-3 h-3" />
-                  </CustomBadge>
-                </button>
-              )}
-              {selectedDocumentType !== "all" && (
-                <button onClick={() => setSelectedDocumentType("all")}>
-                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                    {selectedDocumentType === "quote"
-                      ? "Cotizaciones"
-                      : selectedDocumentType === "order"
-                        ? "Órdenes"
-                        : "Facturas"}
-                    <X className="w-3 h-3" />
-                  </CustomBadge>
-                </button>
-              )}
-              {showWithImages && (
-                <button onClick={() => setShowWithImages(false)}>
-                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                    Con Imágenes
-                    <X className="w-3 h-3" />
-                  </CustomBadge>
-                </button>
-              )}
-              {selectedStatuses.map((status) => (
-                <button key={status} onClick={() => toggleStatus(status)}>
-                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                    {status === "paid"
-                      ? "Pagada"
-                      : status === "pending"
-                        ? "Pendiente"
-                        : status === "overdue"
-                          ? "Vencida"
-                          : "Borrador"}
-                    <X className="w-3 h-3" />
-                  </CustomBadge>
-                </button>
-              ))}
-            </div>
-          )}
+          </CustomCard>
         </div>
-      </CustomCard>
+      ) : (
+        /* History Date Range Picker */
+        <CustomCard>
+          <div className="p-4 md:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Desde
+                </label>
+                <input
+                  type="date"
+                  value={historyFromDate.split("T")[0]}
+                  onChange={(e) => {
+                    const d = new Date(e.target.value + "T04:00:00.000Z");
+                    setHistoryFromDate(d.toISOString());
+                    setHistoryPage(1);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hasta
+                </label>
+                <input
+                  type="date"
+                  value={historyToDate.split("T")[0]}
+                  onChange={(e) => {
+                    const d = new Date(e.target.value + "T23:59:59.999Z");
+                    setHistoryToDate(d.toISOString());
+                    setHistoryPage(1);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+          </div>
+        </CustomCard>
+      )}
+
+      {/* Search and Filters - Hide in History mode */}
+      {activeTab !== "HISTORY" && (
+        <CustomCard>
+          <div className="p-4 md:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por número, proyecto, cliente o proveedor..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <CustomButton
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Filtros
+                {hasActiveFilters || showWithImages ? (
+                  <CustomBadge className="ml-2 bg-blue-100 text-blue-800">
+                    {(selectedType !== "all" ? 1 : 0) +
+                      (selectedDocumentType !== "all" ? 1 : 0) +
+                      selectedStatuses.length +
+                      (showWithImages ? 1 : 0)}
+                  </CustomBadge>
+                ) : null}
+              </CustomButton>
+            </div>
+
+            {/* Active Filters Summary */}
+            {hasActiveFilters && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {selectedType !== "all" && (
+                  <button onClick={() => setSelectedType("all")}>
+                    <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                      {selectedType === "sale" ? "Ventas" : "Compras"}
+                      <X className="w-3 h-3" />
+                    </CustomBadge>
+                  </button>
+                )}
+                {selectedDocumentType !== "all" && (
+                  <button onClick={() => setSelectedDocumentType("all")}>
+                    <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                      {selectedDocumentType === "quote"
+                        ? "Cotizaciones"
+                        : selectedDocumentType === "order"
+                          ? "Órdenes"
+                          : "Facturas"}
+                      <X className="w-3 h-3" />
+                    </CustomBadge>
+                  </button>
+                )}
+                {showWithImages && (
+                  <button onClick={() => setShowWithImages(false)}>
+                    <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                      Con Imágenes
+                      <X className="w-3 h-3" />
+                    </CustomBadge>
+                  </button>
+                )}
+                {selectedStatuses.map((status) => (
+                  <button key={status} onClick={() => toggleStatus(status)}>
+                    <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                      {status === "paid"
+                        ? "Pagada"
+                        : status === "pending"
+                          ? "Pendiente"
+                          : status === "overdue"
+                            ? "Vencida"
+                            : "Borrador"}
+                      <X className="w-3 h-3" />
+                    </CustomBadge>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </CustomCard>
+      )}
 
       {/* Filters Panel */}
-      {isFilterOpen && (
+      {activeTab !== "HISTORY" && isFilterOpen && (
         <CustomCard>
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1221,13 +1374,17 @@ export default function InvoicesPage() {
               Lista de Facturas
             </h2>
             <p className="text-sm text-gray-600">
-              {filteredInvoices.length} facturas encontradas
+              {
+                (activeTab === "HISTORY" ? historyInvoices : filteredInvoices)
+                  .length
+              }{" "}
+              facturas encontradas
             </p>
           </div>
 
           {/* Mobile Card Layout */}
           <div className="block md:hidden space-y-3">
-            {isLoading ? (
+            {(activeTab === "HISTORY" ? isLoadingHistory : isLoading) ? (
               Array.from({ length: 3 }).map((_, idx) => (
                 <div
                   key={idx}
@@ -1238,12 +1395,16 @@ export default function InvoicesPage() {
                   <div className="h-4 w-20 bg-gray-200 rounded" />
                 </div>
               ))
-            ) : filteredInvoices.length === 0 ? (
+            ) : (activeTab === "HISTORY" ? historyInvoices : filteredInvoices)
+                .length === 0 ? (
               <div className="py-8 text-center text-gray-500">
                 No se encontraron facturas
               </div>
             ) : (
-              filteredInvoices.map((invoice) => {
+              (activeTab === "HISTORY"
+                ? historyInvoices
+                : filteredInvoices
+              ).map((invoice) => {
                 const statusBadge = getStatusBadge(invoice.status);
                 const typeBadge = getTypeBadge(
                   invoice.type,
@@ -1294,32 +1455,36 @@ export default function InvoicesPage() {
                         <Eye className="w-4 h-4 text-gray-600" />
                       </button>
                       <button
-                        onClick={() => handleEditClick(invoice)}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg"
-                        title="Editar"
-                      >
-                        <Edit2 className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button
                         onClick={() => handleDownloadPDF(invoice)}
                         className="p-1.5 hover:bg-gray-100 rounded-lg"
                         title="PDF"
                       >
                         <Download className="w-4 h-4 text-gray-600" />
                       </button>
-                      <button
-                        onClick={() =>
-                          handleDeleteClick(
-                            invoice.id,
-                            invoice.invoiceNumber,
-                            invoice.documentType,
-                          )
-                        }
-                        className="p-1.5 hover:bg-gray-100 rounded-lg"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
+                      {activeTab !== "HISTORY" && (
+                        <>
+                          <button
+                            onClick={() => handleEditClick(invoice)}
+                            className="p-1.5 hover:bg-gray-100 rounded-lg"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4 text-gray-600" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteClick(
+                                invoice.id,
+                                invoice.invoiceNumber,
+                                invoice.documentType,
+                              )
+                            }
+                            className="p-1.5 hover:bg-gray-100 rounded-lg"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
+                        </>
+                      )}
                       {invoice.attachedFileUrl && (
                         <button
                           onClick={() =>
@@ -1376,7 +1541,7 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading ? (
+                {(activeTab === "HISTORY" ? isLoadingHistory : isLoading) ? (
                   Array.from({ length: 5 }).map((_, idx) => (
                     <tr
                       key={idx}
@@ -1411,14 +1576,20 @@ export default function InvoicesPage() {
                       </td>
                     </tr>
                   ))
-                ) : filteredInvoices.length === 0 ? (
+                ) : (activeTab === "HISTORY"
+                    ? historyInvoices
+                    : filteredInvoices
+                  ).length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-gray-500">
                       No se encontraron facturas matching
                     </td>
                   </tr>
                 ) : (
-                  filteredInvoices.map((invoice) => {
+                  (activeTab === "HISTORY"
+                    ? historyInvoices
+                    : filteredInvoices
+                  ).map((invoice) => {
                     const statusBadge = getStatusBadge(invoice.status);
                     const typeBadge = getTypeBadge(
                       invoice.type,
@@ -1469,32 +1640,36 @@ export default function InvoicesPage() {
                               <Eye className="w-4 h-4 text-gray-600" />
                             </button>
                             <button
-                              onClick={() => handleEditClick(invoice)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Editar"
-                            >
-                              <Edit2 className="w-4 h-4 text-gray-600" />
-                            </button>
-                            <button
                               onClick={() => handleDownloadPDF(invoice)}
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Descargar PDF"
                             >
                               <Download className="w-4 h-4 text-gray-600" />
                             </button>
-                            <button
-                              onClick={() =>
-                                handleDeleteClick(
-                                  invoice.id,
-                                  invoice.invoiceNumber,
-                                  invoice.documentType,
-                                )
-                              }
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
+                            {activeTab !== "HISTORY" && (
+                              <>
+                                <button
+                                  onClick={() => handleEditClick(invoice)}
+                                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Editar"
+                                >
+                                  <Edit2 className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteClick(
+                                      invoice.id,
+                                      invoice.invoiceNumber,
+                                      invoice.documentType,
+                                    )
+                                  }
+                                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              </>
+                            )}
                             {invoice.attachedFileUrl && (
                               <button
                                 onClick={() =>
@@ -1519,7 +1694,7 @@ export default function InvoicesPage() {
             </table>
           </div>
 
-          {totalPages > 1 && (
+          {activeTab !== "HISTORY" && totalPages > 1 && (
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 pt-4">
               <div className="text-sm text-gray-600">
                 Mostrando{" "}
@@ -1598,6 +1773,31 @@ export default function InvoicesPage() {
                   Siguiente
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* History Pagination */}
+          {activeTab === "HISTORY" && historyTotalPages > 1 && (
+            <div className="mt-6 flex items-center justify-center gap-4 border-t border-gray-200 pt-4">
+              <button
+                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                disabled={historyPage <= 1}
+                className="px-3 py-2 text-sm rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm text-gray-600">
+                Página {historyPage} de {historyTotalPages}
+              </span>
+              <button
+                onClick={() =>
+                  setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
+                }
+                disabled={historyPage >= historyTotalPages}
+                className="px-3 py-2 text-sm rounded border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           )}
         </div>

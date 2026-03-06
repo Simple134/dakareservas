@@ -13,6 +13,9 @@ import {
   ShoppingCart,
   Clock,
   ArrowRight,
+  History,
+  ChevronLeft,
+  ChevronRight,
   DollarSign,
   Image as ImageIcon,
 } from "lucide-react";
@@ -189,9 +192,36 @@ export function FinancesModule({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedDocumentType, setSelectedDocumentType] = useState("all");
-  const [activeTab, setActiveTab] = useState<"QUOTE" | "INVOICE" | "ORDER">(
-    "INVOICE",
-  ); // Default to INVOICE
+  const [activeTab, setActiveTab] = useState<
+    "QUOTE" | "INVOICE" | "ORDER" | "HISTORY"
+  >("INVOICE");
+
+  // History tab date range state
+  const [historyFromDate, setHistoryFromDate] = useState(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString();
+  });
+  const [historyToDate, setHistoryToDate] = useState(() => {
+    const now = new Date();
+    const lastDay = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    return lastDay.toISOString();
+  });
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyInvoices, setHistoryInvoices] = useState<InvoiceDisplay[]>([]);
+  const [historyRawInvoices, setHistoryRawInvoices] = useState<
+    GestionoInvoiceItem[]
+  >([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
     "all",
   );
@@ -255,8 +285,69 @@ export function FinancesModule({
       }
     };
 
-    fetchInvoices();
+    if (activeTab !== "HISTORY") {
+      fetchInvoices();
+    }
   }, [projectId, refreshKey, activeTab, isSellFilter]);
+
+  // Fetch history (paid) invoices
+  useEffect(() => {
+    if (activeTab !== "HISTORY") return;
+
+    const fetchHistory = async () => {
+      setIsLoadingHistory(true);
+      try {
+        const params = new URLSearchParams({
+          itemsPerPage: "10",
+          divisionId: String(projectId),
+          amountMethod: "ALL",
+          amount: "0",
+          fromDate: historyFromDate,
+          toDate: historyToDate,
+          page: String(historyPage),
+        });
+
+        const response = await fetch(
+          `/api/gestiono/pendingRecord?${params.toString()}`,
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: GestionoInvoicesResponse = await response.json();
+        setHistoryRawInvoices(data.items || []);
+        setHistoryTotalPages(data.totalPages || 1);
+      } catch (error) {
+        console.error("❌ Error fetching history:", error);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, [
+    activeTab,
+    projectId,
+    historyFromDate,
+    historyToDate,
+    historyPage,
+    refreshKey,
+  ]);
+
+  // Map history raw invoices to display format
+  useEffect(() => {
+    if (activeTab !== "HISTORY") return;
+    const mapped = historyRawInvoices.map((item) =>
+      mapGestionoToInvoice(item, beneficiariesMap, beneficiaryIsrMap),
+    );
+    const sorted = mapped.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return dateB - dateA;
+    });
+    setHistoryInvoices(sorted);
+  }, [historyRawInvoices, beneficiariesMap, beneficiaryIsrMap, activeTab]);
 
   // Fetch beneficiaries for name resolution
   useEffect(() => {
@@ -869,110 +960,168 @@ export function FinancesModule({
         >
           Facturas
         </button>
+        <button
+          onClick={() => {
+            setActiveTab("HISTORY");
+            setHistoryPage(1);
+          }}
+          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
+            activeTab === "HISTORY"
+              ? "border-amber-600 text-amber-600"
+              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <History className="w-4 h-4" />
+            Historial
+          </span>
+        </button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <CustomCard className="p-6">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Ventas Pendientes</h3>
-          </div>
-          <div className="text-2xl font-bold text-green-600">
-            {isLoadingInvoices ? (
-              <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-            ) : (
-              `RD$ ${totalSalesToCharge.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            )}
-          </div>
-          <p className="text-xs text-gray-600">Por cobrar</p>
-        </CustomCard>
+      {/* KPIs - Hide in History mode */}
+      {activeTab !== "HISTORY" && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <CustomCard className="p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="text-sm font-medium">Ventas Pendientes</h3>
+            </div>
+            <div className="text-2xl font-bold text-green-600">
+              {isLoadingInvoices ? (
+                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                `RD$ ${totalSalesToCharge.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              )}
+            </div>
+            <p className="text-xs text-gray-600">Por cobrar</p>
+          </CustomCard>
 
-        <CustomCard className="p-6">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">
-              {activeTab === "QUOTE"
-                ? "Cotizaciones Pendientes"
-                : activeTab === "ORDER"
-                  ? "Órdenes Pendientes"
-                  : "Facturas Pendientes"}
-            </h3>
-          </div>
-          <div className="text-2xl font-bold text-red-600">
-            {isLoadingInvoices ? (
-              <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-            ) : (
-              `RD$ ${totalPurchasesToPay.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            )}
-          </div>
-          <p className="text-xs text-gray-600">Por pagar</p>
-        </CustomCard>
+          <CustomCard className="p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="text-sm font-medium">
+                {activeTab === "QUOTE"
+                  ? "Cotizaciones Pendientes"
+                  : activeTab === "ORDER"
+                    ? "Órdenes Pendientes"
+                    : "Facturas Pendientes"}
+              </h3>
+            </div>
+            <div className="text-2xl font-bold text-red-600">
+              {isLoadingInvoices ? (
+                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                `RD$ ${totalPurchasesToPay.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              )}
+            </div>
+            <p className="text-xs text-gray-600">Por pagar</p>
+          </CustomCard>
 
-        <CustomCard className="p-6">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Documentos</h3>
-          </div>
-          <div className="text-2xl font-bold text-blue-600">
-            {isLoadingInvoices ? (
-              <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
-            ) : (
-              pendingRecordsCount
-            )}
-          </div>
-          <p className="text-xs text-gray-600">Registros activos</p>
-        </CustomCard>
-      </div>
-
-      {/* Filters */}
-      <CustomCard className="p-4 md:p-6">
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <CustomButton
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filtros
-            {hasActiveFilters && (
-              <CustomBadge className="ml-2 bg-blue-100 text-blue-800">
-                {(selectedType !== "all" ? 1 : 0) +
-                  (selectedDocumentType !== "all" ? 1 : 0) +
-                  selectedStatuses.length}
-              </CustomBadge>
-            )}
-          </CustomButton>
+          <CustomCard className="p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="text-sm font-medium">Documentos</h3>
+            </div>
+            <div className="text-2xl font-bold text-blue-600">
+              {isLoadingInvoices ? (
+                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+              ) : (
+                pendingRecordsCount
+              )}
+            </div>
+            <p className="text-xs text-gray-600">Registros activos</p>
+          </CustomCard>
         </div>
+      )}
 
-        {/* Active Filters Summary */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {selectedType !== "all" && (
-              <button onClick={() => setSelectedType("all")}>
-                <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                  {selectedType === "sale" ? "Ventas" : "Compras"}
-                  <X className="w-3 h-3" />
-                </CustomBadge>
-              </button>
-            )}
-            {selectedStatuses.map((status) => (
-              <button key={status} onClick={() => toggleStatus(status)}>
-                <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                  {getStatusBadge(status).label}
-                  <X className="w-3 h-3" />
-                </CustomBadge>
-              </button>
-            ))}
+      {/* History Date Range Picker */}
+      {activeTab === "HISTORY" && (
+        <CustomCard className="p-4 md:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Desde
+              </label>
+              <input
+                type="date"
+                value={historyFromDate.split("T")[0]}
+                onChange={(e) => {
+                  const d = new Date(e.target.value + "T04:00:00.000Z");
+                  setHistoryFromDate(d.toISOString());
+                  setHistoryPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hasta
+              </label>
+              <input
+                type="date"
+                value={historyToDate.split("T")[0]}
+                onChange={(e) => {
+                  const d = new Date(e.target.value + "T23:59:59.999Z");
+                  setHistoryToDate(d.toISOString());
+                  setHistoryPage(1);
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
           </div>
-        )}
-      </CustomCard>
+        </CustomCard>
+      )}
+
+      {/* Filters - Hide in History mode */}
+      {activeTab !== "HISTORY" && (
+        <CustomCard className="p-4 md:p-6">
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <CustomButton
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Filtros
+              {hasActiveFilters && (
+                <CustomBadge className="ml-2 bg-blue-100 text-blue-800">
+                  {(selectedType !== "all" ? 1 : 0) +
+                    (selectedDocumentType !== "all" ? 1 : 0) +
+                    selectedStatuses.length}
+                </CustomBadge>
+              )}
+            </CustomButton>
+          </div>
+
+          {/* Active Filters Summary */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {selectedType !== "all" && (
+                <button onClick={() => setSelectedType("all")}>
+                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                    {selectedType === "sale" ? "Ventas" : "Compras"}
+                    <X className="w-3 h-3" />
+                  </CustomBadge>
+                </button>
+              )}
+              {selectedStatuses.map((status) => (
+                <button key={status} onClick={() => toggleStatus(status)}>
+                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
+                    {getStatusBadge(status).label}
+                    <X className="w-3 h-3" />
+                  </CustomBadge>
+                </button>
+              ))}
+            </div>
+          )}
+        </CustomCard>
+      )}
 
       {/* Filters Panel */}
       {isFilterOpen && (
@@ -1050,129 +1199,139 @@ export function FinancesModule({
       <CustomCard className="overflow-hidden">
         {/* Mobile Card Layout */}
         <div className="block md:hidden p-4 space-y-3">
-          {isLoadingInvoices ? (
+          {(activeTab === "HISTORY" ? isLoadingHistory : isLoadingInvoices) ? (
             <div className="py-8 text-center text-gray-500">
               Cargando documentos...
             </div>
-          ) : filteredInvoices.length === 0 ? (
+          ) : (activeTab === "HISTORY" ? historyInvoices : filteredInvoices)
+              .length === 0 ? (
             <div className="py-8 text-center text-gray-500">
-              {hasActiveFilters
-                ? "No se encontraron documentos con los filtros aplicados"
-                : "No hay documentos registrados para este proyecto"}
+              {activeTab === "HISTORY"
+                ? "No hay registros en este rango de fechas"
+                : hasActiveFilters
+                  ? "No se encontraron documentos con los filtros aplicados"
+                  : "No hay documentos registrados para este proyecto"}
             </div>
           ) : (
-            filteredInvoices.map((invoice) => {
-              const statusBadge = getStatusBadge(invoice.status);
-              return (
-                <div
-                  key={invoice.id}
-                  className="p-3 border border-gray-100 rounded-lg"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {invoice.invoiceNumber}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {invoice.projectName}
-                      </p>
+            (activeTab === "HISTORY" ? historyInvoices : filteredInvoices).map(
+              (invoice) => {
+                const statusBadge = getStatusBadge(invoice.status);
+                return (
+                  <div
+                    key={invoice.id}
+                    className="p-3 border border-gray-100 rounded-lg"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {invoice.invoiceNumber}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {invoice.projectName}
+                        </p>
+                      </div>
+                      <CustomBadge
+                        className={
+                          invoice.type === "sale"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }
+                      >
+                        {invoice.type === "sale" ? "Venta" : "Compra"}
+                      </CustomBadge>
                     </div>
-                    <CustomBadge
-                      className={
-                        invoice.type === "sale"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }
-                    >
-                      {invoice.type === "sale" ? "Venta" : "Compra"}
-                    </CustomBadge>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">
-                      RD${" "}
-                      {invoice.amount.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                    <CustomBadge className={statusBadge.className}>
-                      {statusBadge.label}
-                    </CustomBadge>
-                  </div>
-                  <div className="text-xs text-gray-500 mb-2">
-                    {invoice.date}
-                  </div>
-                  <div className="flex items-center gap-1 pt-2 border-t border-gray-100">
-                    <button
-                      onClick={() => handleViewClick(invoice)}
-                      className="p-1.5 text-gray-400 hover:text-blue-600"
-                      title="Ver"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDownloadPDF(invoice)}
-                      className="p-1.5 text-gray-400 hover:text-blue-600"
-                      title="PDF"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleEditClick(invoice)}
-                      className="p-1.5 text-gray-400 hover:text-blue-600"
-                      title="Editar"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        handleDeleteClick(
-                          invoice.id,
-                          invoice.invoiceNumber,
-                          invoice.documentType,
-                        )
-                      }
-                      className="p-1.5 text-gray-400 hover:text-red-600"
-                      title="Eliminar"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    {invoice.attachedFileUrl && (
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        RD${" "}
+                        {invoice.amount.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </span>
+                      <CustomBadge className={statusBadge.className}>
+                        {statusBadge.label}
+                      </CustomBadge>
+                    </div>
+                    <div className="text-xs text-gray-500 mb-2">
+                      {invoice.date}
+                    </div>
+                    <div className="flex items-center gap-1 pt-2 border-t border-gray-100">
                       <button
-                        onClick={() =>
-                          setImagePreviewState({
-                            isOpen: true,
-                            imageUrl: invoice.attachedFileUrl!,
-                          })
-                        }
+                        onClick={() => handleViewClick(invoice)}
                         className="p-1.5 text-gray-400 hover:text-blue-600"
-                        title="Ver Comprobante"
+                        title="Ver"
                       >
-                        <ImageIcon className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </button>
-                    )}
-                    {(activeTab === "QUOTE" || activeTab === "ORDER") && (
                       <button
-                        onClick={() =>
-                          setConvertModalState({
-                            isOpen: true,
-                            invoiceId: invoice.id,
-                            invoiceNumber: invoice.invoiceNumber,
-                          })
-                        }
-                        className="ml-auto p-1.5 text-blue-600 hover:text-blue-800"
-                        title={
-                          activeTab === "QUOTE"
-                            ? "Convertir a Orden/Factura"
-                            : "Convertir a Factura"
-                        }
+                        onClick={() => handleDownloadPDF(invoice)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600"
+                        title="PDF"
                       >
-                        <ArrowRight className="w-4 h-4" />
+                        <Download className="w-4 h-4" />
                       </button>
-                    )}
+                      {activeTab !== "HISTORY" && (
+                        <>
+                          <button
+                            onClick={() => handleEditClick(invoice)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteClick(
+                                invoice.id,
+                                invoice.invoiceNumber,
+                                invoice.documentType,
+                              )
+                            }
+                            className="p-1.5 text-gray-400 hover:text-red-600"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      {invoice.attachedFileUrl && (
+                        <button
+                          onClick={() =>
+                            setImagePreviewState({
+                              isOpen: true,
+                              imageUrl: invoice.attachedFileUrl!,
+                            })
+                          }
+                          className="p-1.5 text-gray-400 hover:text-blue-600"
+                          title="Ver Comprobante"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                      {activeTab !== "HISTORY" &&
+                        (activeTab === "QUOTE" || activeTab === "ORDER") && (
+                          <button
+                            onClick={() =>
+                              setConvertModalState({
+                                isOpen: true,
+                                invoiceId: invoice.id,
+                                invoiceNumber: invoice.invoiceNumber,
+                              })
+                            }
+                            className="ml-auto p-1.5 text-blue-600 hover:text-blue-800"
+                            title={
+                              activeTab === "QUOTE"
+                                ? "Convertir a Orden/Factura"
+                                : "Convertir a Factura"
+                            }
+                          >
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              },
+            )
           )}
         </div>
 
@@ -1191,7 +1350,9 @@ export function FinancesModule({
               </tr>
             </thead>
             <tbody>
-              {isLoadingInvoices ? (
+              {(
+                activeTab === "HISTORY" ? isLoadingHistory : isLoadingInvoices
+              ) ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -1200,19 +1361,25 @@ export function FinancesModule({
                     Cargando documentos...
                   </td>
                 </tr>
-              ) : filteredInvoices.length === 0 ? (
+              ) : (activeTab === "HISTORY" ? historyInvoices : filteredInvoices)
+                  .length === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
                     className="px-6 py-8 text-center text-gray-500"
                   >
-                    {hasActiveFilters
-                      ? "No se encontraron documentos con los filtros aplicados"
-                      : "No hay documentos registrados para este proyecto"}
+                    {activeTab === "HISTORY"
+                      ? "No hay registros en este rango de fechas"
+                      : hasActiveFilters
+                        ? "No se encontraron documentos con los filtros aplicados"
+                        : "No hay documentos registrados para este proyecto"}
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((invoice) => {
+                (activeTab === "HISTORY"
+                  ? historyInvoices
+                  : filteredInvoices
+                ).map((invoice) => {
                   const statusBadge = getStatusBadge(invoice.status);
                   return (
                     <tr
@@ -1266,26 +1433,30 @@ export function FinancesModule({
                           >
                             <Download className="w-5 h-5" />
                           </button>
-                          <button
-                            onClick={() => handleEditClick(invoice)}
-                            className="p-1 text-gray-400 hover:text-blue-600"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteClick(
-                                invoice.id,
-                                invoice.invoiceNumber,
-                                invoice.documentType,
-                              )
-                            }
-                            className="p-1 text-gray-400 hover:text-red-600"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          {activeTab !== "HISTORY" && (
+                            <>
+                              <button
+                                onClick={() => handleEditClick(invoice)}
+                                className="p-1 text-gray-400 hover:text-blue-600"
+                                title="Editar"
+                              >
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteClick(
+                                    invoice.id,
+                                    invoice.invoiceNumber,
+                                    invoice.documentType,
+                                  )
+                                }
+                                className="p-1 text-gray-400 hover:text-red-600"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
                           {invoice.attachedFileUrl && (
                             <button
                               onClick={() =>
@@ -1300,25 +1471,27 @@ export function FinancesModule({
                               <ImageIcon className="w-5 h-5" />
                             </button>
                           )}
-                          {(activeTab === "QUOTE" || activeTab === "ORDER") && (
-                            <button
-                              onClick={() =>
-                                setConvertModalState({
-                                  isOpen: true,
-                                  invoiceId: invoice.id,
-                                  invoiceNumber: invoice.invoiceNumber,
-                                })
-                              }
-                              className="p-1 text-blue-600 hover:text-blue-800"
-                              title={
-                                activeTab === "QUOTE"
-                                  ? "Convertir a Orden/Factura"
-                                  : "Convertir a Factura"
-                              }
-                            >
-                              <ArrowRight className="w-5 h-5" />
-                            </button>
-                          )}
+                          {activeTab !== "HISTORY" &&
+                            (activeTab === "QUOTE" ||
+                              activeTab === "ORDER") && (
+                              <button
+                                onClick={() =>
+                                  setConvertModalState({
+                                    isOpen: true,
+                                    invoiceId: invoice.id,
+                                    invoiceNumber: invoice.invoiceNumber,
+                                  })
+                                }
+                                className="p-1 text-blue-600 hover:text-blue-800"
+                                title={
+                                  activeTab === "QUOTE"
+                                    ? "Convertir a Orden/Factura"
+                                    : "Convertir a Factura"
+                                }
+                              >
+                                <ArrowRight className="w-5 h-5" />
+                              </button>
+                            )}
                         </div>
                       </td>
                     </tr>
@@ -1329,6 +1502,31 @@ export function FinancesModule({
           </table>
         </div>
       </CustomCard>
+
+      {/* History Pagination */}
+      {activeTab === "HISTORY" && historyTotalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 py-2">
+          <button
+            onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+            disabled={historyPage <= 1}
+            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm text-gray-600">
+            Página {historyPage} de {historyTotalPages}
+          </span>
+          <button
+            onClick={() =>
+              setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
+            }
+            disabled={historyPage >= historyTotalPages}
+            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <CreateInvoiceDialog
         isOpen={createDialogState.isOpen}
