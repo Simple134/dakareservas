@@ -466,8 +466,8 @@ const ContactsPage = () => {
           beneficiaryId={editBeneficiary?.id}
           isrTaxRetention={
             editBeneficiary?.metadata?.isrTaxRetention
-              ? Number(editBeneficiary.metadata.isrTaxRetention)
-              : 0
+              ? String(editBeneficiary.metadata.isrTaxRetention)
+              : "0"
           }
         />
 

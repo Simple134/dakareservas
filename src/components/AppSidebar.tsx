@@ -164,7 +164,7 @@ export function AppSidebar({
                 No hay proyectos activos
               </div>
             ) : (
-              divisions.slice(1, 5).map((division) => (
+              divisions.slice(1).map((division) => (
                 <button
                   key={division.id}
                   onClick={() => {

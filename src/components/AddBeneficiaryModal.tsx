@@ -12,7 +12,7 @@ interface AddBeneficiaryModalProps {
   onSuccess?: () => void;
   beneficiaryData?: CreateBeneficiaryBody & { id?: number };
   beneficiaryId?: number;
-  isrTaxRetention?: number;
+  isrTaxRetention?: string;
 }
 
 const BENEFICIARY_TYPES = [
@@ -58,8 +58,8 @@ export default function AddBeneficiaryModal({
   const [error, setError] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Set<number>>(new Set());
   const [savingContactId, setSavingContactId] = useState<number | null>(null);
-  const [isrTaxRetentionVar, setIsrTaxRetentionVar] = useState<number>(
-    isrTaxRetention || 0,
+  const [isrTaxRetentionVar, setIsrTaxRetentionVar] = useState<string>(
+    isrTaxRetention || "0",
   );
   const isEditMode = !!beneficiaryId;
 
@@ -96,7 +96,7 @@ export default function AddBeneficiaryModal({
         contact: [{ type: "phone", data: "", dataType: "string" }],
       });
     }
-    setIsrTaxRetentionVar(isrTaxRetention || 0);
+    setIsrTaxRetentionVar(isrTaxRetention || "0");
     setPendingChanges(new Set());
   }, [beneficiaryData, reset, isrTaxRetention]);
 
@@ -130,7 +130,7 @@ export default function AddBeneficiaryModal({
 
       // Update ISR tax retention from metadata
       if (freshData.metadata?.isrTaxRetention !== undefined) {
-        setIsrTaxRetentionVar(Number(freshData.metadata.isrTaxRetention) || 0);
+        setIsrTaxRetentionVar(freshData.metadata.isrTaxRetention || "0");
       }
 
       console.log("✅ Beneficiary data refreshed in modal");
@@ -358,7 +358,7 @@ export default function AddBeneficiaryModal({
       }
 
       // In CREATE mode: if ISR retention was set, immediately update metadata
-      if (!isEditMode && isrTaxRetentionVar > 0) {
+      if (!isEditMode && isrTaxRetentionVar !== "0") {
         try {
           const responseData = await response.json().catch(() => null);
           const newId = responseData?.id || responseData?.beneficiaryId;
@@ -532,14 +532,9 @@ export default function AddBeneficiaryModal({
                   Retención ISR (%)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
+                  type="text"
                   value={isrTaxRetentionVar}
-                  onChange={(e) =>
-                    setIsrTaxRetentionVar(parseFloat(e.target.value) || 0)
-                  }
+                  onChange={(e) => setIsrTaxRetentionVar(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
                   placeholder="Ej. 0.10 para 10%"
                 />

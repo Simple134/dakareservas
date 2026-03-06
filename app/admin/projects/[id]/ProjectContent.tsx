@@ -15,6 +15,7 @@ import {
   TrendingDown,
   Loader2,
   Pencil,
+  HardHat,
 } from "lucide-react";
 import { BudgetModule } from "@/src/components/project/BudgetModule";
 import { FinancesModule } from "@/src/components/project/FinancesModule";
@@ -50,7 +51,7 @@ const sections = [
   { value: "gastos", label: "Gastos", icon: CreditCard },
   // { value: "materiales", label: "Materiales", icon: ShoppingCart, },
   // { value: "contrataciones", label: "Contrataciones", icon: Briefcase, },
-  //{ value: "mano-obra", label: "Mano de Obra", icon: HardHat },
+  { value: "mano-obra", label: "Mano de Obra", icon: HardHat },
   { value: "clientes", label: "Clientes", icon: Users },
   { value: "locales", label: "Locales", icon: Briefcase },
 ];
@@ -414,7 +415,10 @@ export function ProjectContent({
           )}
 
           {selectedSection === "facturacion" && (
-            <FinancesModule projectId={project?.id ?? 0} />
+            <FinancesModule
+              projectId={project?.id ?? 0}
+              budgetCategories={project?.budgetCategories}
+            />
           )}
 
           {selectedSection === "ingresos-pagos" && (
@@ -558,6 +562,86 @@ export function ProjectContent({
             documentType={documentDialogState.documentType}
             transactionType={documentDialogState.transactionType}
             projectId={projectId}
+            budgetCategories={project?.budgetCategories}
+            onCreateInvoice={async (data) => {
+              const elements = data.elements || [];
+              const docTotal = elements.reduce(
+                (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
+                0,
+              );
+
+              const currentBudget = (division?.metadata?.budget as number) || 0;
+              const currentCategories =
+                (division?.metadata?.budgetCategories as unknown as Array<{
+                  id: string;
+                  name: string;
+                  amount: number;
+                  percentage: number;
+                }>) || [];
+
+              let updatedBudget = currentBudget;
+              let updatedCategories = [...currentCategories];
+
+              if (
+                documentDialogState.documentType === "quote" &&
+                documentDialogState.transactionType === "sale"
+              ) {
+                // Cotización de venta: sumar al presupuesto y crear categorías
+                updatedBudget = currentBudget + docTotal;
+                const newCategories = elements.map((el) => ({
+                  id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  name: el.description || "Sin nombre",
+                  amount: (el.quantity || 0) * (el.price || 0),
+                  percentage: 0,
+                }));
+                updatedCategories = [...currentCategories, ...newCategories];
+              } else if (
+                documentDialogState.transactionType === "purchase" &&
+                currentCategories.length > 0
+              ) {
+                // Compra: sumar el monto al presupuesto y a la categoría seleccionada
+                updatedBudget = currentBudget + docTotal;
+                updatedCategories = currentCategories.map((cat) => {
+                  // Buscar elementos que coincidan con esta categoría
+                  const matchingElements = elements.filter(
+                    (el) => el.description === cat.name,
+                  );
+                  if (matchingElements.length > 0) {
+                    const addedAmount = matchingElements.reduce(
+                      (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
+                      0,
+                    );
+                    return { ...cat, amount: cat.amount + addedAmount };
+                  }
+                  return cat;
+                });
+              } else {
+                return;
+              }
+
+              try {
+                await fetch("/api/gestiono/divisions", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    id: division?.id,
+                    metadata: {
+                      ...division?.metadata,
+                      budget: updatedBudget,
+                      budgetCategories: updatedCategories,
+                    },
+                  }),
+                });
+                // Refresh division data
+                const res = await fetch(`/api/gestiono/divisions/${projectId}`);
+                if (res.ok) {
+                  const d = await res.json();
+                  setDivision(Array.isArray(d) ? d[0] : d);
+                }
+              } catch (error) {
+                console.error("Error updating budget from document:", error);
+              }
+            }}
           />
 
           {/* Modal para editar proyecto */}

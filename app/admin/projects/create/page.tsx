@@ -8,6 +8,7 @@ import {
   GestionoBeneficiary,
 } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
+import { useGestiono } from "@/src/context/Gestiono";
 
 interface BudgetCategory {
   id: string;
@@ -18,6 +19,7 @@ interface BudgetCategory {
 
 const CreateProject = () => {
   const router = useRouter();
+  const { refreshDivisions } = useGestiono();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<GestionoBeneficiary[]>([]);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -230,6 +232,7 @@ const CreateProject = () => {
         body: JSON.stringify(payload),
       });
 
+      await refreshDivisions();
       alert("Proyecto creado exitosamente");
       router.push("/admin");
     } catch (error) {

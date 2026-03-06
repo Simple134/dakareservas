@@ -424,11 +424,34 @@ export function EditProjectModal({
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center rounded-b-xl">
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex flex-col md:flex-row md:items-center rounded-b-xl gap-3">
+            <button
+              onClick={handleSave}
+              disabled={saving || !projectName}
+              style={{ borderRadius: "1rem" }}
+              className="order-1 md:order-3 w-full md:w-auto px-5 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar Cambios"
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={saving}
+              className="order-2 md:order-2 w-full md:w-auto px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <div className="hidden md:block flex-1 order-none" />
             <button
               onClick={handleDelete}
               disabled={saving || deleting}
-              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-50 ${
+              className={`order-3 md:order-1 w-full md:w-auto px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 ${
                 confirmDelete
                   ? "bg-red-600 text-white hover:bg-red-700"
                   : "text-red-600 hover:bg-red-50 border border-red-200"
@@ -448,31 +471,6 @@ export function EditProjectModal({
                 </>
               )}
             </button>
-            <div className="flex-1" />
-            <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                disabled={saving}
-                className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || !projectName}
-                style={{ borderRadius: "1rem" }}
-                className="px-5 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  "Guardar Cambios"
-                )}
-              </button>
-            </div>
           </div>
         </div>
       </div>

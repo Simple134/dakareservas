@@ -14,10 +14,18 @@ import {
   TaxRate,
 } from "@/src/types/gestiono";
 
+interface BudgetCategory {
+  id: string;
+  name: string;
+  amount: number;
+  percentage: number;
+}
+
 interface EditInvoiceDialogProps {
   isOpen: boolean;
   onClose: () => void;
   record: GestionoInvoiceItem;
+  budgetCategories?: BudgetCategory[];
   onUpdate: () => void;
 }
 
@@ -25,6 +33,7 @@ export function EditInvoiceDialog({
   isOpen,
   onClose,
   record,
+  budgetCategories = [],
   onUpdate,
 }: EditInvoiceDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -170,16 +179,40 @@ export function EditInvoiceDialog({
     0,
   );
 
-  // ISR Tax Retention — automatically applied for purchases when beneficiary has ISR rate
+  // ISR Tax Retention
   const beneficiaryIsrRate = selectedBeneficiary?.metadata?.isrTaxRetention
     ? Number(selectedBeneficiary.metadata.isrTaxRetention)
     : 0;
-  const isrRetentionAmount =
-    !record.isSell && beneficiaryIsrRate > 0
-      ? taxAmount * beneficiaryIsrRate
-      : 0;
 
-  const total = subtotal + taxAmount - isrRetentionAmount;
+  // Three-tier ISR retention logic
+  const isPurchaseRetention = !record.isSell && beneficiaryIsrRate > 0;
+  const is10Percent = beneficiaryIsrRate >= 0.1 && beneficiaryIsrRate < 0.3;
+  const is30Percent = beneficiaryIsrRate >= 0.3;
+  const is2Percent = beneficiaryIsrRate > 0 && beneficiaryIsrRate < 0.1;
+
+  // 10%: Full retention (ITBIS retained + ISR on subtotal)
+  const hasFullRetention = isPurchaseRetention && is10Percent;
+  const totalFacturado = subtotal + taxAmount;
+  const itbisRetenido = hasFullRetention ? taxAmount : 0;
+  const isrRetentionAmount = isPurchaseRetention
+    ? is30Percent
+      ? taxAmount * beneficiaryIsrRate
+      : subtotal * beneficiaryIsrRate
+    : 0;
+
+  let total: number;
+  if (isPurchaseRetention && is2Percent) {
+    total = subtotal - isrRetentionAmount;
+  } else if (hasFullRetention) {
+    total = totalFacturado - itbisRetenido - isrRetentionAmount;
+  } else if (isPurchaseRetention && is30Percent) {
+    total = subtotal + taxAmount - isrRetentionAmount;
+  } else {
+    total = subtotal + taxAmount;
+  }
+
+  // Show category selector only for purchases when budget categories are available
+  const showCategories = !record.isSell && budgetCategories.length > 0;
 
   // Update totals in form
   useEffect(() => {
@@ -468,7 +501,7 @@ export function EditInvoiceDialog({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="md:sticky md:top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-xl font-semibold text-gray-900">
             Editar {getDocumentName()}
           </h2>
@@ -520,7 +553,7 @@ export function EditInvoiceDialog({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Número de Referencia
+                  # Num
                 </label>
                 <input
                   type="text"
@@ -626,7 +659,9 @@ export function EditInvoiceDialog({
             <div className="space-y-3">
               {/* Desktop Header - hidden on mobile */}
               <div className="hidden md:grid grid-cols-13 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
-                <div className="col-span-4">Descripción</div>
+                <div className="col-span-4">
+                  {showCategories ? "Categoría" : "Descripción"}
+                </div>
                 <div className="col-span-1">Cant.</div>
                 <div className="col-span-1">Unidad</div>
                 <div className="col-span-2">Precio</div>
@@ -677,14 +712,55 @@ export function EditInvoiceDialog({
                       </div>
                       <div>
                         <label className="text-xs text-gray-500">
-                          Descripción
+                          {showCategories ? "Categoría" : "Descripción"}
                         </label>
-                        <input
-                          type="text"
-                          {...register(`elements.${index}.description`)}
-                          placeholder="Descripción del elemento"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        />
+                        {showCategories ? (
+                          <select
+                            value={
+                              budgetCategories.find(
+                                (c) => c.name === element?.description,
+                              )?.id || ""
+                            }
+                            onChange={(e) => {
+                              const cat = budgetCategories.find(
+                                (c) => c.id === e.target.value,
+                              );
+                              if (cat) {
+                                setValue(
+                                  `elements.${index}.description`,
+                                  cat.name,
+                                );
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                          >
+                            <option value="">Seleccionar categoría...</option>
+                            {budgetCategories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.name} (
+                                {new Intl.NumberFormat("es-DO", {
+                                  style: "currency",
+                                  currency: "DOP",
+                                  minimumFractionDigits: 0,
+                                }).format(cat.amount)}
+                                )
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={element?.description || ""}
+                            onChange={(e) =>
+                              setValue(
+                                `elements.${index}.description`,
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Descripción del elemento"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          />
+                        )}
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
@@ -708,10 +784,13 @@ export function EditInvoiceDialog({
                             Unidad
                           </label>
                           <select
-                            {...register(`elements.${index}.unit`)}
+                            value={element?.unit || "UND"}
+                            onChange={(e) =>
+                              setValue(`elements.${index}.unit`, e.target.value)
+                            }
                             className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
                           >
-                            <option value="UD">UD</option>
+                            <option value="UND">UND</option>
                             <option value="M²">M²</option>
                             <option value="ML">ML</option>
                             <option value="M³">M³</option>
@@ -804,12 +883,41 @@ export function EditInvoiceDialog({
                     {/* Desktop Grid Layout */}
                     <div className="hidden md:grid grid-cols-13 gap-2 items-center">
                       <div className="col-span-4">
-                        <input
-                          type="text"
-                          {...register(`elements.${index}.description`)}
-                          placeholder="Descripción del elemento"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        />
+                        {showCategories ? (
+                          <select
+                            value={
+                              budgetCategories.find(
+                                (c) => c.name === element?.description,
+                              )?.id || ""
+                            }
+                            onChange={(e) => {
+                              const cat = budgetCategories.find(
+                                (c) => c.id === e.target.value,
+                              );
+                              if (cat) {
+                                setValue(
+                                  `elements.${index}.description`,
+                                  cat.name,
+                                );
+                              }
+                            }}
+                            className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
+                          >
+                            <option value="">Seleccionar categoría...</option>
+                            {budgetCategories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            {...register(`elements.${index}.description`)}
+                            placeholder="Descripción del elemento"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                          />
+                        )}
                       </div>
 
                       <div className="col-span-1">
@@ -828,7 +936,7 @@ export function EditInvoiceDialog({
                           {...register(`elements.${index}.unit`)}
                           className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
                         >
-                          <option value="UD">UD</option>
+                          <option value="UND">UND</option>
                           <option value="M²">M²</option>
                           <option value="ML">ML</option>
                           <option value="M³">M³</option>
@@ -964,17 +1072,63 @@ export function EditInvoiceDialog({
                   </span>
                 </div>
 
-                <div className="flex justify-between text-sm">
-                  <span className="text-green-600">ITBIS (por elemento):</span>
-                  <span className="font-medium text-green-600">
-                    {formatCurrency(taxAmount)}
-                  </span>
-                </div>
+                {/* ITBIS — hidden for 2% since total is subtotal-only */}
+                {!(isPurchaseRetention && is2Percent) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-600">
+                      ITBIS (por elemento):
+                    </span>
+                    <span className="font-medium text-green-600">
+                      {formatCurrency(taxAmount)}
+                    </span>
+                  </div>
+                )}
 
-                {isrRetentionAmount > 0 && (
+                {/* 2%: Hide ITBIS, show ISR deduction from subtotal */}
+                {isPurchaseRetention && is2Percent && (
                   <div className="flex justify-between text-sm">
                     <span className="text-red-600">
-                      Retención ISR ({(beneficiaryIsrRate * 100).toFixed(0)}%):
+                      ISR Retenido ({(beneficiaryIsrRate * 100).toFixed(0)}%):
+                    </span>
+                    <span className="font-medium text-red-600">
+                      -{formatCurrency(isrRetentionAmount)}
+                    </span>
+                  </div>
+                )}
+
+                {/* 10%: Full retention format */}
+                {hasFullRetention && (
+                  <>
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span className="text-gray-900">Total Facturado:</span>
+                      <span className="text-gray-900">
+                        {formatCurrency(totalFacturado)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-red-600">Itbis Retenido:</span>
+                      <span className="font-medium text-red-600">
+                        -{formatCurrency(itbisRetenido)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-sm">
+                      <span className="text-red-600">
+                        ISR Retenido ({(beneficiaryIsrRate * 100).toFixed(0)}%):
+                      </span>
+                      <span className="font-medium text-red-600">
+                        -{formatCurrency(isrRetentionAmount)}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* 30%: ISR on ITBIS */}
+                {isPurchaseRetention && is30Percent && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-red-600">
+                      ISR Retenido ({(beneficiaryIsrRate * 100).toFixed(0)}%):
                     </span>
                     <span className="font-medium text-red-600">
                       -{formatCurrency(isrRetentionAmount)}
@@ -985,7 +1139,7 @@ export function EditInvoiceDialog({
                 <div className="border-t border-gray-200 pt-3">
                   <div className="flex justify-between">
                     <span className="text-lg font-bold text-gray-900">
-                      Total:
+                      {hasFullRetention ? "Total Pago:" : "Total:"}
                     </span>
                     <span className="text-lg font-bold text-gray-900">
                       {formatCurrency(total)}

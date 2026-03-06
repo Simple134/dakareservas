@@ -168,6 +168,19 @@ export function BudgetModule({
     setSuccess(false);
 
     try {
+      // Calculate the difference between new and old category totals
+      const newTotal = budgetCategories.reduce(
+        (sum, cat) => sum + (Number.isFinite(cat.amount) ? cat.amount : 0),
+        0,
+      );
+      const oldTotal = (initialCategoriesRef.current || []).reduce(
+        (sum, cat) =>
+          sum + (Number.isFinite(Number(cat.amount)) ? Number(cat.amount) : 0),
+        0,
+      );
+      const budgetDifference = newTotal - oldTotal;
+      const updatedBudget = totalBudget + budgetDifference;
+
       const response = await fetch("/api/gestiono/divisions", {
         method: "PATCH",
         headers: {
@@ -178,6 +191,7 @@ export function BudgetModule({
           metadata: {
             ...divisionData?.metadata,
             budgetCategories: budgetCategories,
+            budget: updatedBudget,
           },
         }),
       });
@@ -254,11 +268,6 @@ export function BudgetModule({
           {isEditing && (
             <p className="text-xs text-gray-500 mt-1">
               Total: {formatPercentage(totalPercentage)}%
-              {totalPercentage > 100 && (
-                <span className="text-red-600 ml-2">
-                  ⚠️ El porcentaje excede el 100%
-                </span>
-              )}
             </p>
           )}
         </div>
@@ -277,7 +286,7 @@ export function BudgetModule({
               <button
                 type="button"
                 onClick={saveBudgetCategories}
-                disabled={isSaving || totalPercentage > 100}
+                disabled={isSaving}
                 style={{ borderRadius: "1rem" }}
                 className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors h-9 px-4 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] disabled:opacity-50"
               >
