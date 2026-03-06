@@ -48,6 +48,9 @@ export function EditInvoiceDialog({
     useState<GestionoBeneficiary | null>(null);
 
   const [taxesList, setTaxesList] = useState<TaxRate[]>([]);
+  const [generalTitle, setGeneralTitle] = useState(
+    (record.elements || [])[0]?.comment || "",
+  );
 
   const { divisions: gestionoDivisions } = useGestiono();
 
@@ -290,6 +293,7 @@ export function EditInvoiceDialog({
         const elementPayload = {
           pendingRecordId: record.id,
           description: element.description,
+          comment: generalTitle,
           quantity: Number(element.quantity) || 0,
           unit: element.unit || "UD",
           price: Number(element.price) || 0,
@@ -326,6 +330,7 @@ export function EditInvoiceDialog({
         const elementPayload = {
           id: element.id,
           description: element.description,
+          comment: generalTitle,
           quantity: Number(element.quantity) || 0,
           unit: element.unit || "UD",
           price: Number(element.price) || 0,
@@ -654,6 +659,24 @@ export function EditInvoiceDialog({
                 <Plus className="w-4 h-4" />
                 <span className="font-bold">Agregar Elemento</span>
               </button>
+            </div>
+
+            {/* Título General */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Título General
+              </label>
+              <input
+                type="text"
+                value={generalTitle}
+                onChange={(e) => setGeneralTitle(e.target.value)}
+                placeholder="Ej: Materiales, Mano de Obra, Estructura..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Este título se usará como categoría en el presupuesto del
+                proyecto.
+              </p>
             </div>
 
             <div className="space-y-3">

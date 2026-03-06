@@ -57,6 +57,7 @@ export function CreateInvoiceDialog({
     useState<GestionoBeneficiary | null>(null);
 
   const [taxesList, setTaxesList] = useState<TaxRate[]>([]);
+  const [generalTitle, setGeneralTitle] = useState("");
 
   const { divisions: gestionoDivisions } = useGestiono();
   const [selectedDivisionId, setSelectedDivisionId] = useState<number>(183);
@@ -373,6 +374,7 @@ export function CreateInvoiceDialog({
         notes: data.notes,
         elements: (data.elements || []).map((el) => ({
           description: el.description,
+          comment: generalTitle,
           quantity: el.quantity,
           price: el.price,
           unit: el.unit,
@@ -401,7 +403,14 @@ export function CreateInvoiceDialog({
       if (!result.configured) {
         console.warn("⚠️ Gestiono no está configurado:", result.details);
         reset();
-        onCreateInvoice?.(data);
+        const dataWithTitle = {
+          ...data,
+          elements: (data.elements || []).map((el) => ({
+            ...el,
+            comment: generalTitle,
+          })),
+        };
+        onCreateInvoice?.(dataWithTitle);
         onClose();
         return;
       }
@@ -433,7 +442,15 @@ export function CreateInvoiceDialog({
 
       // Reset form and close immediately
       reset();
-      onCreateInvoice?.(data);
+      // Inyectar el generalTitle como comment en los elementos antes de pasar al callback
+      const dataWithTitle = {
+        ...data,
+        elements: (data.elements || []).map((el) => ({
+          ...el,
+          comment: generalTitle,
+        })),
+      };
+      onCreateInvoice?.(dataWithTitle);
       onClose();
     } catch (error: unknown) {
       console.error("❌ Error creando factura:", error);
@@ -680,6 +697,24 @@ export function CreateInvoiceDialog({
                 <Plus className="w-4 h-4" />
                 <span className="font-bold">Agregar Elemento</span>
               </button>
+            </div>
+
+            {/* Título General */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Título General
+              </label>
+              <input
+                type="text"
+                value={generalTitle}
+                onChange={(e) => setGeneralTitle(e.target.value)}
+                placeholder="Ej: Materiales, Mano de Obra, Estructura..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Este título se usará como categoría en el presupuesto del
+                proyecto.
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -963,7 +998,7 @@ export function CreateInvoiceDialog({
                         />
                       </div>
 
-                      <div className="col-span-1">
+                      <div className="col-span-2">
                         <select
                           value={element?.taxes?.[0]?.taxRateId || ""}
                           onChange={(e) => {
@@ -992,7 +1027,7 @@ export function CreateInvoiceDialog({
                         </select>
                       </div>
 
-                      <div className="col-span-2">
+                      <div className="col-span-1">
                         <input
                           type="text"
                           value={itemTotal.toFixed(2)}
