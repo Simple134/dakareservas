@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 
 interface ConvertMetadata {
   files: { s3Key: string; fileName: string }[];
+  reference?: string;
 }
 
 interface ConvertModalProps {
@@ -28,6 +29,7 @@ export function ConvertModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [reference, setReference] = useState("");
 
   const { handleSubmit } = useForm<ConvertFormData>();
 
@@ -61,6 +63,15 @@ export function ConvertModal({
               fileName: selectedFile.name,
             },
           ],
+          ...(reference.trim() ? { reference: reference.trim() } : {}),
+        };
+      }
+
+      // If no file but there's a reference, still pass metadata with reference
+      if (!metadata && reference.trim()) {
+        metadata = {
+          files: [],
+          reference: reference.trim(),
         };
       }
 
@@ -114,7 +125,7 @@ export function ConvertModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Comprobante / Documento Firmado (Opcional)
+              Comprobante / Documento Firmado
             </label>
             {selectedFile && selectedFile.type.startsWith("image/") ? (
               <div className="relative w-full rounded-lg border-2 border-indigo-200 bg-indigo-50 overflow-hidden">
@@ -170,6 +181,19 @@ export function ConvertModal({
                 />
               </label>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Número de Comprobante
+            </label>
+            <input
+              type="text"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="Ej: NCF-B0100000001"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
           </div>
 
           <div className="flex gap-3 pt-2">

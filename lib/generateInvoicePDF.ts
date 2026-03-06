@@ -126,6 +126,17 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
     color: rgb(0, 0, 0),
   });
 
+  if (invoice.reference) {
+    yPosition -= 15;
+    page.drawText(`Nº Comprobante: ${invoice.reference}`, {
+      x: margin,
+      y: yPosition,
+      size: 9,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
+
   yPosition -= 25;
 
   // Draw dashed line
@@ -251,9 +262,9 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   drawDashedLine(yPosition);
   yPosition -= 20;
 
-  // Totals section (right-aligned)
-  const rightColumnX = width - margin - 150;
-  const amountColumnX = width - margin - 80;
+  // Totals section (right-aligned) — consistent label/amount positions for all rows
+  const rightColumnX = width - margin - 200;
+  const amountColumnX = width - margin - 50;
 
   // SUBTOTAL
   page.drawText("SUBTOTAL", {
@@ -280,8 +291,10 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
 
   yPosition -= 15;
 
-  // ITBIS — show aggregated total only if there is actual tax on any element
-  if (totalItbis > 0) {
+  // ITBIS — hide for 2% retention (total is subtotal-only)
+  const is2PercentRetention =
+    applyRetention && retentionRate > 0 && retentionRate < 0.1;
+  if (totalItbis > 0 && !is2PercentRetention) {
     page.drawText("ITBIS", {
       x: rightColumnX,
       y: yPosition,
@@ -307,43 +320,177 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
     yPosition -= 20;
   }
 
-  // Retención ISR (only when user chose to apply it)
   let retentionAmount = 0;
+  let itbisRetenido = 0;
+  const retLabelX = rightColumnX;
+  const retAmountX = amountColumnX;
+
   if (applyRetention && retentionRate > 0) {
-    retentionAmount = totalItbis * retentionRate;
+    const is10Percent = retentionRate >= 0.1 && retentionRate < 0.3;
+    const is30Percent = retentionRate >= 0.3;
+    // is2Percent = retentionRate > 0 && retentionRate < 0.1
 
-    page.drawText(`Retención ISR (${(retentionRate * 100).toFixed(0)}%)`, {
-      x: rightColumnX,
-      y: yPosition,
-      size: 10,
-      font,
-      color: rgb(0, 0, 0),
-    });
+    if (is10Percent) {
+      // 10%: Full retention — Total Facturado, Itbis Retenido, ISR Retenido
+      const totalFacturado = subtotal + totalItbis;
 
-    page.drawText(
-      `-RD$${retentionAmount.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`,
-      {
-        x: amountColumnX,
+      page.drawText("Total Facturado", {
+        x: retLabelX,
+        y: yPosition,
+        size: 10,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText(
+        `RD$${totalFacturado.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 10,
+          font: fontBold,
+          color: rgb(0, 0, 0),
+        },
+      );
+
+      yPosition -= 18;
+
+      // Itbis Retenido (100% of ITBIS)
+      itbisRetenido = totalItbis;
+
+      page.drawText("Itbis Retenido", {
+        x: retLabelX,
         y: yPosition,
         size: 10,
         font,
         color: rgb(0, 0, 0),
-      },
-    );
+      });
 
-    yPosition -= 20;
+      page.drawText(
+        `-RD$${itbisRetenido.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 10,
+          font,
+          color: rgb(0, 0, 0),
+        },
+      );
+
+      yPosition -= 18;
+
+      // ISR Retenido (subtotal * retentionRate)
+      retentionAmount = subtotal * retentionRate;
+
+      page.drawText(`ISR Retenido (${(retentionRate * 100).toFixed(0)}%)`, {
+        x: retLabelX,
+        y: yPosition,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText(
+        `-RD$${retentionAmount.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 10,
+          font,
+          color: rgb(0, 0, 0),
+        },
+      );
+
+      yPosition -= 20;
+    } else if (is30Percent) {
+      // 30%: ISR on ITBIS
+      retentionAmount = totalItbis * retentionRate;
+
+      page.drawText(`ISR Retenido (${(retentionRate * 100).toFixed(0)}%)`, {
+        x: retLabelX,
+        y: yPosition,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText(
+        `-RD$${retentionAmount.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 10,
+          font,
+          color: rgb(0, 0, 0),
+        },
+      );
+
+      yPosition -= 20;
+    } else {
+      // 2%: ISR on subtotal only
+      retentionAmount = subtotal * retentionRate;
+
+      page.drawText(`ISR Retenido (${(retentionRate * 100).toFixed(0)}%)`, {
+        x: retLabelX,
+        y: yPosition,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText(
+        `-RD$${retentionAmount.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 10,
+          font,
+          color: rgb(0, 0, 0),
+        },
+      );
+
+      yPosition -= 20;
+    }
   }
 
   drawDashedLine(yPosition);
   yPosition -= 20;
 
   // TOTAL
-  const total = subtotal + totalItbis - retentionAmount;
-  page.drawText("TOTAL", {
-    x: rightColumnX,
+  let finalTotal: number;
+  if (applyRetention && retentionRate > 0) {
+    const is10Percent = retentionRate >= 0.1 && retentionRate < 0.3;
+    const is2Percent = retentionRate > 0 && retentionRate < 0.1;
+    if (is10Percent) {
+      finalTotal = subtotal + totalItbis - itbisRetenido - retentionAmount;
+    } else if (is2Percent) {
+      finalTotal = subtotal - retentionAmount;
+    } else {
+      // 30%
+      finalTotal = subtotal + totalItbis - retentionAmount;
+    }
+  } else {
+    finalTotal = subtotal + totalItbis;
+  }
+  const is10ForLabel =
+    applyRetention && retentionRate >= 0.1 && retentionRate < 0.3;
+  page.drawText(is10ForLabel ? "TOTAL PAGO" : "TOTAL", {
+    x: retLabelX,
     y: yPosition,
     size: 11,
     font: fontBold,
@@ -351,12 +498,12 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   });
 
   page.drawText(
-    `RD$${total.toLocaleString("en-US", {
+    `RD$${finalTotal.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`,
     {
-      x: amountColumnX,
+      x: retAmountX,
       y: yPosition,
       size: 11,
       font: fontBold,

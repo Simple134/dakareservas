@@ -53,6 +53,7 @@ interface InvoiceDisplay {
   type: string;
   documentType: string;
   attachedFileUrl?: string; // URL of the attached file/image
+  reference?: string;
 }
 
 function mapGestionoToInvoice(
@@ -103,10 +104,26 @@ function mapGestionoToInvoice(
   let displayAmount = gestionoInvoice.dueToPay;
   const isPurchase = gestionoInvoice.isSell === 0;
   const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
-  if (isPurchase && isrRate > 0 && gestionoInvoice.taxes > 0) {
-    const correctIsrAmount = gestionoInvoice.taxes * isrRate;
-    displayAmount =
-      gestionoInvoice.subTotal + gestionoInvoice.taxes - correctIsrAmount;
+  if (isPurchase && isrRate > 0) {
+    if (isrRate >= 0.1 && isrRate < 0.3) {
+      // 10%: Full retention — ITBIS retained + ISR on subtotal
+      const isrAmount = gestionoInvoice.subTotal * isrRate;
+      const itbisRetenido = gestionoInvoice.taxes;
+      displayAmount =
+        gestionoInvoice.subTotal +
+        gestionoInvoice.taxes -
+        itbisRetenido -
+        isrAmount;
+    } else if (isrRate >= 0.3) {
+      // 30%: ISR applied to ITBIS
+      const isrAmount = gestionoInvoice.taxes * isrRate;
+      displayAmount =
+        gestionoInvoice.subTotal + gestionoInvoice.taxes - isrAmount;
+    } else {
+      // 2%: ISR on subtotal only, no ITBIS
+      const isrAmount = gestionoInvoice.subTotal * isrRate;
+      displayAmount = gestionoInvoice.subTotal - isrAmount;
+    }
   }
 
   return {
@@ -130,6 +147,7 @@ function mapGestionoToInvoice(
           ? "ORDER"
           : "INVOICE",
     attachedFileUrl,
+    reference: gestionoInvoice.reference || undefined,
   };
 }
 
@@ -379,7 +397,7 @@ export default function InvoicesPage() {
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  // Recalculate resume totals with corrected ISR (from ITBIS instead of subtotal)
+  // Recalculate resume totals with corrected ISR (subtotal-based + ITBIS retention)
   const { correctedToPay, correctedToCharge } = (() => {
     let toPay = 0;
     let toCharge = 0;
@@ -387,9 +405,21 @@ export default function InvoicesPage() {
       const isPurchase = inv.isSell === 0;
       const isrRate = beneficiaryIsrMap[inv.beneficiaryId] || 0;
       let amount = inv.dueToPay;
-      if (isPurchase && isrRate > 0 && inv.taxes > 0) {
-        const correctIsr = inv.taxes * isrRate;
-        amount = inv.subTotal + inv.taxes - correctIsr;
+      if (isPurchase && isrRate > 0) {
+        if (isrRate >= 0.1 && isrRate < 0.3) {
+          // 10%: Full retention
+          const isrAmount = inv.subTotal * isrRate;
+          const itbisRetenido = inv.taxes;
+          amount = inv.subTotal + inv.taxes - itbisRetenido - isrAmount;
+        } else if (isrRate >= 0.3) {
+          // 30%: ISR on ITBIS
+          const isrAmount = inv.taxes * isrRate;
+          amount = inv.subTotal + inv.taxes - isrAmount;
+        } else {
+          // 2%: ISR on subtotal only
+          const isrAmount = inv.subTotal * isrRate;
+          amount = inv.subTotal - isrAmount;
+        }
       }
       if (isPurchase) {
         toPay += amount;
@@ -578,6 +608,10 @@ export default function InvoicesPage() {
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
+    metadata?: {
+      files: { s3Key: string; fileName: string }[];
+      reference?: string;
+    },
   ) => {
     try {
       // 1. Buscar el registro original completo
@@ -620,7 +654,11 @@ export default function InvoicesPage() {
           recordWithElements.clientdata !== null
             ? recordWithElements.clientdata
             : undefined,
-        metadata: recordWithElements.metadata,
+        metadata: {
+          ...(recordWithElements.metadata || {}),
+          ...(metadata ? { files: metadata.files } : {}),
+        },
+        ...(metadata?.reference ? { reference: metadata.reference } : {}),
         elements:
           recordWithElements.elements?.map((el) => ({
             description: el.description,
@@ -1737,6 +1775,14 @@ export default function InvoicesPage() {
                     })}
                   </p>
                 </div>
+                {viewModalState.invoice.reference && (
+                  <div>
+                    <p className="text-sm text-gray-600">Nº Comprobante</p>
+                    <p className="font-semibold text-gray-900">
+                      {viewModalState.invoice.reference}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -1869,9 +1915,13 @@ export default function InvoicesPage() {
             })
           }
           invoiceNumber={convertModalState.invoiceNumber || ""}
-          onConfirm={async () => {
+          onConfirm={async (convertData) => {
             if (convertModalState.invoiceId) {
-              await handleConvertRecord(convertModalState.invoiceId, "INVOICE");
+              await handleConvertRecord(
+                convertModalState.invoiceId,
+                "INVOICE",
+                convertData,
+              );
             }
           }}
         />

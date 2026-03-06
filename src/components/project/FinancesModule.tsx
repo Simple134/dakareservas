@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Clock,
   ArrowRight,
+  DollarSign,
   Image as ImageIcon,
 } from "lucide-react";
 import {
@@ -30,12 +31,19 @@ import type {
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
 import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
+import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { useAuth } from "@/src/context/AuthContext";
 
 interface FinancesModuleProps {
   projectId: string | number;
+  budgetCategories?: {
+    id: string;
+    name: string;
+    amount: number;
+    percentage: number;
+  }[];
 }
 
 interface InvoiceDisplay {
@@ -51,6 +59,7 @@ interface InvoiceDisplay {
   type: string;
   documentType: string;
   attachedFileUrl?: string;
+  reference?: string;
 }
 
 function mapGestionoToInvoice(
@@ -84,14 +93,30 @@ function mapGestionoToInvoice(
     status = "draft";
   }
 
-  // Recalculate amount with ISR from ITBIS instead of subtotal
+  // Recalculate amount with ISR from subtotal + full ITBIS retained
   let displayAmount = gestionoInvoice.dueToPay;
   const isPurchase = gestionoInvoice.isSell === 0;
   const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
-  if (isPurchase && isrRate > 0 && gestionoInvoice.taxes > 0) {
-    const correctIsrAmount = gestionoInvoice.taxes * isrRate;
-    displayAmount =
-      gestionoInvoice.subTotal + gestionoInvoice.taxes - correctIsrAmount;
+  if (isPurchase && isrRate > 0) {
+    if (isrRate >= 0.1 && isrRate < 0.3) {
+      // 10%: Full retention — ITBIS retained + ISR on subtotal
+      const isrAmount = gestionoInvoice.subTotal * isrRate;
+      const itbisRetenido = gestionoInvoice.taxes;
+      displayAmount =
+        gestionoInvoice.subTotal +
+        gestionoInvoice.taxes -
+        itbisRetenido -
+        isrAmount;
+    } else if (isrRate >= 0.3) {
+      // 30%: ISR applied to ITBIS
+      const isrAmount = gestionoInvoice.taxes * isrRate;
+      displayAmount =
+        gestionoInvoice.subTotal + gestionoInvoice.taxes - isrAmount;
+    } else {
+      // 2%: ISR on subtotal only, no ITBIS
+      const isrAmount = gestionoInvoice.subTotal * isrRate;
+      displayAmount = gestionoInvoice.subTotal - isrAmount;
+    }
   }
 
   let attachedFileUrl: string | undefined;
@@ -127,10 +152,14 @@ function mapGestionoToInvoice(
           ? "ORDER"
           : "INVOICE",
     attachedFileUrl,
+    reference: gestionoInvoice.reference || undefined,
   };
 }
 
-export function FinancesModule({ projectId }: FinancesModuleProps) {
+export function FinancesModule({
+  projectId,
+  budgetCategories = [],
+}: FinancesModuleProps) {
   // const { divisions } = useGestiono();
   const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
   const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
@@ -287,7 +316,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  // Recalculate resume totals with corrected ISR (from ITBIS instead of subtotal)
+  // Recalculate resume totals with corrected ISR (subtotal-based + ITBIS retention)
   const { correctedToPay, correctedToCharge } = (() => {
     let toPay = 0;
     let toCharge = 0;
@@ -295,9 +324,21 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
       const isPurchase = inv.isSell === 0;
       const isrRate = beneficiaryIsrMap[inv.beneficiaryId] || 0;
       let amount = inv.dueToPay;
-      if (isPurchase && isrRate > 0 && inv.taxes > 0) {
-        const correctIsr = inv.taxes * isrRate;
-        amount = inv.subTotal + inv.taxes - correctIsr;
+      if (isPurchase && isrRate > 0) {
+        if (isrRate >= 0.1 && isrRate < 0.3) {
+          // 10%: Full retention
+          const isrAmount = inv.subTotal * isrRate;
+          const itbisRetenido = inv.taxes;
+          amount = inv.subTotal + inv.taxes - itbisRetenido - isrAmount;
+        } else if (isrRate >= 0.3) {
+          // 30%: ISR on ITBIS
+          const isrAmount = inv.taxes * isrRate;
+          amount = inv.subTotal + inv.taxes - isrAmount;
+        } else {
+          // 2%: ISR on subtotal only
+          const isrAmount = inv.subTotal * isrRate;
+          amount = inv.subTotal - isrAmount;
+        }
       }
       if (isPurchase) {
         toPay += amount;
@@ -363,6 +404,14 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     isOpen: false,
     invoiceId: null,
     invoiceNumber: null,
+  });
+
+  const [payModalState, setPayModalState] = useState<{
+    isOpen: boolean;
+    invoice: InvoiceDisplay | null;
+  }>({
+    isOpen: false,
+    invoice: null,
   });
 
   const [imagePreviewState, setImagePreviewState] = useState<{
@@ -449,6 +498,14 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
     });
   };
 
+  const handlePayInvoice = (invoice: InvoiceDisplay) => {
+    setPayModalState({
+      isOpen: true,
+      invoice,
+    });
+    handleViewClose();
+  };
+
   const handleEditClick = (invoice: InvoiceDisplay) => {
     const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
     if (fullRecord) {
@@ -462,7 +519,10 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
-    metadata?: { files: { s3Key: string; fileName: string }[] },
+    metadata?: {
+      files: { s3Key: string; fileName: string }[];
+      reference?: string;
+    },
   ) => {
     try {
       // 1. Find the original record
@@ -507,8 +567,9 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
             : undefined,
         metadata: {
           ...(recordWithElements.metadata || {}),
-          ...(metadata || {}),
+          ...(metadata ? { files: metadata.files } : {}),
         },
+        ...(metadata?.reference ? { reference: metadata.reference } : {}),
         elements:
           recordWithElements.elements?.map((el) => ({
             description: el.description,
@@ -1279,6 +1340,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
         projectId={
           typeof projectId === "number" ? String(projectId) : projectId
         } // Ensure string if needed or logic adjustments
+        budgetCategories={budgetCategories}
         onCreateInvoice={handleInvoiceCreated}
       />
 
@@ -1287,6 +1349,7 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
           isOpen={editModalState.isOpen}
           onClose={handleEditClose}
           record={editModalState.record}
+          budgetCategories={budgetCategories}
           onUpdate={handleInvoiceCreated}
         />
       )}
@@ -1423,6 +1486,14 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                     })}
                   </p>
                 </div>
+                {viewModalState.invoice.reference && (
+                  <div>
+                    <p className="text-sm text-gray-600">Nº Comprobante</p>
+                    <p className="font-semibold text-gray-900">
+                      {viewModalState.invoice.reference}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -1484,6 +1555,17 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                   </CustomButton>
                 )}
 
+                {/* Pay Button - Only for Invoices */}
+                {viewModalState.invoice.documentType === "INVOICE" && (
+                  <CustomButton
+                    onClick={() => handlePayInvoice(viewModalState.invoice!)}
+                    className="flex-1 bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                    Pagar
+                  </CustomButton>
+                )}
+
                 <CustomButton
                   onClick={() => {
                     handleViewClose();
@@ -1519,6 +1601,28 @@ export function FinancesModule({ projectId }: FinancesModuleProps) {
                 fileMetadata,
               );
             }
+          }}
+        />
+      )}
+
+      {/* Pay Invoice Modal */}
+      {payModalState.isOpen && payModalState.invoice && (
+        <PayInvoiceModal
+          isOpen={payModalState.isOpen}
+          onClose={() => setPayModalState({ isOpen: false, invoice: null })}
+          invoice={{
+            id: payModalState.invoice.id,
+            invoiceNumber: payModalState.invoice.invoiceNumber,
+            clientName: payModalState.invoice.clientName,
+            supplierName: payModalState.invoice.supplierName,
+            amount: payModalState.invoice.amount,
+            paid: 0,
+            dueToPay: payModalState.invoice.amount,
+            type: payModalState.invoice.type as "sale" | "purchase",
+          }}
+          onPaymentSuccess={() => {
+            setRefreshKey((prev) => prev + 1);
+            setPayModalState({ isOpen: false, invoice: null });
           }}
         />
       )}
