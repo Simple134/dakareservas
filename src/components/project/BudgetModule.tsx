@@ -454,11 +454,9 @@ export function BudgetModule({
                 >
                   Presupuestado
                 </th>
-                {!isEditing && (
-                  <th className="text-left py-3 font-medium text-gray-500 text-sm w-[25%]">
-                    Progreso
-                  </th>
-                )}
+                <th className={`text-left py-3 font-medium text-gray-500 text-sm w-[25%] ${isEditing ? "hidden" : ""}`}>
+                  Progreso
+                </th>
                 <th className="text-left py-3 font-medium text-gray-500 text-sm w-[10%]">
                   {isEditing ? "" : "Estado"}
                 </th>
