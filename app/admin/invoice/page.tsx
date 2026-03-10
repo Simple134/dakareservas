@@ -341,16 +341,13 @@ export default function InvoicesPage() {
           page: String(currentPage),
         });
 
+        const advancedSearch: { field: string; method: string; value: string }[] = [
+          { field: "sourcePendingRecordId", method: "is not null", value: "" },
+        ];
         if (showWithImages) {
-          const advancedSearch = [
-            {
-              field: "$files",
-              method: "is not null",
-              value: "",
-            },
-          ];
-          params.append("advancedSearch", JSON.stringify(advancedSearch));
+          advancedSearch.push({ field: "$files", method: "is not null", value: "" });
         }
+        params.append("advancedSearch", JSON.stringify(advancedSearch));
 
         const response = await fetch(
           `/api/gestiono/pendingRecord?${params.toString()}`,

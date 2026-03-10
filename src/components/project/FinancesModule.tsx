@@ -263,6 +263,10 @@ export function FinancesModule({
           elements: "20",
           page: String(activePage),
         });
+        invoiceParams.append(
+          "advancedSearch",
+          JSON.stringify([{ field: "sourcePendingRecordId", method: "is not null", value: "" }]),
+        );
 
         const [invoicesRes, beneficiariesRes] = await Promise.all([
           fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`),
