@@ -512,6 +512,59 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   );
 
   yPosition -= 15;
+
+  if (invoice.paid > 0) {
+    page.drawText("PAGADO", {
+      x: retLabelX,
+      y: yPosition,
+      size: 10,
+      font,
+      color: rgb(0, 0, 0),
+    });
+
+    page.drawText(
+      `RD$${invoice.paid.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`,
+      {
+        x: retAmountX,
+        y: yPosition,
+        size: 10,
+        font,
+        color: rgb(0, 0, 0),
+      },
+    );
+
+    yPosition -= 15;
+
+    if (invoice.dueToPay > 0) {
+      page.drawText("PENDIENTE", {
+        x: retLabelX,
+        y: yPosition,
+        size: 10,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+
+      page.drawText(
+        `RD$${invoice.dueToPay.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 10,
+          font: fontBold,
+          color: rgb(0, 0, 0),
+        },
+      );
+
+      yPosition -= 15;
+    }
+  }
+
   drawDashedLine(yPosition);
 
   // Footer section

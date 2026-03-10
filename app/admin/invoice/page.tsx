@@ -52,6 +52,8 @@ interface InvoiceDisplay {
   date: string;
   dueDate: string;
   amount: number;
+  paid: number;
+  dueToPay: number;
   status: string;
   type: string;
   documentType: string;
@@ -146,6 +148,8 @@ function mapGestionoToInvoice(
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
     amount: displayAmount,
+    paid: gestionoInvoice.paid || 0,
+    dueToPay: gestionoInvoice.dueToPay || 0,
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -701,8 +705,6 @@ export default function InvoicesPage() {
       isOpen: false,
       record: null,
     });
-    // Refresh list after edit
-    setRefreshKey((prev) => prev + 1);
   };
 
   const handleConvertRecord = async (
@@ -1980,6 +1982,34 @@ export default function InvoicesPage() {
                     })}
                   </p>
                 </div>
+                {viewModalState.invoice.paid > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600">Total Pagado</p>
+                    <p className="text-lg font-bold text-green-600">
+                      RD${" "}
+                      {viewModalState.invoice.paid.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                )}
+                {viewModalState.invoice.paid > 0 &&
+                  viewModalState.invoice.dueToPay > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-600">Pendiente</p>
+                      <p className="text-lg font-bold text-orange-500">
+                        RD${" "}
+                        {viewModalState.invoice.dueToPay.toLocaleString(
+                          "en-US",
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}
+                      </p>
+                    </div>
+                  )}
                 {viewModalState.invoice.reference && (
                   <div>
                     <p className="text-sm text-gray-600">Nº Comprobante</p>
@@ -2002,19 +2032,21 @@ export default function InvoicesPage() {
                 {/* Conversion Buttons - Only for Quotes and Orders */}
                 {viewModalState.invoice.documentType === "QUOTE" && (
                   <>
-                    <CustomButton
-                      onClick={() => {
-                        handleConvertRecord(
-                          viewModalState.invoice!.id,
-                          "ORDER",
-                        );
-                        handleViewClose();
-                      }}
-                      className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                      Convertir a Orden
-                    </CustomButton>
+                    {viewModalState.invoice.type !== "sale" && (
+                      <CustomButton
+                        onClick={() => {
+                          handleConvertRecord(
+                            viewModalState.invoice!.id,
+                            "ORDER",
+                          );
+                          handleViewClose();
+                        }}
+                        className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        Convertir a Orden
+                      </CustomButton>
+                    )}
                     <CustomButton
                       onClick={() => {
                         handleViewClose();
@@ -2097,8 +2129,8 @@ export default function InvoicesPage() {
             clientName: payModalState.invoice.clientName,
             supplierName: payModalState.invoice.supplierName,
             amount: payModalState.invoice.amount,
-            paid: 0, // TODO: Get from API if available
-            dueToPay: payModalState.invoice.amount, // TODO: Calculate from amount - paid
+            paid: payModalState.invoice.paid,
+            dueToPay: payModalState.invoice.dueToPay,
             type: payModalState.invoice.type as "sale" | "purchase",
           }}
           onPaymentSuccess={() => {

@@ -58,8 +58,13 @@ export default function AddBeneficiaryModal({
   const [error, setError] = useState<string | null>(null);
   const [pendingChanges, setPendingChanges] = useState<Set<number>>(new Set());
   const [savingContactId, setSavingContactId] = useState<number | null>(null);
+  const toDisplayPercent = (decimal: string | undefined) => {
+    const num = parseFloat(decimal || "0");
+    return isNaN(num) || num === 0 ? "0" : String(num * 100);
+  };
+
   const [isrTaxRetentionVar, setIsrTaxRetentionVar] = useState<string>(
-    isrTaxRetention || "0",
+    toDisplayPercent(isrTaxRetention),
   );
   const isEditMode = !!beneficiaryId;
 
@@ -96,7 +101,7 @@ export default function AddBeneficiaryModal({
         contact: [{ type: "phone", data: "", dataType: "string" }],
       });
     }
-    setIsrTaxRetentionVar(isrTaxRetention || "0");
+    setIsrTaxRetentionVar(toDisplayPercent(isrTaxRetention));
     setPendingChanges(new Set());
   }, [beneficiaryData, reset, isrTaxRetention]);
 
@@ -130,7 +135,9 @@ export default function AddBeneficiaryModal({
 
       // Update ISR tax retention from metadata
       if (freshData.metadata?.isrTaxRetention !== undefined) {
-        setIsrTaxRetentionVar(freshData.metadata.isrTaxRetention || "0");
+        setIsrTaxRetentionVar(
+          toDisplayPercent(freshData.metadata.isrTaxRetention),
+        );
       }
 
       console.log("✅ Beneficiary data refreshed in modal");
@@ -322,7 +329,7 @@ export default function AddBeneficiaryModal({
               ? Number(String(beneficiaryFields.creditLimit).replace(/,/g, ""))
               : undefined,
             metadata: {
-              isrTaxRetention: isrTaxRetentionVar || 0,
+              isrTaxRetention: parseFloat(isrTaxRetentionVar || "0") / 100,
             },
           }
         : {
@@ -376,7 +383,8 @@ export default function AddBeneficiaryModal({
                   name: data.name,
                   type: data.type,
                   metadata: {
-                    isrTaxRetention: isrTaxRetentionVar,
+                    isrTaxRetention:
+                      parseFloat(isrTaxRetentionVar || "0") / 100,
                   },
                 }),
               },
@@ -536,12 +544,8 @@ export default function AddBeneficiaryModal({
                   value={isrTaxRetentionVar}
                   onChange={(e) => setIsrTaxRetentionVar(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
-                  placeholder="Ej. 0.10 para 10%"
+                  placeholder="Ej. 10 para 10%"
                 />
-                <p className="text-xs text-gray-500">
-                  Porcentaje de retención ISR aplicado al crear facturas. Ej:
-                  0.10 = 10%
-                </p>
               </div>
             </div>
           </div>

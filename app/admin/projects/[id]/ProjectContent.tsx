@@ -73,6 +73,7 @@ export function ProjectContent({
   const selectRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [financeRefreshKey, setFinanceRefreshKey] = useState(0);
 
   // Expenses State
   const [expensesTotal, setExpensesTotal] = useState<number>(0);
@@ -418,6 +419,50 @@ export function ProjectContent({
             <FinancesModule
               projectId={project?.id ?? 0}
               budgetCategories={project?.budgetCategories}
+              refreshTrigger={financeRefreshKey}
+              onConvertSaleToInvoice={async (title, amount) => {
+                const currentBudget =
+                  (division?.metadata?.budget as number) || 0;
+                const currentCategories =
+                  (division?.metadata?.budgetCategories as unknown as Array<{
+                    id: string;
+                    name: string;
+                    amount: number;
+                    percentage: number;
+                  }>) || [];
+                const newCategory = {
+                  id: `cat_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+                  name: title,
+                  amount,
+                  percentage: 0,
+                };
+                try {
+                  await fetch("/api/gestiono/divisions", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      id: division?.id,
+                      metadata: {
+                        ...division?.metadata,
+                        budget: currentBudget + amount,
+                        budgetCategories: [...currentCategories, newCategory],
+                      },
+                    }),
+                  });
+                  const res = await fetch(
+                    `/api/gestiono/divisions/${projectId}`,
+                  );
+                  if (res.ok) {
+                    const d = await res.json();
+                    setDivision(Array.isArray(d) ? d[0] : d);
+                  }
+                } catch (error) {
+                  console.error(
+                    "Error updating budget on invoice conversion:",
+                    error,
+                  );
+                }
+              }}
             />
           )}
 
@@ -564,8 +609,10 @@ export function ProjectContent({
             projectId={projectId}
             budgetCategories={project?.budgetCategories}
             onCreateInvoice={async (data) => {
+              // Always refresh FinancesModule when a document is created
+              setFinanceRefreshKey((prev) => prev + 1);
+
               const elements = data.elements || [];
-              console.log("Elements arriba", elements);
               const docTotal = elements.reduce(
                 (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
                 0,
@@ -583,22 +630,9 @@ export function ProjectContent({
               let updatedBudget = currentBudget;
               let updatedCategories = [...currentCategories];
 
-              if (
-                documentDialogState.documentType === "quote" &&
-                documentDialogState.transactionType === "sale"
-              ) {
-                updatedBudget = currentBudget + docTotal;
-                console.log("Elements", elements[0].comment);
-
-                const title = elements[0]?.comment || "Sin nombre";
-
-                const newCategory = {
-                  id: `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  name: title,
-                  amount: docTotal,
-                  percentage: 0,
-                };
-                updatedCategories = [...currentCategories, newCategory];
+              if (documentDialogState.transactionType === "sale") {
+                // Category is added when the quote is converted to invoice via ConvertModal
+                return;
               } else if (
                 documentDialogState.transactionType === "purchase" &&
                 currentCategories.length > 0

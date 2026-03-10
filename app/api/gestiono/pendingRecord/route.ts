@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   v2GetPendingRecords,
-  deletePendingRecord,
   createPendingRecord,
 } from "@/src/lib/gestiono/endpoints";
 import {
@@ -97,9 +96,8 @@ export async function POST(request: NextRequest) {
         success: false,
         error: gestionoError.error || "Error al crear factura",
         message:
-          gestionoError.message || error instanceof Error
-            ? error
-            : "Error desconocido",
+          gestionoError.message ||
+          (error instanceof Error ? error.message : "Error desconocido"),
         details: gestionoError.details,
         configured: true,
       },

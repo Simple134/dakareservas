@@ -47,6 +47,8 @@ interface FinancesModuleProps {
     amount: number;
     percentage: number;
   }[];
+  refreshTrigger?: number;
+  onConvertSaleToInvoice?: (title: string, amount: number) => void;
 }
 
 interface InvoiceDisplay {
@@ -58,6 +60,8 @@ interface InvoiceDisplay {
   date: string;
   dueDate: string;
   amount: number;
+  paid: number;
+  dueToPay: number;
   status: string;
   type: string;
   documentType: string;
@@ -76,8 +80,10 @@ function mapGestionoToInvoice(
 
   let status = "pending";
 
-  if (
-    gestionoInvoice.dueToPay === 0 ||
+  if (gestionoInvoice.state === "DRAFT") {
+    status = "draft";
+  } else if (
+    gestionoInvoice.amount > 0 &&
     gestionoInvoice.paid >= gestionoInvoice.amount
   ) {
     status = "paid";
@@ -85,19 +91,13 @@ function mapGestionoToInvoice(
     const dueDate = new Date(gestionoInvoice.dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    if (dueDate < today && gestionoInvoice.dueToPay > 0) {
+    if (dueDate < today && gestionoInvoice.paid < gestionoInvoice.amount) {
       status = "overdue";
     }
-  } else if (
-    gestionoInvoice.state === "DRAFT" ||
-    gestionoInvoice.state === "PENDING"
-  ) {
-    status = "draft";
   }
 
   // Recalculate amount with ISR from subtotal + full ITBIS retained
-  let displayAmount = gestionoInvoice.dueToPay;
+  let displayAmount = gestionoInvoice.amount - gestionoInvoice.paid;
   const isPurchase = gestionoInvoice.isSell === 0;
   const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
   if (isPurchase && isrRate > 0) {
@@ -150,6 +150,8 @@ function mapGestionoToInvoice(
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
       : new Date(gestionoInvoice.date).toISOString().split("T")[0],
     amount: displayAmount,
+    paid: gestionoInvoice.paid || 0,
+    dueToPay: gestionoInvoice.dueToPay || 0,
     status: status,
     type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
@@ -166,14 +168,13 @@ function mapGestionoToInvoice(
 export function FinancesModule({
   projectId,
   budgetCategories = [],
+  refreshTrigger = 0,
+  onConvertSaleToInvoice,
 }: FinancesModuleProps) {
   // const { divisions } = useGestiono();
   const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
   const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
-  const [beneficiariesMap, setBeneficiariesMap] = useState<
-    Record<number, string>
-  >({});
   const [beneficiaryIsrMap, setBeneficiaryIsrMap] = useState<
     Record<number, number>
   >({});
@@ -198,7 +199,7 @@ export function FinancesModule({
   const [selectedDocumentType, setSelectedDocumentType] = useState("all");
   const [activeTab, setActiveTab] = useState<
     "QUOTE" | "INVOICE" | "ORDER" | "HISTORY"
-  >("INVOICE");
+  >("QUOTE");
 
   // History tab date range state
   const [historyFromDate, setHistoryFromDate] = useState(() => {
@@ -219,12 +220,11 @@ export function FinancesModule({
     );
     return lastDay.toISOString();
   });
+  const [activePage, setActivePage] = useState(1);
+  const [activeTotalPages, setActiveTotalPages] = useState(1);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [historyInvoices, setHistoryInvoices] = useState<InvoiceDisplay[]>([]);
-  const [historyRawInvoices, setHistoryRawInvoices] = useState<
-    GestionoInvoiceItem[]
-  >([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSellFilter, setIsSellFilter] = useState<"all" | "true" | "false">(
     "all",
@@ -245,63 +245,98 @@ export function FinancesModule({
     transactionType: "sale",
   });
 
+  // Fetch invoices + beneficiaries in parallel for active tabs
   useEffect(() => {
-    const fetchInvoices = async () => {
+    if (activeTab === "HISTORY") return;
+
+    const fetchAll = async () => {
       setIsLoadingInvoices(true);
       try {
-        const params = new URLSearchParams({
+        const invoiceParams = new URLSearchParams({
           divisionId: String(projectId),
           search: "",
           ignoreDetailedData: "false",
-          state: "PENDING", // This might need adjustment if we want all states
+          state: "PENDING",
           amount: "0",
           type: activeTab,
           isSell: isSellFilter === "all" ? "" : isSellFilter,
-          elements: "50", // Limit
-          page: "1",
+          elements: "20",
+          page: String(activePage),
         });
 
-        const response = await fetch(
-          `/api/gestiono/pendingRecord?${params.toString()}`,
-        );
+        const [invoicesRes, beneficiariesRes] = await Promise.all([
+          fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`),
+          fetch(
+            `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
+          ),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        const [invoiceData, beneficiaryData]: [
+          GestionoInvoicesResponse,
+          GestionoBeneficiary[],
+        ] = await Promise.all([
+          invoicesRes.ok ? invoicesRes.json() : Promise.resolve({ items: [] }),
+          beneficiariesRes.ok ? beneficiariesRes.json() : Promise.resolve([]),
+        ]);
 
-        const data: GestionoInvoicesResponse = await response.json();
-        setRawInvoices(data.items || []);
+        // Build beneficiary maps
+        const map: Record<number, string> = {};
+        const isrMap: Record<number, number> = {};
+        (beneficiaryData || []).forEach((b) => {
+          map[b.id] = b.name;
+          const isr = b.metadata?.isrTaxRetention;
+          if (isr) isrMap[b.id] = Number(isr);
+        });
+        setBeneficiaryIsrMap(isrMap);
 
-        if (data.resume) {
+        const items = invoiceData.items || [];
+        setRawInvoices(items);
+        setActiveTotalPages(invoiceData.totalPages || 1);
+
+        if (invoiceData.resume) {
           setResume({
-            toCharge: data.resume.toCharge || 0,
-            totalCharged: data.resume.totalCharged || 0,
-            toPay: data.resume.toPay || 0,
-            totalPaid: data.resume.totalPaid || 0,
-            toChargeRecordsCount: data.resume.toChargeRecordsCount || 0,
-            toPayRecordsCount: data.resume.toPayRecordsCount || 0,
+            toCharge: invoiceData.resume.toCharge || 0,
+            totalCharged: invoiceData.resume.totalCharged || 0,
+            toPay: invoiceData.resume.toPay || 0,
+            totalPaid: invoiceData.resume.totalPaid || 0,
+            toChargeRecordsCount: invoiceData.resume.toChargeRecordsCount || 0,
+            toPayRecordsCount: invoiceData.resume.toPayRecordsCount || 0,
           });
         }
+
+        // Map and sort inline — single render
+        const mapped = items.map((item) =>
+          mapGestionoToInvoice(item, map, isrMap),
+        );
+        mapped.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
+        setInvoices(mapped);
       } catch (error) {
-        console.error("❌ Error fetching invoices:", error);
+        console.error("❌ Error fetching data:", error);
       } finally {
         setIsLoadingInvoices(false);
       }
     };
 
-    if (activeTab !== "HISTORY") {
-      fetchInvoices();
-    }
-  }, [projectId, refreshKey, activeTab, isSellFilter]);
+    fetchAll();
+  }, [
+    projectId,
+    refreshKey,
+    refreshTrigger,
+    activeTab,
+    isSellFilter,
+    activePage,
+  ]);
 
-  // Fetch history (paid) invoices
+  // Fetch history (paid) invoices + beneficiaries in parallel
   useEffect(() => {
     if (activeTab !== "HISTORY") return;
 
     const fetchHistory = async () => {
       setIsLoadingHistory(true);
       try {
-        const params = new URLSearchParams({
+        const historyParams = new URLSearchParams({
           itemsPerPage: "10",
           divisionId: String(projectId),
           amountMethod: "ALL",
@@ -311,17 +346,43 @@ export function FinancesModule({
           page: String(historyPage),
         });
 
-        const response = await fetch(
-          `/api/gestiono/pendingRecord?${params.toString()}`,
+        const [historyRes, beneficiariesRes] = await Promise.all([
+          fetch(`/api/gestiono/pendingRecord?${historyParams.toString()}`),
+          fetch(
+            `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
+          ),
+        ]);
+
+        const [historyData, beneficiaryData]: [
+          GestionoInvoicesResponse,
+          GestionoBeneficiary[],
+        ] = await Promise.all([
+          historyRes.ok
+            ? historyRes.json()
+            : Promise.resolve({ items: [], totalPages: 1 }),
+          beneficiariesRes.ok ? beneficiariesRes.json() : Promise.resolve([]),
+        ]);
+
+        const map: Record<number, string> = {};
+        const isrMap: Record<number, number> = {};
+        (beneficiaryData || []).forEach((b) => {
+          map[b.id] = b.name;
+          const isr = b.metadata?.isrTaxRetention;
+          if (isr) isrMap[b.id] = Number(isr);
+        });
+        setBeneficiaryIsrMap(isrMap);
+
+        const items = historyData.items || [];
+
+        setHistoryTotalPages(historyData.totalPages || 1);
+
+        const mapped = items.map((item) =>
+          mapGestionoToInvoice(item, map, isrMap),
         );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data: GestionoInvoicesResponse = await response.json();
-        setHistoryRawInvoices(data.items || []);
-        setHistoryTotalPages(data.totalPages || 1);
+        mapped.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
+        setHistoryInvoices(mapped);
       } catch (error) {
         console.error("❌ Error fetching history:", error);
       } finally {
@@ -337,61 +398,8 @@ export function FinancesModule({
     historyToDate,
     historyPage,
     refreshKey,
+    refreshTrigger,
   ]);
-
-  // Map history raw invoices to display format
-  useEffect(() => {
-    if (activeTab !== "HISTORY") return;
-    const mapped = historyRawInvoices.map((item) =>
-      mapGestionoToInvoice(item, beneficiariesMap, beneficiaryIsrMap),
-    );
-    const sorted = mapped.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateB - dateA;
-    });
-    setHistoryInvoices(sorted);
-  }, [historyRawInvoices, beneficiariesMap, beneficiaryIsrMap, activeTab]);
-
-  // Fetch beneficiaries for name resolution
-  useEffect(() => {
-    const fetchBeneficiaries = async () => {
-      try {
-        const response = await fetch(
-          `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
-        );
-        if (response.ok) {
-          const data: GestionoBeneficiary[] = await response.json();
-          const map: Record<number, string> = {};
-          const isrMap: Record<number, number> = {};
-          data.forEach((b) => {
-            map[b.id] = b.name;
-            const isr = b.metadata?.isrTaxRetention;
-            if (isr) {
-              isrMap[b.id] = Number(isr);
-            }
-          });
-          setBeneficiariesMap(map);
-          setBeneficiaryIsrMap(isrMap);
-        }
-      } catch (error) {
-        console.error("❌ Error fetching beneficiaries:", error);
-      }
-    };
-    fetchBeneficiaries();
-  }, [refreshKey]);
-
-  useEffect(() => {
-    const mapped = rawInvoices.map((item) =>
-      mapGestionoToInvoice(item, beneficiariesMap, beneficiaryIsrMap),
-    );
-    const sorted = mapped.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateB - dateA;
-    });
-    setInvoices(sorted);
-  }, [rawInvoices, beneficiariesMap, beneficiaryIsrMap]);
 
   const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch =
@@ -601,14 +609,24 @@ export function FinancesModule({
     handleViewClose();
   };
 
-  const handleEditClick = (invoice: InvoiceDisplay) => {
+  const handleEditClick = async (invoice: InvoiceDisplay) => {
     const fullRecord = rawInvoices.find((r) => String(r.id) === invoice.id);
-    if (fullRecord) {
-      setEditModalState({
-        isOpen: true,
-        record: fullRecord,
-      });
+    if (!fullRecord) return;
+
+    let recordWithElements = fullRecord;
+    if (!fullRecord.elements || fullRecord.elements.length === 0) {
+      const detailsResponse = await fetch(
+        `/api/gestiono/pendingRecord/${fullRecord.id}`,
+      );
+      if (detailsResponse.ok) {
+        recordWithElements = await detailsResponse.json();
+      }
     }
+
+    setEditModalState({
+      isOpen: true,
+      record: recordWithElements,
+    });
   };
 
   const handleConvertRecord = async (
@@ -688,7 +706,25 @@ export function FinancesModule({
         throw new Error(errorData.details || "Error al convertir el documento");
       }
 
-      // 4. Refresh list
+      // 4. If converting a sale quote to invoice, notify parent to add budget category
+      if (
+        newType === "INVOICE" &&
+        recordWithElements.isSell &&
+        onConvertSaleToInvoice
+      ) {
+        const docTotal =
+          recordWithElements.elements?.reduce(
+            (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
+            0,
+          ) ?? 0;
+        const title =
+          recordWithElements.elements?.[0]?.comment ||
+          recordWithElements.description ||
+          "Sin nombre";
+        onConvertSaleToInvoice(title, docTotal);
+      }
+
+      // 5. Refresh list
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("❌ Error converting record:", error);
@@ -705,7 +741,6 @@ export function FinancesModule({
       isOpen: false,
       record: null,
     });
-    setRefreshKey((prev) => prev + 1);
   };
 
   const handleDownloadPDF = async (invoice: InvoiceDisplay) => {
@@ -935,7 +970,10 @@ export function FinancesModule({
       {/* Tabs */}
       <div className="flex gap-1 sm:gap-2 border-b border-gray-200 overflow-x-auto">
         <button
-          onClick={() => setActiveTab("QUOTE")}
+          onClick={() => {
+            setActiveTab("QUOTE");
+            setActivePage(1);
+          }}
           className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "QUOTE"
               ? "border-blue-600 text-blue-600"
@@ -945,7 +983,10 @@ export function FinancesModule({
           Cotizaciones
         </button>
         <button
-          onClick={() => setActiveTab("ORDER")}
+          onClick={() => {
+            setActiveTab("ORDER");
+            setActivePage(1);
+          }}
           className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "ORDER"
               ? "border-purple-600 text-purple-600"
@@ -955,7 +996,10 @@ export function FinancesModule({
           Órdenes
         </button>
         <button
-          onClick={() => setActiveTab("INVOICE")}
+          onClick={() => {
+            setActiveTab("INVOICE");
+            setActivePage(1);
+          }}
           className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
             activeTab === "INVOICE"
               ? "border-indigo-600 text-indigo-600"
@@ -1148,19 +1192,28 @@ export function FinancesModule({
               </label>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setIsSellFilter("all")}
+                  onClick={() => {
+                    setIsSellFilter("all");
+                    setActivePage(1);
+                  }}
                   className={`flex-1 px-3 py-2 text-sm rounded-lg border ${isSellFilter === "all" ? "bg-blue-50 border-blue-500 text-blue-700" : "bg-white border-gray-200"}`}
                 >
                   Todas
                 </button>
                 <button
-                  onClick={() => setIsSellFilter("true")}
+                  onClick={() => {
+                    setIsSellFilter("true");
+                    setActivePage(1);
+                  }}
                   className={`flex-1 px-3 py-2 text-sm rounded-lg border ${isSellFilter === "true" ? "bg-green-50 border-green-500 text-green-700" : "bg-white border-gray-200"}`}
                 >
                   Ventas
                 </button>
                 <button
-                  onClick={() => setIsSellFilter("false")}
+                  onClick={() => {
+                    setIsSellFilter("false");
+                    setActivePage(1);
+                  }}
                   className={`flex-1 px-3 py-2 text-sm rounded-lg border ${isSellFilter === "false" ? "bg-red-50 border-red-500 text-red-700" : "bg-white border-gray-200"}`}
                 >
                   Compras
@@ -1507,6 +1560,31 @@ export function FinancesModule({
         </div>
       </CustomCard>
 
+      {/* Active Tab Pagination */}
+      {activeTab !== "HISTORY" && activeTotalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 py-2">
+          <button
+            onClick={() => setActivePage((p) => Math.max(1, p - 1))}
+            disabled={activePage <= 1}
+            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm text-gray-600">
+            Página {activePage} de {activeTotalPages}
+          </span>
+          <button
+            onClick={() =>
+              setActivePage((p) => Math.min(activeTotalPages, p + 1))
+            }
+            disabled={activePage >= activeTotalPages}
+            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* History Pagination */}
       {activeTab === "HISTORY" && historyTotalPages > 1 && (
         <div className="flex items-center justify-center gap-4 py-2">
@@ -1688,6 +1766,34 @@ export function FinancesModule({
                     })}
                   </p>
                 </div>
+                {viewModalState.invoice.paid > 0 && (
+                  <div>
+                    <p className="text-sm text-gray-600">Total Pagado</p>
+                    <p className="text-lg font-bold text-green-600">
+                      RD${" "}
+                      {viewModalState.invoice.paid.toLocaleString("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  </div>
+                )}
+                {viewModalState.invoice.paid > 0 &&
+                  viewModalState.invoice.dueToPay > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-600">Pendiente</p>
+                      <p className="text-lg font-bold text-orange-500">
+                        RD${" "}
+                        {viewModalState.invoice.dueToPay.toLocaleString(
+                          "en-US",
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          },
+                        )}
+                      </p>
+                    </div>
+                  )}
                 {viewModalState.invoice.reference && (
                   <div>
                     <p className="text-sm text-gray-600">Nº Comprobante</p>
@@ -1710,19 +1816,21 @@ export function FinancesModule({
                 {/* Conversion Buttons - Only for Quotes and Orders */}
                 {viewModalState.invoice.documentType === "QUOTE" && (
                   <>
-                    <CustomButton
-                      onClick={() => {
-                        handleConvertRecord(
-                          viewModalState.invoice!.id,
-                          "ORDER",
-                        );
-                        handleViewClose();
-                      }}
-                      className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                      Convertir a Orden
-                    </CustomButton>
+                    {viewModalState.invoice.type !== "sale" && (
+                      <CustomButton
+                        onClick={() => {
+                          handleConvertRecord(
+                            viewModalState.invoice!.id,
+                            "ORDER",
+                          );
+                          handleViewClose();
+                        }}
+                        className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
+                      >
+                        <ArrowRight className="w-4 h-4" />
+                        Convertir a Orden
+                      </CustomButton>
+                    )}
                     <CustomButton
                       onClick={() => {
                         handleViewClose();
@@ -1818,8 +1926,8 @@ export function FinancesModule({
             clientName: payModalState.invoice.clientName,
             supplierName: payModalState.invoice.supplierName,
             amount: payModalState.invoice.amount,
-            paid: 0,
-            dueToPay: payModalState.invoice.amount,
+            paid: payModalState.invoice.paid,
+            dueToPay: payModalState.invoice.dueToPay,
             type: payModalState.invoice.type as "sale" | "purchase",
           }}
           onPaymentSuccess={() => {

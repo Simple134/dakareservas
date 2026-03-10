@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import {
   Plus,
@@ -9,6 +9,7 @@ import {
   Building2,
   TrendingUp,
   X,
+  ChevronDown,
 } from "lucide-react";
 
 import { useGestiono } from "@/src/context/Gestiono";
@@ -58,6 +59,18 @@ export function CreateInvoiceDialog({
 
   const [taxesList, setTaxesList] = useState<TaxRate[]>([]);
   const [generalTitle, setGeneralTitle] = useState("");
+  const [beneficiarySearch, setBeneficiarySearch] = useState("");
+  const [isBeneficiaryOpen, setIsBeneficiaryOpen] = useState(false);
+  const beneficiaryDropdownRef = useRef<HTMLDivElement>(null);
+
+  const sortedFilteredBeneficiaries = [...gestionoBeneficiaries]
+    .sort((a, b) => a.name.localeCompare(b.name, "es"))
+    .filter(
+      (b) =>
+        b.name.toLowerCase().includes(beneficiarySearch.toLowerCase()) ||
+        (b.taxId &&
+          b.taxId.toLowerCase().includes(beneficiarySearch.toLowerCase())),
+    );
 
   const { divisions: gestionoDivisions } = useGestiono();
   const [selectedDivisionId, setSelectedDivisionId] = useState<number>(183);
@@ -227,11 +240,29 @@ export function CreateInvoiceDialog({
     }
   }, [isOpen, transactionType, documentType, setValue]);
 
+  // Close beneficiary dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        beneficiaryDropdownRef.current &&
+        !beneficiaryDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsBeneficiaryOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Reset form when dialog closes to ensure clean state on next open
   useEffect(() => {
     if (!isOpen) {
       reset();
       setSubmitError(null);
+      setSelectedBeneficiary(null);
+      setGeneralTitle("");
+      setBeneficiarySearch("");
+      setIsBeneficiaryOpen(false);
     }
   }, [isOpen, reset]);
 
@@ -666,19 +697,75 @@ export function CreateInvoiceDialog({
                   {transactionType === "sale" ? "Cliente" : "Proveedor"}
                 </button>
               </div>
-              <select
-                {...register("beneficiaryId", { valueAsNumber: true })}
-                onChange={(e) => handleBeneficiarySelect(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Seleccionar beneficiario...</option>
-                {gestionoBeneficiaries.map((beneficiary) => (
-                  <option key={beneficiary.id} value={beneficiary.id}>
-                    {beneficiary.name}{" "}
-                    {beneficiary.taxId ? `(${beneficiary.taxId})` : ""}
-                  </option>
-                ))}
-              </select>
+              <div ref={beneficiaryDropdownRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsBeneficiaryOpen((v) => !v)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-left text-sm flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <span
+                    className={
+                      selectedBeneficiary ? "text-gray-900" : "text-gray-400"
+                    }
+                  >
+                    {selectedBeneficiary
+                      ? `${selectedBeneficiary.name}${selectedBeneficiary.taxId ? ` (${selectedBeneficiary.taxId})` : ""}`
+                      : "Seleccionar beneficiario..."}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                </button>
+                {isBeneficiaryOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                    <div className="p-2 border-b border-gray-100">
+                      <input
+                        type="text"
+                        value={beneficiarySearch}
+                        onChange={(e) => setBeneficiarySearch(e.target.value)}
+                        placeholder="Buscar por nombre o RNC..."
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    </div>
+                    <ul className="max-h-48 overflow-y-auto">
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setValue("beneficiaryId", 0);
+                            setSelectedBeneficiary(null);
+                            setIsBeneficiaryOpen(false);
+                            setBeneficiarySearch("");
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50"
+                        >
+                          Seleccionar beneficiario...
+                        </button>
+                      </li>
+                      {sortedFilteredBeneficiaries.map((b) => (
+                        <li key={b.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleBeneficiarySelect(String(b.id));
+                              setIsBeneficiaryOpen(false);
+                              setBeneficiarySearch("");
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-50"
+                          >
+                            {b.name}
+                            {b.taxId ? ` (${b.taxId})` : ""}
+                          </button>
+                        </li>
+                      ))}
+                      {sortedFilteredBeneficiaries.length === 0 && (
+                        <li className="px-3 py-2 text-sm text-gray-400">
+                          No se encontraron resultados
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -704,13 +791,36 @@ export function CreateInvoiceDialog({
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Título General
               </label>
-              <input
-                type="text"
-                value={generalTitle}
-                onChange={(e) => setGeneralTitle(e.target.value)}
-                placeholder="Ej: Materiales, Mano de Obra, Estructura..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              {showCategories ? (
+                <select
+                  value={
+                    budgetCategories.find((c) => c.name === generalTitle)?.id ||
+                    ""
+                  }
+                  onChange={(e) => {
+                    const cat = budgetCategories.find(
+                      (c) => c.id === e.target.value,
+                    );
+                    if (cat) setGeneralTitle(cat.name);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Seleccionar categoría...</option>
+                  {budgetCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={generalTitle}
+                  onChange={(e) => setGeneralTitle(e.target.value)}
+                  placeholder="Ej: Materiales, Mano de Obra, Estructura..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )}
               <p className="text-xs text-gray-400 mt-1">
                 Este título se usará como categoría en el presupuesto del
                 proyecto.
@@ -720,9 +830,7 @@ export function CreateInvoiceDialog({
             <div className="space-y-3">
               {/* Desktop Header - hidden on mobile */}
               <div className="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
-                <div className="col-span-4">
-                  {showCategories ? "Categoría" : "Descripción"}
-                </div>
+                <div className="col-span-4">Descripción</div>
                 <div className="col-span-1">Cant.</div>
                 <div className="col-span-1">Unidad</div>
                 <div className="col-span-2">Precio</div>
@@ -759,50 +867,20 @@ export function CreateInvoiceDialog({
                       </div>
                       <div>
                         <label className="text-xs text-gray-500">
-                          {showCategories ? "Categoría" : "Descripción"}
+                          Descripción
                         </label>
-                        {showCategories ? (
-                          <select
-                            onChange={(e) => {
-                              const cat = budgetCategories.find(
-                                (c) => c.id === e.target.value,
-                              );
-                              if (cat) {
-                                setValue(
-                                  `elements.${index}.description`,
-                                  cat.name,
-                                );
-                              }
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm bg-white"
-                          >
-                            <option value="">Seleccionar categoría...</option>
-                            {budgetCategories.map((cat) => (
-                              <option key={cat.id} value={cat.id}>
-                                {cat.name} (
-                                {new Intl.NumberFormat("es-DO", {
-                                  style: "currency",
-                                  currency: "DOP",
-                                  minimumFractionDigits: 0,
-                                }).format(cat.amount)}
-                                )
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={element?.description || ""}
-                            onChange={(e) =>
-                              setValue(
-                                `elements.${index}.description`,
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Descripción del elemento"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          />
-                        )}
+                        <input
+                          type="text"
+                          value={element?.description || ""}
+                          onChange={(e) =>
+                            setValue(
+                              `elements.${index}.description`,
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Descripción del elemento"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div>
@@ -918,36 +996,12 @@ export function CreateInvoiceDialog({
                     {/* Desktop Grid Layout */}
                     <div className="hidden md:grid grid-cols-12 gap-2 items-center">
                       <div className="col-span-4">
-                        {showCategories ? (
-                          <select
-                            onChange={(e) => {
-                              const cat = budgetCategories.find(
-                                (c) => c.id === e.target.value,
-                              );
-                              if (cat) {
-                                setValue(
-                                  `elements.${index}.description`,
-                                  cat.name,
-                                );
-                              }
-                            }}
-                            className="w-full px-2 py-2 border border-gray-300 rounded-md text-sm bg-white"
-                          >
-                            <option value="">Seleccionar categoría...</option>
-                            {budgetCategories.map((cat) => (
-                              <option key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            {...register(`elements.${index}.description`)}
-                            placeholder="Descripción del elemento"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                          />
-                        )}
+                        <input
+                          type="text"
+                          {...register(`elements.${index}.description`)}
+                          placeholder="Descripción del elemento"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        />
                       </div>
 
                       <div className="col-span-1">
