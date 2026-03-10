@@ -342,7 +342,7 @@ export default function InvoicesPage() {
         });
 
         const advancedSearch: { field: string; method: string; value: string }[] = [
-          { field: "sourcePendingRecordId", method: "is not null", value: "" },
+          { field: "sourcePendingRecordId", method: "is null", value: "" },
         ];
         if (showWithImages) {
           advancedSearch.push({ field: "$files", method: "is not null", value: "" });

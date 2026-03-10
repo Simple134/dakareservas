@@ -265,7 +265,7 @@ export function FinancesModule({
         });
         invoiceParams.append(
           "advancedSearch",
-          JSON.stringify([{ field: "sourcePendingRecordId", method: "is not null", value: "" }]),
+          JSON.stringify([{ field: "sourcePendingRecordId", method: "is null", value: "" }]),
         );
 
         const [invoicesRes, beneficiariesRes] = await Promise.all([
