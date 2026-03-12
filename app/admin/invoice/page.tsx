@@ -341,13 +341,28 @@ export default function InvoicesPage() {
           page: String(currentPage),
         });
 
-        const advancedSearch: { field: string; method: string; value: string }[] = [
-          { field: "sourcePendingRecordId", method: "is null", value: "" },
-        ];
-        if (showWithImages) {
-          advancedSearch.push({ field: "$files", method: "is not null", value: "" });
+        const advancedSearch: {
+          field: string;
+          method: string;
+          value: string;
+        }[] = [];
+        if (activeTab === "QUOTE" || activeTab === "ORDER") {
+          advancedSearch.push({
+            field: "sourcePendingRecordId",
+            method: "is null",
+            value: "",
+          });
         }
-        params.append("advancedSearch", JSON.stringify(advancedSearch));
+        if (showWithImages) {
+          advancedSearch.push({
+            field: "$files",
+            method: "is not null",
+            value: "",
+          });
+        }
+        if (advancedSearch.length > 0) {
+          params.append("advancedSearch", JSON.stringify(advancedSearch));
+        }
 
         const response = await fetch(
           `/api/gestiono/pendingRecord?${params.toString()}`,

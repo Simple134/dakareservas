@@ -222,6 +222,8 @@ export function FinancesModule({
   });
   const [activePage, setActivePage] = useState(1);
   const [activeTotalPages, setActiveTotalPages] = useState(1);
+  const [activeTotalItems, setActiveTotalItems] = useState(0);
+  const itemsPerPage = 10;
   const [historyPage, setHistoryPage] = useState(1);
   const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [historyInvoices, setHistoryInvoices] = useState<InvoiceDisplay[]>([]);
@@ -260,13 +262,17 @@ export function FinancesModule({
           amount: "0",
           type: activeTab,
           isSell: isSellFilter === "all" ? "" : isSellFilter,
-          elements: "20",
+          elements: "10",
           page: String(activePage),
         });
-        invoiceParams.append(
-          "advancedSearch",
-          JSON.stringify([{ field: "sourcePendingRecordId", method: "is null", value: "" }]),
-        );
+        if (activeTab === "QUOTE" || activeTab === "ORDER") {
+          invoiceParams.append(
+            "advancedSearch",
+            JSON.stringify([
+              { field: "sourcePendingRecordId", method: "is null", value: "" },
+            ]),
+          );
+        }
 
         const [invoicesRes, beneficiariesRes] = await Promise.all([
           fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`),
@@ -296,6 +302,7 @@ export function FinancesModule({
         const items = invoiceData.items || [];
         setRawInvoices(items);
         setActiveTotalPages(invoiceData.totalPages || 1);
+        setActiveTotalItems(invoiceData.totalItems || 0);
 
         if (invoiceData.resume) {
           setResume({
@@ -341,10 +348,12 @@ export function FinancesModule({
       setIsLoadingHistory(true);
       try {
         const historyParams = new URLSearchParams({
-          itemsPerPage: "10",
+          itemsPerPage: itemsPerPage.toString(),
           divisionId: String(projectId),
           amountMethod: "ALL",
           amount: "0",
+          ignoreDetailedData: "false",
+          state: "COMPLETED",
           fromDate: historyFromDate,
           toDate: historyToDate,
           page: String(historyPage),
@@ -695,6 +704,7 @@ export function FinancesModule({
             price: el.price,
             variation: el.variation,
             ...(el.resourceId ? { resourceId: el.resourceId } : {}),
+            ...(el.comment ? { comment: el.comment } : {}),
             taxes: el.taxes?.map((tax) => ({ taxRateId: tax.taxRateId })) ?? [],
           })) ?? [],
       };
@@ -1566,26 +1576,78 @@ export function FinancesModule({
 
       {/* Active Tab Pagination */}
       {activeTab !== "HISTORY" && activeTotalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 py-2">
-          <button
-            onClick={() => setActivePage((p) => Math.max(1, p - 1))}
-            disabled={activePage <= 1}
-            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm text-gray-600">
-            Página {activePage} de {activeTotalPages}
-          </span>
-          <button
-            onClick={() =>
-              setActivePage((p) => Math.min(activeTotalPages, p + 1))
-            }
-            disabled={activePage >= activeTotalPages}
-            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 pt-4">
+          <div className="text-sm text-gray-600">
+            Mostrando{" "}
+            <span className="font-medium">
+              {(activePage - 1) * itemsPerPage + 1}
+            </span>{" "}
+            -{" "}
+            <span className="font-medium">
+              {Math.min(activePage * itemsPerPage, activeTotalItems)}
+            </span>{" "}
+            de <span className="font-medium">{activeTotalItems}</span>{" "}
+            documentos
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActivePage((p) => Math.max(p - 1, 1))}
+              disabled={activePage <= 1 || isLoadingInvoices}
+              className={`px-3 py-2 text-sm rounded border transition-colors ${
+                activePage <= 1 || isLoadingInvoices
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Anterior
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: activeTotalPages }, (_, i) => i + 1)
+                .filter(
+                  (page) =>
+                    page === 1 ||
+                    page === activeTotalPages ||
+                    Math.abs(page - activePage) <= 1,
+                )
+                .map((page, idx, arr) => {
+                  const showEllipsisBefore = idx > 0 && page - arr[idx - 1] > 1;
+                  return (
+                    <div key={page} className="flex items-center gap-1">
+                      {showEllipsisBefore && (
+                        <span className="px-2 text-gray-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setActivePage(page)}
+                        disabled={isLoadingInvoices}
+                        className={`px-3 py-1 text-sm rounded transition-colors ${
+                          page === activePage
+                            ? "bg-blue-600 text-white border border-blue-600"
+                            : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                        } ${isLoadingInvoices ? "cursor-not-allowed opacity-50" : ""}`}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <button
+              onClick={() =>
+                setActivePage((p) => Math.min(p + 1, activeTotalPages))
+              }
+              disabled={activePage >= activeTotalPages || isLoadingInvoices}
+              className={`px-3 py-2 text-sm rounded border transition-colors ${
+                activePage >= activeTotalPages || isLoadingInvoices
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Siguiente
+            </button>
+          </div>
         </div>
       )}
 
