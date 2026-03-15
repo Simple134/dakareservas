@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
         query[key] = true;
       } else if (value === "false") {
         query[key] = false;
+      } else if (value === "") {
+        query[key] = undefined;
       } else if (
         !isNaN(Number(value)) &&
         !["month", "year", "taxId", "phone", "reference"].includes(key)

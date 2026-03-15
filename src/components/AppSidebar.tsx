@@ -164,23 +164,32 @@ export function AppSidebar({
                 No hay proyectos activos
               </div>
             ) : (
-              divisions.slice(1).map((division) => (
-                <button
-                  key={division.id}
-                  onClick={() => {
-                    router.push(`/admin/projects/${division.id}`);
-                    if (onClose) onClose();
-                  }}
-                  style={{ borderRadius: "10px" }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-white/70 rounded-lg hover:bg-white/5 hover:text-white transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    <span className="text-xs">{division.name}</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 flex-shrink-0" />
-                </button>
-              ))
+              divisions.slice(1).map((division) => {
+                const isProjectActive =
+                  currentView === `project-${division.id}`;
+                return (
+                  <button
+                    key={division.id}
+                    onClick={() => {
+                      router.push(`/admin/projects/${division.id}`);
+                      if (onClose) onClose();
+                    }}
+                    style={{ borderRadius: "10px" }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2 text-sm font-medium transition-colors duration-200",
+                      isProjectActive
+                        ? "bg-white/10 text-white shadow-sm font-bold"
+                        : "text-white/70 hover:bg-white/5 hover:text-white",
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      <span className="text-xs">{division.name}</span>
+                    </div>
+                    <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                  </button>
+                );
+              })
             )}
           </div>
         </div>

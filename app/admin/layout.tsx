@@ -17,6 +17,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     if (pathname.includes("/invoice")) return "invoice";
     if (pathname.includes("/reports")) return "reports";
     if (pathname.includes("/settings")) return "settings";
+    if (pathname.includes("/projects/")) {
+      const parts = pathname.split("/projects/");
+      return `project-${parts[1]?.split("/")[0]}`;
+    }
     return "dashboard";
   };
 

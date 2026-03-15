@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import {
   Search,
@@ -175,9 +174,6 @@ export function FinancesModule({
   const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
   const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
-  const [beneficiaryIsrMap, setBeneficiaryIsrMap] = useState<
-    Record<number, number>
-  >({});
   const [resume, setResume] = useState<{
     toCharge: number;
     totalCharged: number;
@@ -193,6 +189,8 @@ export function FinancesModule({
     toChargeRecordsCount: 0,
     toPayRecordsCount: 0,
   });
+  // KPI totals: sales = resume.toCharge + ITBIS charged; purchases = ISR-corrected
+  const [kpiTotals, setKpiTotals] = useState({ toCharge: 0, toPay: 0 });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
@@ -259,7 +257,6 @@ export function FinancesModule({
           search: "",
           ignoreDetailedData: "false",
           state: "PENDING",
-          amount: "0",
           type: activeTab,
           isSell: isSellFilter === "all" ? "" : isSellFilter,
           elements: "10",
@@ -274,19 +271,40 @@ export function FinancesModule({
           );
         }
 
-        const [invoicesRes, beneficiariesRes] = await Promise.all([
+        // KPI fetch: all records without pagination to compute accurate totals
+        const kpiParams = new URLSearchParams({
+          divisionId: String(projectId),
+          ignoreDetailedData: "true",
+          state: "PENDING",
+          type: activeTab,
+          elements: "1000",
+          page: "1",
+        });
+        if (activeTab === "QUOTE" || activeTab === "ORDER") {
+          kpiParams.append(
+            "advancedSearch",
+            JSON.stringify([
+              { field: "sourcePendingRecordId", method: "is null", value: "" },
+            ]),
+          );
+        }
+
+        const [invoicesRes, beneficiariesRes, kpiRes] = await Promise.all([
           fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`),
           fetch(
             `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
           ),
+          fetch(`/api/gestiono/pendingRecord?${kpiParams.toString()}`),
         ]);
 
-        const [invoiceData, beneficiaryData]: [
+        const [invoiceData, beneficiaryData, kpiData]: [
           GestionoInvoicesResponse,
           GestionoBeneficiary[],
+          GestionoInvoicesResponse,
         ] = await Promise.all([
           invoicesRes.ok ? invoicesRes.json() : Promise.resolve({ items: [] }),
           beneficiariesRes.ok ? beneficiariesRes.json() : Promise.resolve([]),
+          kpiRes.ok ? kpiRes.json() : Promise.resolve({ items: [] }),
         ]);
 
         // Build beneficiary maps
@@ -297,7 +315,44 @@ export function FinancesModule({
           const isr = b.metadata?.isrTaxRetention;
           if (isr) isrMap[b.id] = Number(isr);
         });
-        setBeneficiaryIsrMap(isrMap);
+        // KPI: sales = resume.toCharge + all ITBIS charged; purchases = ISR-corrected
+        const serverToCharge = invoiceData.resume?.toCharge || 0;
+        let salesTaxes = 0;
+        let kpiToPay = 0;
+        (kpiData.items || []).forEach((inv) => {
+          if (inv.isSell !== 0) {
+            salesTaxes += inv.taxes || 0;
+          } else {
+            const isrRate = isrMap[inv.beneficiaryId] || 0;
+            let amount = inv.amount - inv.paid;
+            if (isrRate > 0) {
+              const ratio =
+                inv.amount > 0 ? (inv.amount - inv.paid) / inv.amount : 1;
+              const remainingSubTotal = inv.subTotal * ratio;
+              const remainingTaxes = inv.taxes * ratio;
+              if (isrRate >= 0.1 && isrRate < 0.3) {
+                const isrAmount = remainingSubTotal * isrRate;
+                const itbisRetenido = remainingTaxes;
+                amount =
+                  remainingSubTotal +
+                  remainingTaxes -
+                  itbisRetenido -
+                  isrAmount;
+              } else if (isrRate >= 0.3) {
+                const isrAmount = remainingTaxes * isrRate;
+                amount = remainingSubTotal + remainingTaxes - isrAmount;
+              } else {
+                const isrAmount = remainingSubTotal * isrRate;
+                amount = remainingSubTotal - isrAmount;
+              }
+            }
+            kpiToPay += amount;
+          }
+        });
+        setKpiTotals({
+          toCharge: serverToCharge + salesTaxes,
+          toPay: kpiToPay,
+        });
 
         const items = invoiceData.items || [];
         setRawInvoices(items);
@@ -383,7 +438,6 @@ export function FinancesModule({
           const isr = b.metadata?.isrTaxRetention;
           if (isr) isrMap[b.id] = Number(isr);
         });
-        setBeneficiaryIsrMap(isrMap);
 
         const items = historyData.items || [];
 
@@ -432,40 +486,8 @@ export function FinancesModule({
     return matchesSearch && matchesType && matchesDocumentType && matchesStatus;
   });
 
-  // Recalculate resume totals with corrected ISR (subtotal-based + ITBIS retention)
-  const { correctedToPay, correctedToCharge } = (() => {
-    let toPay = 0;
-    let toCharge = 0;
-    rawInvoices.forEach((inv) => {
-      const isPurchase = inv.isSell === 0;
-      const isrRate = beneficiaryIsrMap[inv.beneficiaryId] || 0;
-      let amount = inv.dueToPay;
-      if (isPurchase && isrRate > 0) {
-        if (isrRate >= 0.1 && isrRate < 0.3) {
-          // 10%: Full retention
-          const isrAmount = inv.subTotal * isrRate;
-          const itbisRetenido = inv.taxes;
-          amount = inv.subTotal + inv.taxes - itbisRetenido - isrAmount;
-        } else if (isrRate >= 0.3) {
-          // 30%: ISR on ITBIS
-          const isrAmount = inv.taxes * isrRate;
-          amount = inv.subTotal + inv.taxes - isrAmount;
-        } else {
-          // 2%: ISR on subtotal only
-          const isrAmount = inv.subTotal * isrRate;
-          amount = inv.subTotal - isrAmount;
-        }
-      }
-      if (isPurchase) {
-        toPay += amount;
-      } else {
-        toCharge += amount;
-      }
-    });
-    return { correctedToPay: toPay, correctedToCharge: toCharge };
-  })();
-  const totalSalesToCharge = correctedToCharge;
-  const totalPurchasesToPay = correctedToPay;
+  const totalSalesToCharge = kpiTotals.toCharge;
+  const totalPurchasesToPay = kpiTotals.toPay;
   const pendingRecordsCount =
     resume.toChargeRecordsCount + resume.toPayRecordsCount;
 
@@ -627,7 +649,11 @@ export function FinancesModule({
     if (!fullRecord) return;
 
     let recordWithElements = fullRecord;
-    if (!fullRecord.elements || fullRecord.elements.length === 0) {
+    const needsFullFetch =
+      !fullRecord.elements ||
+      fullRecord.elements.length === 0 ||
+      fullRecord.elements[0].comment === undefined;
+    if (needsFullFetch) {
       const detailsResponse = await fetch(
         `/api/gestiono/pendingRecord/${fullRecord.id}`,
       );
@@ -659,15 +685,13 @@ export function FinancesModule({
         throw new Error("No se encontró el registro original");
       }
 
-      // 2. Fetch full details with elements if needed
+      // 2. Fetch full details with elements
       let recordWithElements = originalRecord;
-      if (!originalRecord.elements || originalRecord.elements.length === 0) {
-        const detailsResponse = await fetch(
-          `/api/gestiono/pendingRecord/${originalRecord.id}`,
-        );
-        if (detailsResponse.ok) {
-          recordWithElements = await detailsResponse.json();
-        }
+      const detailsResponse = await fetch(
+        `/api/gestiono/pendingRecord/${originalRecord.id}`,
+      );
+      if (detailsResponse.ok) {
+        recordWithElements = await detailsResponse.json();
       }
 
       // 3. Create new record with data from original
@@ -704,7 +728,7 @@ export function FinancesModule({
             price: el.price,
             variation: el.variation,
             ...(el.resourceId ? { resourceId: el.resourceId } : {}),
-            ...(el.comment ? { comment: el.comment } : {}),
+            ...(el.comment != null ? { comment: el.comment } : {}),
             taxes: el.taxes?.map((tax) => ({ taxRateId: tax.taxRateId })) ?? [],
           })) ?? [],
       };
@@ -765,7 +789,11 @@ export function FinancesModule({
       }
 
       let recordWithElements = fullRecord;
-      if (!fullRecord.elements || fullRecord.elements.length === 0) {
+      const needsFullFetch =
+        !fullRecord.elements ||
+        fullRecord.elements.length === 0 ||
+        fullRecord.elements[0].comment === undefined;
+      if (needsFullFetch) {
         const detailsResponse = await fetch(
           `/api/gestiono/pendingRecord/${fullRecord.id}`,
         );
