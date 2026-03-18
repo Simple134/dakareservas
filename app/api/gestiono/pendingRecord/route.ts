@@ -37,12 +37,9 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log("📍 Calling v2GetPendingRecords with params:", query);
-
     const pendingRecords = await v2GetPendingRecords(
       query as unknown as V2GetPendingRecordsQuery,
     );
-    console.log("✅ v2GetPendingRecords obtenidas:", pendingRecords);
     return NextResponse.json(pendingRecords);
   } catch (error: unknown) {
     console.error("❌ Error fetching v2GetPendingRecords:", error);
@@ -74,14 +71,8 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    console.log("📤 API Route: Creando factura en Gestiono...");
-    console.log("📦 Payload recibido:", JSON.stringify(body, null, 2));
-
     // El payload ya viene en el formato correcto de Gestiono desde CreateInvoice.tsx
-    // No necesitamos transformarlo
     const result = await createPendingRecord(body);
-
-    console.log("✅ Factura creada exitosamente:", result);
 
     return NextResponse.json({
       success: true,

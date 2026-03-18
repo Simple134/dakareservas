@@ -608,75 +608,11 @@ export function ProjectContent({
             transactionType={documentDialogState.transactionType}
             projectId={projectId}
             budgetCategories={project?.budgetCategories}
-            onCreateInvoice={async (data) => {
-              // Always refresh FinancesModule when a document is created
+            onCreateInvoice={async () => {
+              // Budget categories are only added when a SALE quote is converted
+              // to an invoice via ConvertModal → onConvertSaleToInvoice.
+              // Direct document creation (purchase or sale) does not modify categories.
               setFinanceRefreshKey((prev) => prev + 1);
-
-              const elements = data.elements || [];
-              const docTotal = elements.reduce(
-                (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
-                0,
-              );
-
-              const currentBudget = (division?.metadata?.budget as number) || 0;
-              const currentCategories =
-                (division?.metadata?.budgetCategories as unknown as Array<{
-                  id: string;
-                  name: string;
-                  amount: number;
-                  percentage: number;
-                }>) || [];
-
-              let updatedBudget = currentBudget;
-              let updatedCategories = [...currentCategories];
-
-              if (documentDialogState.transactionType === "sale") {
-                // Category is added when the quote is converted to invoice via ConvertModal
-                return;
-              } else if (
-                documentDialogState.transactionType === "purchase" &&
-                currentCategories.length > 0
-              ) {
-                updatedBudget = currentBudget + docTotal;
-                updatedCategories = currentCategories.map((cat) => {
-                  const matchingElements = elements.filter(
-                    (el) => el.description === cat.name,
-                  );
-                  if (matchingElements.length > 0) {
-                    const addedAmount = matchingElements.reduce(
-                      (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
-                      0,
-                    );
-                    return { ...cat, amount: cat.amount + addedAmount };
-                  }
-                  return cat;
-                });
-              } else {
-                return;
-              }
-
-              try {
-                await fetch("/api/gestiono/divisions", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    id: division?.id,
-                    metadata: {
-                      ...division?.metadata,
-                      budget: updatedBudget,
-                      budgetCategories: updatedCategories,
-                    },
-                  }),
-                });
-                // Refresh division data
-                const res = await fetch(`/api/gestiono/divisions/${projectId}`);
-                if (res.ok) {
-                  const d = await res.json();
-                  setDivision(Array.isArray(d) ? d[0] : d);
-                }
-              } catch (error) {
-                console.error("Error updating budget from document:", error);
-              }
             }}
           />
 

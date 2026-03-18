@@ -180,6 +180,8 @@ export interface PaymentRecord {
   paymentMethod: PaymentMethod;
   currency: Currency;
   description?: string;
+  reference?: string;
+  state?: string;
   receivedFrom?: number;
   metadata?: Record<string, unknown>;
 }
@@ -528,6 +530,7 @@ export interface GestionoInvoiceItem {
   paid: number;
   dueToPay: number;
   elements?: PendingRecordElement[];
+  payments?: PaymentRecord[];
   clientdata?: Record<string, unknown> | string;
   metadata?: Record<string, unknown>;
 }

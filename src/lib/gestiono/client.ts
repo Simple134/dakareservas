@@ -121,7 +121,6 @@ export async function gestionoRequest<T>(
 
     return await response.json();
   } catch (error) {
-    console.error("Gestiono API Error:", error);
     throw error;
   }
 }

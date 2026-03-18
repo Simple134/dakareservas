@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Search,
   Filter,
@@ -15,6 +15,8 @@ import {
   History,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   DollarSign,
   Image as ImageIcon,
 } from "lucide-react";
@@ -27,6 +29,7 @@ import type {
   GestionoInvoiceItem,
   GestionoInvoicesResponse,
   GestionoBeneficiary,
+  PaymentRecord,
   // GestionoDivision,
 } from "@/src/types/gestiono";
 // import { useGestiono } from "@/src/context/Gestiono";
@@ -66,6 +69,7 @@ interface InvoiceDisplay {
   documentType: string;
   attachedFileUrl?: string;
   reference?: string;
+  payments?: PaymentRecord[];
 }
 
 function mapGestionoToInvoice(
@@ -161,6 +165,7 @@ function mapGestionoToInvoice(
           : "INVOICE",
     attachedFileUrl,
     reference: gestionoInvoice.reference || undefined,
+    payments: gestionoInvoice.payments || [],
   };
 }
 
@@ -235,6 +240,13 @@ export function FinancesModule({
   const [refreshKey, setRefreshKey] = useState(0);
   const { user } = useAuth();
 
+  // Cache beneficiary data across tab switches — keyed by projectId+refreshKey+refreshTrigger
+  const beneficiaryCacheRef = useRef<{
+    key: string;
+    map: Record<number, string>;
+    isrMap: Record<number, number>;
+  } | null>(null);
+
   const [createDialogState, setCreateDialogState] = useState<{
     isOpen: boolean;
     documentType: "invoice" | "quote" | "order";
@@ -249,12 +261,14 @@ export function FinancesModule({
   useEffect(() => {
     if (activeTab === "HISTORY") return;
 
+    const controller = new AbortController();
+    const { signal } = controller;
+
     const fetchAll = async () => {
       setIsLoadingInvoices(true);
       try {
         const invoiceParams = new URLSearchParams({
           divisionId: String(projectId),
-          search: "",
           ignoreDetailedData: "false",
           state: "PENDING",
           type: activeTab,
@@ -289,32 +303,50 @@ export function FinancesModule({
           );
         }
 
-        const [invoicesRes, beneficiariesRes, kpiRes] = await Promise.all([
-          fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`),
-          fetch(
-            `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
-          ),
-          fetch(`/api/gestiono/pendingRecord?${kpiParams.toString()}`),
+        // Use cached beneficiaries if available for the current project/refresh key
+        const cacheKey = `${projectId}-${refreshKey}-${refreshTrigger}`;
+        const hasBeneficiaryCache =
+          beneficiaryCacheRef.current?.key === cacheKey;
+
+        const [invoicesRes, maybeBeneficiariesRes, kpiRes] = await Promise.all([
+          fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`, {
+            signal,
+          }),
+          hasBeneficiaryCache
+            ? Promise.resolve(null)
+            : fetch(
+                `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
+                { signal },
+              ),
+          fetch(`/api/gestiono/pendingRecord?${kpiParams.toString()}`, {
+            signal,
+          }),
         ]);
 
-        const [invoiceData, beneficiaryData, kpiData]: [
+        const [invoiceData, kpiData]: [
           GestionoInvoicesResponse,
-          GestionoBeneficiary[],
           GestionoInvoicesResponse,
         ] = await Promise.all([
           invoicesRes.ok ? invoicesRes.json() : Promise.resolve({ items: [] }),
-          beneficiariesRes.ok ? beneficiariesRes.json() : Promise.resolve([]),
           kpiRes.ok ? kpiRes.json() : Promise.resolve({ items: [] }),
         ]);
 
-        // Build beneficiary maps
+        // Build beneficiary maps — from cache or from fresh fetch
         const map: Record<number, string> = {};
         const isrMap: Record<number, number> = {};
-        (beneficiaryData || []).forEach((b) => {
-          map[b.id] = b.name;
-          const isr = b.metadata?.isrTaxRetention;
-          if (isr) isrMap[b.id] = Number(isr);
-        });
+        if (hasBeneficiaryCache) {
+          Object.assign(map, beneficiaryCacheRef.current!.map);
+          Object.assign(isrMap, beneficiaryCacheRef.current!.isrMap);
+        } else {
+          const beneficiaryData: GestionoBeneficiary[] =
+            maybeBeneficiariesRes?.ok ? await maybeBeneficiariesRes.json() : [];
+          (beneficiaryData || []).forEach((b) => {
+            map[b.id] = b.name;
+            const isr = b.metadata?.isrTaxRetention;
+            if (isr) isrMap[b.id] = Number(isr);
+          });
+          beneficiaryCacheRef.current = { key: cacheKey, map, isrMap };
+        }
         // KPI: sales = resume.toCharge + all ITBIS charged; purchases = ISR-corrected
         const serverToCharge = invoiceData.resume?.toCharge || 0;
         let salesTaxes = 0;
@@ -379,13 +411,15 @@ export function FinancesModule({
         );
         setInvoices(mapped);
       } catch (error) {
+        if (signal.aborted) return;
         console.error("❌ Error fetching data:", error);
       } finally {
-        setIsLoadingInvoices(false);
+        if (!signal.aborted) setIsLoadingInvoices(false);
       }
     };
 
     fetchAll();
+    return () => controller.abort();
   }, [
     projectId,
     refreshKey,
@@ -398,6 +432,9 @@ export function FinancesModule({
   // Fetch history (paid) invoices + beneficiaries in parallel
   useEffect(() => {
     if (activeTab !== "HISTORY") return;
+
+    const controller = new AbortController();
+    const { signal } = controller;
 
     const fetchHistory = async () => {
       setIsLoadingHistory(true);
@@ -414,30 +451,41 @@ export function FinancesModule({
           page: String(historyPage),
         });
 
-        const [historyRes, beneficiariesRes] = await Promise.all([
-          fetch(`/api/gestiono/pendingRecord?${historyParams.toString()}`),
-          fetch(
-            `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
-          ),
+        const cacheKey = `${projectId}-${refreshKey}-${refreshTrigger}`;
+        const hasBeneficiaryCache =
+          beneficiaryCacheRef.current?.key === cacheKey;
+
+        const [historyRes, maybeBeneficiariesRes] = await Promise.all([
+          fetch(`/api/gestiono/pendingRecord?${historyParams.toString()}`, {
+            signal,
+          }),
+          hasBeneficiaryCache
+            ? Promise.resolve(null)
+            : fetch(
+                `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
+                { signal },
+              ),
         ]);
 
-        const [historyData, beneficiaryData]: [
-          GestionoInvoicesResponse,
-          GestionoBeneficiary[],
-        ] = await Promise.all([
-          historyRes.ok
-            ? historyRes.json()
-            : Promise.resolve({ items: [], totalPages: 1 }),
-          beneficiariesRes.ok ? beneficiariesRes.json() : Promise.resolve([]),
-        ]);
+        const historyData: GestionoInvoicesResponse = historyRes.ok
+          ? await historyRes.json()
+          : { items: [], totalPages: 1 };
 
         const map: Record<number, string> = {};
         const isrMap: Record<number, number> = {};
-        (beneficiaryData || []).forEach((b) => {
-          map[b.id] = b.name;
-          const isr = b.metadata?.isrTaxRetention;
-          if (isr) isrMap[b.id] = Number(isr);
-        });
+        if (hasBeneficiaryCache) {
+          Object.assign(map, beneficiaryCacheRef.current!.map);
+          Object.assign(isrMap, beneficiaryCacheRef.current!.isrMap);
+        } else {
+          const beneficiaryData: GestionoBeneficiary[] =
+            maybeBeneficiariesRes?.ok ? await maybeBeneficiariesRes.json() : [];
+          (beneficiaryData || []).forEach((b) => {
+            map[b.id] = b.name;
+            const isr = b.metadata?.isrTaxRetention;
+            if (isr) isrMap[b.id] = Number(isr);
+          });
+          beneficiaryCacheRef.current = { key: cacheKey, map, isrMap };
+        }
 
         const items = historyData.items || [];
 
@@ -451,13 +499,15 @@ export function FinancesModule({
         );
         setHistoryInvoices(mapped);
       } catch (error) {
+        if (signal.aborted) return;
         console.error("❌ Error fetching history:", error);
       } finally {
-        setIsLoadingHistory(false);
+        if (!signal.aborted) setIsLoadingHistory(false);
       }
     };
 
     fetchHistory();
+    return () => controller.abort();
   }, [
     activeTab,
     projectId,
@@ -533,6 +583,22 @@ export function FinancesModule({
     isOpen: false,
     invoice: null,
   });
+
+  const [expandedPayments, setExpandedPayments] = useState<Set<number>>(
+    new Set(),
+  );
+
+  const togglePaymentExpanded = (paymentId: number) => {
+    setExpandedPayments((prev) => {
+      const next = new Set(prev);
+      if (next.has(paymentId)) {
+        next.delete(paymentId);
+      } else {
+        next.add(paymentId);
+      }
+      return next;
+    });
+  };
 
   const [convertModalState, setConvertModalState] = useState<{
     isOpen: boolean;
@@ -634,6 +700,7 @@ export function FinancesModule({
       isOpen: false,
       invoice: null,
     });
+    setExpandedPayments(new Set());
   };
 
   const handlePayInvoice = (invoice: InvoiceDisplay) => {
@@ -880,6 +947,7 @@ export function FinancesModule({
             invoice: recordWithElements,
             beneficiary,
             elements: recordWithElements.elements || [],
+            payments: recordWithElements.payments || [],
             isSell: recordWithElements.isSell === 1,
             userName: user?.user_metadata?.full_name || user?.email || "",
             applyRetention: hasRetention,
@@ -1898,6 +1966,156 @@ export function FinancesModule({
                 )}
               </div>
 
+              {/* Payment History */}
+              {viewModalState.invoice.payments &&
+                viewModalState.invoice.payments.length > 0 && (
+                  <div className="mt-4 border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4" />
+                      Historial de Pagos (
+                      {viewModalState.invoice.payments.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {viewModalState.invoice.payments.map((payment) => {
+                        const isExpanded = expandedPayments.has(payment.id);
+                        const methodLabel =
+                          payment.paymentMethod === "CASH"
+                            ? "Efectivo"
+                            : payment.paymentMethod === "TRANSFER"
+                              ? "Transferencia"
+                              : payment.paymentMethod === "CARD"
+                                ? "Tarjeta"
+                                : payment.paymentMethod;
+                        return (
+                          <div
+                            key={payment.id}
+                            className="bg-green-50 border border-green-100 rounded-lg overflow-hidden"
+                          >
+                            {/* Row principal — siempre visible */}
+                            <button
+                              type="button"
+                              onClick={() => togglePaymentExpanded(payment.id)}
+                              className="w-full flex items-center justify-between px-3 py-2 hover:bg-green-100 transition-colors text-left"
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs font-medium text-gray-700">
+                                  {new Date(payment.date).toLocaleDateString(
+                                    "es-DO",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    },
+                                  )}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {methodLabel}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-green-600">
+                                  RD${" "}
+                                  {payment.amount.toLocaleString("en-US", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </span>
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                                )}
+                              </div>
+                            </button>
+
+                            {/* Detalle expandido */}
+                            {isExpanded && (
+                              <div className="border-t border-green-100 px-3 py-3 grid grid-cols-2 gap-x-4 gap-y-2 bg-white">
+                                <div>
+                                  <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                    Método de Pago
+                                  </p>
+                                  <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                    {methodLabel}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                    Fecha
+                                  </p>
+                                  <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                    {new Date(payment.date).toLocaleDateString(
+                                      "es-DO",
+                                      {
+                                        weekday: "long",
+                                        day: "2-digit",
+                                        month: "long",
+                                        year: "numeric",
+                                      },
+                                    )}
+                                  </p>
+                                </div>
+                                {payment.reference && (
+                                  <div>
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                      Referencia
+                                    </p>
+                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                      {payment.reference}
+                                    </p>
+                                  </div>
+                                )}
+                                {payment.currency && (
+                                  <div>
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                      Moneda
+                                    </p>
+                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                      {payment.currency}
+                                    </p>
+                                  </div>
+                                )}
+                                {payment.type && (
+                                  <div>
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                      Tipo
+                                    </p>
+                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                      {payment.type === "CREDIT_PAYMENT"
+                                        ? "Pago con crédito"
+                                        : "Pago"}
+                                    </p>
+                                  </div>
+                                )}
+                                {payment.state && (
+                                  <div>
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                      Estado
+                                    </p>
+                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                      {payment.state}
+                                    </p>
+                                  </div>
+                                )}
+                                {payment.description && (
+                                  <div className="col-span-2">
+                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
+                                      Descripción
+                                    </p>
+                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
+                                      {payment.description}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
               {/* Actions */}
               <div className="flex gap-3 border-t border-gray-200 pt-4">
                 <CustomButton
@@ -2023,6 +2241,7 @@ export function FinancesModule({
             paid: payModalState.invoice.paid,
             dueToPay: payModalState.invoice.dueToPay,
             type: payModalState.invoice.type as "sale" | "purchase",
+            reference: payModalState.invoice.reference,
           }}
           onPaymentSuccess={() => {
             setRefreshKey((prev) => prev + 1);

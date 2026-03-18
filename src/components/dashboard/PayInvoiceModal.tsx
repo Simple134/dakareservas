@@ -23,6 +23,7 @@ interface PayInvoiceModalProps {
     paid: number;
     dueToPay: number;
     type: "sale" | "purchase";
+    reference?: string;
   };
   onPaymentSuccess: () => void;
 }
@@ -62,6 +63,7 @@ export function PayInvoiceModal({
       amount: invoice.dueToPay,
       date: new Date().toISOString().split("T")[0],
       paymentMethod: "CASH",
+      reference: invoice.reference || "",
     },
   });
 

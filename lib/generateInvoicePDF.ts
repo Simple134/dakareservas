@@ -3,6 +3,7 @@ import type {
   GestionoInvoiceItem,
   PendingRecordElement,
   GestionoBeneficiary,
+  PaymentRecord,
 } from "@/src/types/gestiono";
 import { getTaxRateById } from "@/lib/taxRates";
 
@@ -10,6 +11,7 @@ interface InvoicePDFData {
   invoice: GestionoInvoiceItem;
   beneficiary: GestionoBeneficiary | null;
   elements: PendingRecordElement[];
+  payments?: PaymentRecord[];
   isSell?: boolean;
   userName: string;
   applyRetention?: boolean;
@@ -21,6 +23,7 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
     invoice,
     beneficiary,
     elements,
+    payments = [],
     isSell = true,
     applyRetention = false,
     retentionRate = 0,
@@ -563,6 +566,70 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
 
       yPosition -= 15;
     }
+  }
+
+  // Payment history detail
+  if (payments.length > 0) {
+    yPosition -= 5;
+    drawDashedLine(yPosition);
+    yPosition -= 15;
+
+    page.drawText("DETALLE DE PAGOS", {
+      x: margin,
+      y: yPosition,
+      size: 9,
+      font: fontBold,
+      color: rgb(0, 0, 0),
+    });
+
+    yPosition -= 12;
+
+    const payMethodLabel = (method: string) => {
+      if (method === "CASH") return "Efectivo";
+      if (method === "TRANSFER") return "Transferencia";
+      if (method === "CARD") return "Tarjeta";
+      return method;
+    };
+
+    payments.forEach((payment) => {
+      if (yPosition < 80) {
+        pdfDoc.addPage([612, 792]);
+        yPosition = height - margin;
+      }
+
+      const payDate = new Date(payment.date).toLocaleDateString("es-DO", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+      const method = payMethodLabel(payment.paymentMethod as string);
+      const ref = payment.reference ? ` · ${payment.reference}` : "";
+      const payLabel = `${payDate}  ${method}${ref}`;
+
+      page.drawText(payLabel, {
+        x: margin,
+        y: yPosition,
+        size: 8,
+        font,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+
+      page.drawText(
+        `RD$${payment.amount.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })}`,
+        {
+          x: retAmountX,
+          y: yPosition,
+          size: 8,
+          font,
+          color: rgb(0.1, 0.5, 0.1),
+        },
+      );
+
+      yPosition -= 12;
+    });
   }
 
   drawDashedLine(yPosition);
