@@ -9,6 +9,9 @@ import {
   DollarSign,
   Loader2,
   Trash2,
+  Upload,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 
 export interface LocalPayment {
@@ -18,6 +21,7 @@ export interface LocalPayment {
   type: "separacion" | "inicial" | "cuota" | "capital" | "otro";
   description: string;
   cuotaNumber?: number;
+  receipt_url?: string;
 }
 
 interface LocalData {
@@ -99,6 +103,8 @@ export function LocalPaymentsModal({
     description: "",
     cuotaNumber: "",
   });
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const sep10 = local.data.separation_10 ?? local.data.total_value * 0.1;
   const sep45 = local.data.separation_45 ?? local.data.total_value * 0.45;
@@ -111,9 +117,40 @@ export function LocalPaymentsModal({
       ? Math.min(100, Math.round((totalPaid / local.data.total_value) * 100))
       : 0;
 
-  const addPayment = () => {
+  const addPayment = async () => {
     const amount = parseFloat(newPayment.amount);
     if (!amount || amount <= 0) return;
+
+    let receipt_url: string | undefined;
+
+    if (receiptFile) {
+      setIsUploading(true);
+      try {
+        const prefix = payments.length + 1;
+        const prefixedFile = new File(
+          [receiptFile],
+          `${prefix}_${receiptFile.name}`,
+          { type: receiptFile.type },
+        );
+        const formData = new FormData();
+        formData.append("file", prefixedFile);
+        const uploadRes = await fetch("/api/gestiono/uploadFile", {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) throw new Error("Error al subir el comprobante");
+        const uploadData = await uploadRes.json();
+        receipt_url = uploadData.file?.public || uploadData.file?.url;
+      } catch (err) {
+        console.error(err);
+        alert("Error al subir el comprobante");
+        setIsUploading(false);
+        return;
+      } finally {
+        setIsUploading(false);
+      }
+    }
+
     const payment: LocalPayment = {
       id: generateId(),
       amount,
@@ -126,6 +163,7 @@ export function LocalPaymentsModal({
       ...(newPayment.type === "cuota" && newPayment.cuotaNumber
         ? { cuotaNumber: parseInt(newPayment.cuotaNumber) }
         : {}),
+      ...(receipt_url ? { receipt_url } : {}),
     };
     setPayments((prev) => [payment, ...prev]);
     setNewPayment({
@@ -135,6 +173,7 @@ export function LocalPaymentsModal({
       description: "",
       cuotaNumber: "",
     });
+    setReceiptFile(null);
     setShowForm(false);
   };
 
@@ -402,13 +441,62 @@ export function LocalPaymentsModal({
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Comprobante (opcional)
+                    </label>
+                    {receiptFile ? (
+                      <div className="flex items-center gap-2 p-2 border border-blue-200 bg-blue-50 rounded-lg">
+                        {receiptFile.type.startsWith("image/") ? (
+                          <img
+                            src={URL.createObjectURL(receiptFile)}
+                            alt="preview"
+                            className="w-10 h-10 object-cover rounded"
+                          />
+                        ) : (
+                          <FileText className="w-5 h-5 text-blue-500 shrink-0" />
+                        )}
+                        <span className="text-xs text-gray-700 truncate flex-1">
+                          {receiptFile.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setReceiptFile(null)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 w-full px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <Upload className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs text-gray-500">
+                          Subir imagen o PDF
+                        </span>
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => {
+                            if (e.target.files?.[0])
+                              setReceiptFile(e.target.files[0]);
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={addPayment}
-                    className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors"
+                    disabled={isUploading}
+                    className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    Agregar
+                    {isUploading && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    {isUploading ? "Subiendo..." : "Agregar"}
                   </button>
                   <button
                     onClick={() => setShowForm(false)}
@@ -439,6 +527,9 @@ export function LocalPaymentsModal({
                     <th className="text-right py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Monto
                     </th>
+                    <th className="py-2 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      Comp.
+                    </th>
                     <th className="py-2 px-2" />
                   </tr>
                 </thead>
@@ -462,6 +553,21 @@ export function LocalPaymentsModal({
                       </td>
                       <td className="py-2.5 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">
                         {formatCurrency(p.amount)}
+                      </td>
+                      <td className="py-2.5 px-2 text-center">
+                        {p.receipt_url ? (
+                          <a
+                            href={p.receipt_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center text-blue-500 hover:text-blue-700"
+                            title="Ver comprobante"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        ) : (
+                          <span className="text-gray-200">—</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-2">
                         <button
@@ -490,7 +596,7 @@ export function LocalPaymentsModal({
                     <td className="py-2.5 px-4 text-right font-bold text-green-700 whitespace-nowrap">
                       {formatCurrency(totalPaid)}
                     </td>
-                    <td />
+                    <td colSpan={2} />
                   </tr>
                 </tfoot>
               </table>

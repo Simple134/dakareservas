@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAppData, updateAppData } from "@/src/lib/gestiono";
+import { getAppData, updateAppData, deleteAppData } from "@/src/lib/gestiono";
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,6 +51,27 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to update appData",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+    await deleteAppData(parseInt(id));
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    console.error("❌ Error deleting appData:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to delete appData",
         details: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 },

@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Briefcase, FileText, Pencil, CreditCard } from "lucide-react";
+import {
+  Briefcase,
+  FileText,
+  Pencil,
+  CreditCard,
+  BookOpen,
+} from "lucide-react";
 import { CustomCard } from "@/src/components/project/CustomCard";
 import { CustomBadge } from "@/src/components/project/CustomCard";
 import { LocalQuotationDialog } from "@/src/components/projects/LocalQuotationDialog";
 import { EditLocalModal } from "@/src/components/projects/EditLocalModal";
 import { LocalPaymentsModal } from "@/src/components/projects/LocalPaymentsModal";
+import { LocalReservaModal } from "@/src/components/projects/LocalReservaModal";
 import type { AppData } from "@/src/types/gestiono";
 
 interface LocalesSectionProps {
@@ -25,6 +32,8 @@ export function LocalesSection({
   uniqueId,
 }: LocalesSectionProps) {
   const [localesData, setLocalesData] = useState<AppData[]>([]);
+  const [reservasData, setReservasData] = useState<AppData[]>([]);
+  const [paymentsData, setPaymentsData] = useState<AppData[]>([]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState("");
@@ -38,7 +47,7 @@ export function LocalesSection({
   // Dialog state
   const [quotationDialog, setQuotationDialog] = useState<{
     isOpen: boolean;
-    selectedLocal: any | null;
+    selectedLocal: Record<string, unknown> | null;
   }>({ isOpen: false, selectedLocal: null });
 
   const [editModal, setEditModal] = useState<{
@@ -51,29 +60,42 @@ export function LocalesSection({
     local: AppData | null;
   }>({ isOpen: false, local: null });
 
+  const [reservaModal, setReservaModal] = useState<{
+    isOpen: boolean;
+    local: AppData | null;
+  }>({ isOpen: false, local: null });
+
   useEffect(() => {
     if (!uniqueId) return;
-    const fetchLocales = async () => {
-      try {
-        const params = new URLSearchParams({
-          type: "locales",
-          appId: uniqueId,
-        });
-        const res = await fetch(`/api/gestiono/appData?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.appData && Array.isArray(data.appData)) {
-            setLocalesData(data.appData);
-          } else if (Array.isArray(data)) {
-            setLocalesData(data);
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching locales:", error);
-      }
+
+    const fetchByType = async (type: string): Promise<AppData[]> => {
+      const params = new URLSearchParams({ type, appId: uniqueId });
+      const res = await fetch(`/api/gestiono/appData?${params.toString()}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (data.appData && Array.isArray(data.appData)) return data.appData;
+      if (Array.isArray(data)) return data;
+      return [];
     };
-    fetchLocales();
+
+    Promise.all([
+      fetchByType("locales"),
+      fetchByType("reservas"),
+      fetchByType("payments"),
+    ])
+      .then(([locales, reservas, payments]) => {
+        setLocalesData(locales);
+        setReservasData(reservas);
+        setPaymentsData(payments);
+      })
+      .catch((err) => console.error("Error fetching locales data:", err));
   }, [uniqueId]);
+
+  const getReservaForLocal = (local: AppData): AppData | undefined =>
+    reservasData.find((r) => r.data?.locales_id === local.data?.id);
+
+  const getPaymentsForReserva = (reserva: AppData): AppData[] =>
+    paymentsData.filter((p) => p.data?.allocation_id === reserva.data?.id);
 
   const getFilteredLocales = () =>
     localesData.filter((local) => {
@@ -126,11 +148,25 @@ export function LocalesSection({
   const hasPaymentsView = (status: string) =>
     ["VENDIDO", "RESERVADO", "BLOQUEADO"].includes(status);
 
-  const getTotalPaid = (local: AppData) =>
-    (local.data?.payments ?? []).reduce(
-      (s: number, p: { amount: number }) => s + p.amount,
-      0,
+  const getTotalPaid = (local: AppData): number => {
+    const reserva = reservasData.find(
+      (r) => r.data?.locales_id === local.data?.id,
     );
+    if (!reserva) {
+      // fallback to old embedded payments
+      return (local.data?.payments ?? []).reduce(
+        (s: number, p: { amount: number }) => s + p.amount,
+        0,
+      );
+    }
+    return paymentsData
+      .filter(
+        (p) =>
+          p.data?.allocation_id === reserva.data?.id &&
+          p.data?.status === "approved",
+      )
+      .reduce((sum, p) => sum + ((p.data?.amount as number) ?? 0), 0);
+  };
 
   const handleLocalSaved = (updatedLocal: AppData) => {
     setLocalesData((prev) =>
@@ -144,6 +180,22 @@ export function LocalesSection({
       prev.map((l) => (l.id === updatedLocal.id ? updatedLocal : l)),
     );
     setPaymentsModal({ isOpen: false, local: null });
+  };
+
+  const handleReservaUpdated = (updated: AppData) => {
+    setReservasData((prev) =>
+      prev.map((r) => (r.id === updated.id ? updated : r)),
+    );
+  };
+
+  const handlePaymentUpdated = (updated: AppData) => {
+    setPaymentsData((prev) =>
+      prev.map((p) => (p.id === updated.id ? updated : p)),
+    );
+  };
+
+  const handlePaymentDeleted = (id: number) => {
+    setPaymentsData((prev) => prev.filter((p) => p.id !== id));
   };
 
   const filtered = getFilteredLocales();
@@ -332,6 +384,7 @@ export function LocalesSection({
                 ? Math.min(100, Math.round((totalPaid / totalValue) * 100))
                 : 0;
             const showPayments = hasPaymentsView(local.data?.status);
+            const reserva = getReservaForLocal(local);
 
             return (
               <div
@@ -443,13 +496,23 @@ export function LocalesSection({
                       onClick={() =>
                         setQuotationDialog({
                           isOpen: true,
-                          selectedLocal: local.data,
+                          selectedLocal: local.data as Record<string, unknown>,
                         })
                       }
                       className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
                     >
                       <FileText className="w-4 h-4" />
                       Cotizar
+                    </button>
+                  )}
+
+                  {reserva && (
+                    <button
+                      onClick={() => setReservaModal({ isOpen: true, local })}
+                      className="flex-1 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Reserva
                     </button>
                   )}
 
@@ -482,7 +545,8 @@ export function LocalesSection({
         onClose={() =>
           setQuotationDialog({ isOpen: false, selectedLocal: null })
         }
-        localData={quotationDialog.selectedLocal}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        localData={quotationDialog.selectedLocal as any}
         projectName={projectName}
         projectId={projectId}
         projectEndDate={projectEndDate}
@@ -509,6 +573,29 @@ export function LocalesSection({
           onSave={(u: any) => handlePaymentsSaved(u as AppData)}
         />
       )}
+
+      {/* Reserva Modal */}
+      {reservaModal.isOpen &&
+        reservaModal.local &&
+        (() => {
+          const reserva = getReservaForLocal(reservaModal.local);
+          if (!reserva) return null;
+          const payments = getPaymentsForReserva(reserva);
+          const local = reservaModal.local;
+          return (
+            <LocalReservaModal
+              localId={local.data?.id as number}
+              localLevel={local.data?.level as number}
+              localArea={local.data?.area_mt2 as number}
+              reserva={reserva}
+              payments={payments}
+              onClose={() => setReservaModal({ isOpen: false, local: null })}
+              onReservaUpdated={handleReservaUpdated}
+              onPaymentUpdated={handlePaymentUpdated}
+              onPaymentDeleted={handlePaymentDeleted}
+            />
+          );
+        })()}
     </>
   );
 }

@@ -375,6 +375,12 @@ export async function updateAppData(params: {
   });
 }
 
+export async function deleteAppData(id: number): Promise<void> {
+  return gestionoRequest<void>(`/v1/apps/data/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export async function getTaxesList() {
   return gestionoRequest(`/v1/taxes/list`, {
     method: "GET",

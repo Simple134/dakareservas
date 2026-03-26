@@ -32,6 +32,7 @@ export {
   getAppDataTypes,
   getAppData,
   updateAppData,
+  deleteAppData,
   uploadFile,
 
   // Taxes
