@@ -22,6 +22,7 @@ import type {
   PendingRecord,
   PendingRecordElement,
   AppDataExplorerResponse,
+  AppData,
   CreateContactDataBody,
   CreateContactDataResponse,
   UpdateContactDataBody,
@@ -359,6 +360,19 @@ export async function getAppData(
       query: data,
     },
   );
+}
+
+export async function updateAppData(params: {
+  id: number;
+  appId: number;
+  type: string;
+  data: Record<string, unknown>;
+  strategy?: "merge" | "replace";
+}): Promise<AppData> {
+  return gestionoRequest<AppData>(`/v1/apps/data`, {
+    method: "PATCH",
+    body: JSON.stringify(params),
+  });
 }
 
 export async function getTaxesList() {

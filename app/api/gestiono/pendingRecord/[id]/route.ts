@@ -17,6 +17,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
 
+    console.log("📦 archivePendingRecord payload:", {
+      id: recordId,
+      metadata: { isArchived: true },
+    });
     const result = await archivePendingRecord(recordId);
 
     return NextResponse.json({

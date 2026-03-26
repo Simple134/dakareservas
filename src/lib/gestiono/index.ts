@@ -31,6 +31,7 @@ export {
   // App Data
   getAppDataTypes,
   getAppData,
+  updateAppData,
   uploadFile,
 
   // Taxes

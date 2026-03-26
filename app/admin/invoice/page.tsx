@@ -662,13 +662,10 @@ export default function InvoicesPage() {
 
     setIsDeleting(true);
     try {
-      const isQuote = activeTab === "QUOTE";
-      const method = isQuote ? "DELETE" : "PATCH";
-
       const response = await fetch(
         `/api/gestiono/pendingRecord/${deleteModalState.invoiceId}`,
         {
-          method,
+          method: "PATCH",
         },
       );
 

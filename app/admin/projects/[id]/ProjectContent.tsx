@@ -40,6 +40,7 @@ import { LocalesSection } from "@/src/components/projects/LocalesSection";
 import { ClientesSection } from "@/src/components/projects/ClientesSection";
 import { EditProjectModal } from "@/src/components/project/EditProjectModal";
 import { CuentasPorCobrarModule } from "@/src/components/project/CuentasPorCobrarModule";
+import { CuentasPorPagarModule } from "@/src/components/project/CuentasPorPagarModule";
 
 const sections = [
   {
@@ -50,6 +51,7 @@ const sections = [
   // { value: "costos-indirectos", label: "Costos Indirectos", icon: TrendingDown, },
   { value: "facturacion", label: "Facturación", icon: FileText },
   { value: "cuentas-cobrar", label: "Cuenta por Cobrar", icon: Receipt },
+  { value: "cuentas-pagar", label: "Cuenta por Pagar", icon: Banknote },
   // { value: "ingresos-pagos", label: "Ingresos/Pagos", icon: Banknote, },
   { value: "gastos", label: "Gastos", icon: CreditCard },
   // { value: "materiales", label: "Materiales", icon: ShoppingCart, },
@@ -471,6 +473,13 @@ export function ProjectContent({
 
           {selectedSection === "cuentas-cobrar" && (
             <CuentasPorCobrarModule
+              projectId={project?.id ?? 0}
+              projectName={project?.name ?? ""}
+            />
+          )}
+
+          {selectedSection === "cuentas-pagar" && (
+            <CuentasPorPagarModule
               projectId={project?.id ?? 0}
               projectName={project?.name ?? ""}
             />
