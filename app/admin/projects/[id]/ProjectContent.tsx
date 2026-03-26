@@ -606,7 +606,6 @@ export function ProjectContent({
 
           {selectedSection === "locales" && (
             <LocalesSection
-              formatCurrency={formatCurrency}
               projectName={division?.name || ""}
               projectId={projectId}
               projectEndDate={project.endDate}

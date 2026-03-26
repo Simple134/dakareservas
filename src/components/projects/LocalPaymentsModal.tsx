@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Plus,
@@ -12,6 +12,7 @@ import {
   Upload,
   FileText,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 
 export interface LocalPayment {
@@ -22,6 +23,13 @@ export interface LocalPayment {
   description: string;
   cuotaNumber?: number;
   receipt_url?: string;
+  beneficiario_id?: number;
+  beneficiario_nombre?: string;
+}
+
+interface Beneficiario {
+  id: number;
+  name: string;
 }
 
 interface LocalData {
@@ -70,7 +78,7 @@ const TYPE_COLORS: Record<string, string> = {
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("es-DO", {
     style: "currency",
-    currency: "DOP",
+    currency: "USD",
     minimumFractionDigits: 0,
   }).format(n);
 
@@ -105,6 +113,43 @@ export function LocalPaymentsModal({
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [beneficiarios, setBeneficiarios] = useState<Beneficiario[]>([]);
+  const [beneficiarioSearch, setBeneficiarioSearch] = useState("");
+  const [selectedBeneficiario, setSelectedBeneficiario] =
+    useState<Beneficiario | null>(null);
+  const [isBeneficiarioOpen, setIsBeneficiarioOpen] = useState(false);
+  const beneficiarioDropdownRef = useRef<HTMLDivElement>(null);
+
+  const sortedFilteredBeneficiarios = [...beneficiarios]
+    .sort((a, b) => a.name.localeCompare(b.name, "es"))
+    .filter((b) =>
+      b.name.toLowerCase().includes(beneficiarioSearch.toLowerCase()),
+    );
+
+  useEffect(() => {
+    fetch("/api/gestiono/beneficiaries?elementsPerPage=200")
+      .then((r) => r.json())
+      .then((data) => {
+        const list = Array.isArray(data) ? data : (data.beneficiaries ?? []);
+        setBeneficiarios(
+          list.map((b: Beneficiario) => ({ id: b.id, name: b.name })),
+        );
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        beneficiarioDropdownRef.current &&
+        !beneficiarioDropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsBeneficiarioOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const sep10 = local.data.separation_10 ?? local.data.total_value * 0.1;
   const sep45 = local.data.separation_45 ?? local.data.total_value * 0.45;
@@ -164,6 +209,12 @@ export function LocalPaymentsModal({
         ? { cuotaNumber: parseInt(newPayment.cuotaNumber) }
         : {}),
       ...(receipt_url ? { receipt_url } : {}),
+      ...(selectedBeneficiario
+        ? {
+            beneficiario_id: selectedBeneficiario.id,
+            beneficiario_nombre: selectedBeneficiario.name,
+          }
+        : {}),
     };
     setPayments((prev) => [payment, ...prev]);
     setNewPayment({
@@ -174,6 +225,8 @@ export function LocalPaymentsModal({
       cuotaNumber: "",
     });
     setReceiptFile(null);
+    setSelectedBeneficiario(null);
+    setBeneficiarioSearch("");
     setShowForm(false);
   };
 
@@ -392,7 +445,7 @@ export function LocalPaymentsModal({
                   </div>
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">
-                      Monto (DOP)
+                      Monto (USD)
                     </label>
                     <input
                       type="number"
@@ -424,6 +477,83 @@ export function LocalPaymentsModal({
                       />
                     </div>
                   )}
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Cliente
+                    </label>
+                    <div ref={beneficiarioDropdownRef} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsBeneficiarioOpen((v) => !v)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-left text-sm flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <span
+                          className={
+                            selectedBeneficiario
+                              ? "text-gray-900"
+                              : "text-gray-400"
+                          }
+                        >
+                          {selectedBeneficiario
+                            ? selectedBeneficiario.name
+                            : "Seleccionar cliente..."}
+                        </span>
+                        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                      </button>
+                      {isBeneficiarioOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                          <div className="p-2 border-b border-gray-100">
+                            <input
+                              type="text"
+                              value={beneficiarioSearch}
+                              onChange={(e) =>
+                                setBeneficiarioSearch(e.target.value)
+                              }
+                              placeholder="Buscar por nombre..."
+                              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              autoFocus
+                            />
+                          </div>
+                          <ul className="max-h-48 overflow-y-auto">
+                            <li>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedBeneficiario(null);
+                                  setIsBeneficiarioOpen(false);
+                                  setBeneficiarioSearch("");
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50"
+                              >
+                                Seleccionar cliente...
+                              </button>
+                            </li>
+                            {sortedFilteredBeneficiarios.map((b) => (
+                              <li key={b.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedBeneficiario(b);
+                                    setIsBeneficiarioOpen(false);
+                                    setBeneficiarioSearch("");
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-50"
+                                >
+                                  {b.name}
+                                </button>
+                              </li>
+                            ))}
+                            {sortedFilteredBeneficiarios.length === 0 && (
+                              <li className="px-3 py-2 text-sm text-gray-400">
+                                No se encontraron resultados
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="col-span-2">
                     <label className="block text-xs text-gray-600 mb-1">
                       Descripción (opcional)
@@ -522,7 +652,7 @@ export function LocalPaymentsModal({
                       Tipo
                     </th>
                     <th className="text-left py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      Descripción
+                      Beneficiario
                     </th>
                     <th className="text-right py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                       Monto
@@ -549,7 +679,13 @@ export function LocalPaymentsModal({
                         </span>
                       </td>
                       <td className="py-2.5 px-4 text-gray-700">
-                        {p.description}
+                        {p.beneficiario_nombre ? (
+                          <span className="font-medium text-gray-800">
+                            {p.beneficiario_nombre}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">
                         {formatCurrency(p.amount)}

@@ -17,7 +17,6 @@ import { LocalReservaModal } from "@/src/components/projects/LocalReservaModal";
 import type { AppData } from "@/src/types/gestiono";
 
 interface LocalesSectionProps {
-  formatCurrency: (amount: number) => string;
   projectName: string;
   projectId: string;
   projectEndDate?: string;
@@ -25,7 +24,6 @@ interface LocalesSectionProps {
 }
 
 export function LocalesSection({
-  formatCurrency,
   projectName,
   projectId,
   projectEndDate,
@@ -148,25 +146,39 @@ export function LocalesSection({
   const hasPaymentsView = (status: string) =>
     ["VENDIDO", "RESERVADO", "BLOQUEADO"].includes(status);
 
-  const getTotalPaid = (local: AppData): number => {
+  const getPaidByCurrency = (local: AppData): { USD: number; DOP: number } => {
     const reserva = reservasData.find(
       (r) => r.data?.locales_id === local.data?.id,
     );
     if (!reserva) {
-      // fallback to old embedded payments
-      return (local.data?.payments ?? []).reduce(
+      const total = (local.data?.payments ?? []).reduce(
         (s: number, p: { amount: number }) => s + p.amount,
         0,
       );
+      return { USD: 0, DOP: total };
     }
-    return paymentsData
-      .filter(
-        (p) =>
-          p.data?.allocation_id === reserva.data?.id &&
-          p.data?.status === "approved",
-      )
-      .reduce((sum, p) => sum + ((p.data?.amount as number) ?? 0), 0);
+    const approved = paymentsData.filter(
+      (p) =>
+        p.data?.allocation_id === reserva.data?.id &&
+        p.data?.status === "approved",
+    );
+    return {
+      USD: approved
+        .filter((p) => p.data?.currency === "USD")
+        .reduce((sum, p) => sum + ((p.data?.amount as number) ?? 0), 0),
+      DOP: approved
+        .filter((p) => p.data?.currency === "DOP")
+        .reduce((sum, p) => sum + ((p.data?.amount as number) ?? 0), 0),
+    };
   };
+
+  const fmtAmt = (amount: number, currency: "USD" | "DOP") =>
+    new Intl.NumberFormat("es-DO", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(amount);
 
   const handleLocalSaved = (updatedLocal: AppData) => {
     setLocalesData((prev) =>
@@ -377,14 +389,21 @@ export function LocalesSection({
         {/* Locales Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((local) => {
-            const totalPaid = getTotalPaid(local);
+            const paidByCurrency = getPaidByCurrency(local);
             const totalValue = local.data?.total_value || 0;
+            const reserva = getReservaForLocal(local);
+            // Use the currency of the actual payments (not the reserva header)
+            const paymentCurrency: "USD" | "DOP" =
+              paidByCurrency.USD > 0 ? "USD" : "DOP";
+            const totalPaidMain =
+              paymentCurrency === "USD"
+                ? paidByCurrency.USD
+                : paidByCurrency.DOP;
             const paidPct =
               totalValue > 0
-                ? Math.min(100, Math.round((totalPaid / totalValue) * 100))
+                ? Math.min(100, Math.round((totalPaidMain / totalValue) * 100))
                 : 0;
             const showPayments = hasPaymentsView(local.data?.status);
-            const reserva = getReservaForLocal(local);
 
             return (
               <div
@@ -436,7 +455,7 @@ export function LocalesSection({
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Precio/m²:</span>
                     <span className="font-semibold text-gray-900">
-                      {formatCurrency(local.data?.price_per_mt2 || 0)}
+                      {fmtAmt(local.data?.price_per_mt2 || 0, "USD")}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm border-t pt-1.5 mt-1">
@@ -444,14 +463,14 @@ export function LocalesSection({
                       Valor Total:
                     </span>
                     <span className="font-bold text-gray-900">
-                      {formatCurrency(totalValue)}
+                      {fmtAmt(totalValue, "USD")}
                     </span>
                   </div>
                   {local.data?.separation_10 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Separación:</span>
                       <span className="font-semibold text-gray-700">
-                        {formatCurrency(local.data.separation_10)}
+                        {fmtAmt(local.data.separation_10, "USD")}
                       </span>
                     </div>
                   )}
@@ -459,7 +478,7 @@ export function LocalesSection({
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Inicial:</span>
                       <span className="font-semibold text-gray-700">
-                        {formatCurrency(local.data.separation_45)}
+                        {fmtAmt(local.data.separation_45, "USD")}
                       </span>
                     </div>
                   )}
@@ -470,14 +489,27 @@ export function LocalesSection({
                   <div className="mt-3 pt-2 border-t border-current/10">
                     <div className="flex justify-between text-xs text-gray-500 mb-1">
                       <span>
-                        Pagado {formatCurrency(totalPaid)}{" "}
-                        <span className="text-green-600 font-medium">
-                          ({paidPct}%)
-                        </span>
+                        Pagado{" "}
+                        {[
+                          paidByCurrency.USD > 0 &&
+                            fmtAmt(paidByCurrency.USD, "USD"),
+                          paidByCurrency.DOP > 0 &&
+                            fmtAmt(paidByCurrency.DOP, "DOP"),
+                        ]
+                          .filter(Boolean)
+                          .join(" + ") || "—"}{" "}
+                        {paidPct > 0 && (
+                          <span className="text-green-600 font-medium">
+                            ({paidPct}%)
+                          </span>
+                        )}
                       </span>
                       <span>
                         Pendiente{" "}
-                        {formatCurrency(Math.max(0, totalValue - totalPaid))}
+                        {fmtAmt(
+                          Math.max(0, totalValue - totalPaidMain),
+                          paymentCurrency,
+                        )}
                       </span>
                     </div>
                     <div className="h-1.5 bg-white/50 rounded-full overflow-hidden">
