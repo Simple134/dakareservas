@@ -77,7 +77,7 @@ export function LocalesSection({
 
   const getFilteredLocales = () =>
     localesData.filter((local) => {
-      if (searchTerm && !local.data?.id.toString().includes(searchTerm))
+      if (searchTerm && !local.data?.id?.toString().includes(searchTerm))
         return false;
       if (
         selectedLevel !== "all" &&

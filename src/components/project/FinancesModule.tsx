@@ -148,10 +148,14 @@ function mapGestionoToInvoice(
       elementTitle || gestionoInvoice.description || "Sin descripción",
     clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
     supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
-    date: new Date(gestionoInvoice.date).toISOString().split("T")[0],
+    date: gestionoInvoice.date
+      ? new Date(gestionoInvoice.date).toISOString().split("T")[0]
+      : new Date().toISOString().split("T")[0],
     dueDate: gestionoInvoice.dueDate
       ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
-      : new Date(gestionoInvoice.date).toISOString().split("T")[0],
+      : gestionoInvoice.date
+        ? new Date(gestionoInvoice.date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
     amount: displayAmount,
     paid: gestionoInvoice.paid || 0,
     dueToPay: gestionoInvoice.dueToPay || 0,

@@ -82,10 +82,10 @@ export function CuentasPorPagarModule({
         if (res.ok) {
           const data = await res.json();
           const items: GestionoInvoiceItem[] = data.items || [];
-          const rows = items.map(mapRow);
-          rows.sort(
-            (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+          items.sort(
+            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
           );
+          const rows = items.map(mapRow);
           setAllRows(rows);
           setCurrentPage(1);
         }
