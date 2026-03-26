@@ -739,13 +739,8 @@ export function FinancesModule({
   const handleConvertRecord = async (
     invoiceId: string,
     newType: "ORDER" | "INVOICE",
-    metadata?: {
-      files: { s3Key: string; fileName: string }[];
-      reference?: string;
-    },
   ) => {
     try {
-      // 1. Find the original record
       const originalRecord = rawInvoices.find(
         (r) => String(r.id) === invoiceId,
       );
@@ -753,7 +748,7 @@ export function FinancesModule({
         throw new Error("No se encontró el registro original");
       }
 
-      // 2. Fetch full details with elements
+      // Fetch full details with elements
       let recordWithElements = originalRecord;
       const detailsResponse = await fetch(
         `/api/gestiono/pendingRecord/${originalRecord.id}`,
@@ -762,49 +757,42 @@ export function FinancesModule({
         recordWithElements = await detailsResponse.json();
       }
 
-      // 3. Create new record with data from original
-      const createFromData = {
-        description: recordWithElements.description,
-        notes: recordWithElements.notes,
-        divisionId: recordWithElements.divisionId,
-        beneficiaryId: recordWithElements.beneficiaryId,
-        type: newType,
-        isSell: Boolean(recordWithElements.isSell),
-        date: recordWithElements.date,
-        dueDate: recordWithElements.dueDate,
-        currency: recordWithElements.currency,
-        generateTaxId: "none",
-        taxId: "",
-        updatePrices: false,
-        createFirstInvoice: false,
-        sourcePendingRecordId: recordWithElements.id,
-        clientdata:
-          typeof recordWithElements.clientdata === "object" &&
-          recordWithElements.clientdata !== null
-            ? recordWithElements.clientdata
-            : undefined,
-        metadata: {
-          ...(recordWithElements.metadata || {}),
-          ...(metadata ? { files: metadata.files } : {}),
-        },
-        ...(metadata?.reference ? { reference: metadata.reference } : {}),
-        elements:
-          recordWithElements.elements?.map((el) => ({
-            description: el.description,
-            unit: el.unit,
-            quantity: el.quantity,
-            price: el.price,
-            variation: el.variation,
-            ...(el.resourceId ? { resourceId: el.resourceId } : {}),
-            ...(el.comment != null ? { comment: el.comment } : {}),
-            taxes: el.taxes?.map((tax) => ({ taxRateId: tax.taxRateId })) ?? [],
-          })) ?? [],
-      };
-
       const response = await fetch(`/api/gestiono/pendingRecord`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(createFromData),
+        body: JSON.stringify({
+          description: recordWithElements.description,
+          notes: recordWithElements.notes,
+          divisionId: recordWithElements.divisionId,
+          beneficiaryId: recordWithElements.beneficiaryId,
+          type: newType,
+          isSell: Boolean(recordWithElements.isSell),
+          date: recordWithElements.date,
+          dueDate: recordWithElements.dueDate ?? new Date().toISOString(),
+          currency: recordWithElements.currency,
+          generateTaxId: "none",
+          taxId: "",
+          updatePrices: false,
+          createFirstInvoice: false,
+          clientdata:
+            typeof recordWithElements.clientdata === "object" &&
+            recordWithElements.clientdata !== null
+              ? recordWithElements.clientdata
+              : undefined,
+          metadata: recordWithElements.metadata || {},
+          elements:
+            recordWithElements.elements?.map((el) => ({
+              description: el.description,
+              unit: el.unit,
+              quantity: el.quantity,
+              price: el.price,
+              variation: el.variation,
+              ...(el.resourceId != null ? { resourceId: el.resourceId } : {}),
+              ...(el.comment != null ? { comment: el.comment } : {}),
+              taxes:
+                el.taxes?.map((tax) => ({ taxRateId: tax.taxRateId })) ?? [],
+            })) ?? [],
+        }),
       });
 
       if (!response.ok) {
@@ -812,7 +800,6 @@ export function FinancesModule({
         throw new Error(errorData.details || "Error al convertir el documento");
       }
 
-      // 4. If converting a sale quote to invoice, notify parent to add budget category
       if (
         newType === "INVOICE" &&
         recordWithElements.isSell &&
@@ -823,14 +810,10 @@ export function FinancesModule({
             (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
             0,
           ) ?? 0;
-        const title =
-          recordWithElements.elements?.[0]?.comment ||
-          recordWithElements.description ||
-          "Sin nombre";
+        const title = recordWithElements.description || "Sin nombre";
         onConvertSaleToInvoice(title, docTotal);
       }
 
-      // 5. Refresh list
       setRefreshKey((prev) => prev + 1);
     } catch (error) {
       console.error("❌ Error converting record:", error);
@@ -1929,19 +1912,21 @@ export function FinancesModule({
                     })}
                   </p>
                 </div>
-                {viewModalState.invoice.paid > 0 && (
-                  <div>
-                    <p className="text-sm text-gray-600">Total Pagado</p>
-                    <p className="text-lg font-bold text-green-600">
-                      RD${" "}
-                      {viewModalState.invoice.paid.toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  </div>
-                )}
-                {viewModalState.invoice.paid > 0 &&
+                {viewModalState.invoice.documentType === "INVOICE" &&
+                  viewModalState.invoice.paid > 0 && (
+                    <div>
+                      <p className="text-sm text-gray-600">Total Pagado</p>
+                      <p className="text-lg font-bold text-green-600">
+                        RD${" "}
+                        {viewModalState.invoice.paid.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                  )}
+                {viewModalState.invoice.documentType === "INVOICE" &&
+                  viewModalState.invoice.paid > 0 &&
                   viewModalState.invoice.dueToPay > 0 && (
                     <div>
                       <p className="text-sm text-gray-600">Pendiente</p>
@@ -2216,13 +2201,9 @@ export function FinancesModule({
             })
           }
           invoiceNumber={convertModalState.invoiceNumber || ""}
-          onConfirm={async (fileMetadata) => {
+          onConfirm={async () => {
             if (convertModalState.invoiceId) {
-              await handleConvertRecord(
-                convertModalState.invoiceId,
-                "INVOICE",
-                fileMetadata,
-              );
+              await handleConvertRecord(convertModalState.invoiceId, "INVOICE");
             }
           }}
         />

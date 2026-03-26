@@ -343,6 +343,19 @@ export async function updatePendingRecord(
   });
 }
 
+export async function createFromPendingRecord(data: {
+  id: number;
+  type: "ORDER" | "INVOICE";
+}): Promise<GestionoInvoiceResponse> {
+  return gestionoRequest<GestionoInvoiceResponse>(
+    `/v1/record/pending/create-from`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+  );
+}
+
 export async function getAppDataTypes(appId: number): Promise<string[]> {
   return gestionoRequest<string[]>(`/v1/apps/data-types/${appId}`, {
     method: "GET",
