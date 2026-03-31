@@ -60,6 +60,7 @@ interface InvoiceDisplay {
   type: string;
   documentType: string;
   attachedFileUrl?: string;
+  attachedFileName?: string;
   reference?: string;
   payments?: PaymentRecord[];
 }
@@ -98,6 +99,7 @@ function mapGestionoToInvoice(
   }
 
   let attachedFileUrl: string | undefined;
+  let attachedFileName: string | undefined;
   if (
     gestionoInvoice.metadata &&
     typeof gestionoInvoice.metadata === "object"
@@ -105,6 +107,7 @@ function mapGestionoToInvoice(
     const meta = gestionoInvoice.metadata;
     if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
       attachedFileUrl = meta.files[0].s3Key as string;
+      attachedFileName = meta.files[0].fileName as string | undefined;
     } else if (meta.attachedfileurl) {
       attachedFileUrl = meta.attachedfileurl as string;
     }
@@ -166,9 +169,22 @@ function mapGestionoToInvoice(
           ? "ORDER"
           : "INVOICE",
     attachedFileUrl,
+    attachedFileName,
     reference: gestionoInvoice.reference || undefined,
     payments: gestionoInvoice.payments || [],
   };
+}
+
+function getFileProxyUrl(gestionoUrl: string): string {
+  try {
+    const url = new URL(gestionoUrl);
+    const key = url.searchParams.get("key");
+    const organizationId = url.searchParams.get("organizationId");
+    if (key && organizationId) {
+      return `/api/gestiono/file?key=${encodeURIComponent(key)}&organizationId=${encodeURIComponent(organizationId)}`;
+    }
+  } catch {}
+  return gestionoUrl;
 }
 
 export default function InvoicesPage() {
@@ -317,9 +333,11 @@ export default function InvoicesPage() {
   const [imagePreviewState, setImagePreviewState] = useState<{
     isOpen: boolean;
     imageUrl: string | null;
+    fileName?: string | null;
   }>({
     isOpen: false,
     imageUrl: null,
+    fileName: null,
   });
 
   useEffect(() => {
@@ -1533,6 +1551,7 @@ export default function InvoicesPage() {
                             setImagePreviewState({
                               isOpen: true,
                               imageUrl: invoice.attachedFileUrl!,
+                              fileName: invoice.attachedFileName,
                             })
                           }
                           className="p-1.5 hover:bg-gray-100 rounded-lg"
@@ -1718,6 +1737,7 @@ export default function InvoicesPage() {
                                   setImagePreviewState({
                                     isOpen: true,
                                     imageUrl: invoice.attachedFileUrl!,
+                                    fileName: invoice.attachedFileName,
                                   })
                                 }
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -2349,28 +2369,68 @@ export default function InvoicesPage() {
           }}
         />
       )}
-      {/* Image Preview Modal */}
-      {imagePreviewState.isOpen && imagePreviewState.imageUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="relative bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] overflow-auto">
-            <button
-              onClick={() =>
-                setImagePreviewState({ isOpen: false, imageUrl: null })
-              }
-              className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors z-10"
-            >
-              <X className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="p-2">
-              <img
-                src={imagePreviewState.imageUrl}
-                alt="Comprobante"
-                className="max-w-full h-auto rounded"
-              />
+      {/* File Preview Modal */}
+      {imagePreviewState.isOpen &&
+        imagePreviewState.imageUrl &&
+        (() => {
+          const proxyUrl = getFileProxyUrl(imagePreviewState.imageUrl);
+          const isPdf = imagePreviewState.fileName
+            ?.toLowerCase()
+            .endsWith(".pdf");
+          return (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+              <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                <div className="flex items-center justify-between p-3 border-b">
+                  <span className="text-sm font-medium text-gray-700 truncate max-w-xs">
+                    {imagePreviewState.fileName || "Comprobante"}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={proxyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline px-2 py-1 rounded hover:bg-blue-50"
+                    >
+                      Abrir en nueva pestaña
+                    </a>
+                    <button
+                      onClick={() =>
+                        setImagePreviewState({
+                          isOpen: false,
+                          imageUrl: null,
+                          fileName: null,
+                        })
+                      }
+                      className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
+                    >
+                      <X className="w-5 h-5 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+                <div
+                  className="flex-1 overflow-auto p-2"
+                  style={{ minHeight: "400px" }}
+                >
+                  {isPdf ? (
+                    <iframe
+                      src={proxyUrl}
+                      className="w-full h-full rounded"
+                      style={{ minHeight: "500px" }}
+                      title="Comprobante"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={proxyUrl}
+                      alt="Comprobante"
+                      className="max-w-full h-auto rounded"
+                    />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          );
+        })()}
     </div>
   );
 }

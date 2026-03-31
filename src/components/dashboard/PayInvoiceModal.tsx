@@ -105,7 +105,7 @@ export function PayInvoiceModal({
 
         // Construct metadata based on user requirement
         // Assuming uploadData.file.url or uploadData.file.public is the key/link
-        const s3Key = uploadData.file.url || uploadData.file.public;
+        const s3Key = uploadData.file.public || uploadData.file.url;
 
         metadata = {
           files: [
