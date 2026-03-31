@@ -442,7 +442,7 @@ export function ProjectContent({
                   percentage: 0,
                 };
                 try {
-                  await fetch("/api/gestiono/divisions", {
+                  const patchRes = await fetch("/api/gestiono/divisions", {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -454,6 +454,11 @@ export function ProjectContent({
                       },
                     }),
                   });
+                  if (!patchRes.ok) {
+                    throw new Error(
+                      `Error al actualizar presupuesto (${patchRes.status})`,
+                    );
+                  }
                   const res = await fetch(
                     `/api/gestiono/divisions/${projectId}`,
                   );

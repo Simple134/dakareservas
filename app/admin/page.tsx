@@ -6,16 +6,18 @@ import { useRouter } from "next/navigation";
 import { DashboardView } from "@/src/components/dashboard/DashboardView";
 
 function AdminPageContent() {
-  const { user: session, loading: authLoading } = useAuth();
+  const { user: session, loading: authLoading, role, roleLoaded } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && !session) {
-      router.push("/login");
+    if (!authLoading && roleLoaded) {
+      if (!session || role !== "admin") {
+        router.push("/login");
+      }
     }
-  }, [authLoading, session, router]);
+  }, [authLoading, session, role, roleLoaded, router]);
 
-  if (!session) {
+  if (authLoading || !roleLoaded || !session || role !== "admin") {
     return null;
   }
 

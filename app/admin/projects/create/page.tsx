@@ -224,7 +224,7 @@ const CreateProject = () => {
         },
       };
 
-      await fetch("/api/gestiono/divisions", {
+      const response = await fetch("/api/gestiono/divisions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -232,12 +232,23 @@ const CreateProject = () => {
         body: JSON.stringify(payload),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Error del servidor (${response.status})`,
+        );
+      }
+
       await refreshDivisions();
       alert("Proyecto creado exitosamente");
       router.push("/admin");
     } catch (error) {
       console.error("Error creating project:", error);
-      alert("Error al crear el proyecto. Por favor intente nuevamente.");
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al crear el proyecto. Por favor intente nuevamente.",
+      );
     } finally {
       setLoading(false);
     }

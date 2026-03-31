@@ -1,13 +1,28 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { AppSidebar } from "@/src/components/AppSidebar";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, Building2 } from "lucide-react";
+import { useAuth } from "@/src/context/AuthContext";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, role, loading, roleLoaded } = useAuth();
+
+  useEffect(() => {
+    if (!loading && roleLoaded) {
+      if (!user || role !== "admin") {
+        router.replace("/login");
+      }
+    }
+  }, [user, role, loading, roleLoaded, router]);
+
+  if (loading || !roleLoaded || !user || role !== "admin") {
+    return null;
+  }
 
   // Determine current view based on pathname
   const getCurrentView = () => {
