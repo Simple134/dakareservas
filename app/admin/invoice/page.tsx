@@ -963,6 +963,12 @@ export default function InvoicesPage() {
         quotationDate: recordWithElements.date,
       });
     } else {
+      const division = divisions.find(
+        (d) => d.id === recordWithElements.divisionId,
+      );
+      const projectName = division?.name || "";
+      const category = recordWithElements.elements?.[0]?.comment || "";
+
       if (recordWithElements.type === "INVOICE") {
         await generateInvoicePDF({
           invoice: recordWithElements,
@@ -973,6 +979,8 @@ export default function InvoicesPage() {
           userName: user?.user_metadata?.full_name || user?.email || "",
           applyRetention,
           retentionRate,
+          projectName,
+          category,
         });
       } else {
         await generateQuotePDF({
@@ -984,6 +992,8 @@ export default function InvoicesPage() {
           userName: user?.user_metadata?.full_name || user?.email || "",
           applyRetention,
           retentionRate,
+          projectName,
+          category,
         });
       }
     }

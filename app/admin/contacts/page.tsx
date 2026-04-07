@@ -12,6 +12,7 @@ import {
   Globe,
   Trash2,
   AlertCircle,
+  CreditCard,
 } from "lucide-react";
 import { GestionoBeneficiary } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
@@ -23,6 +24,7 @@ const ContactsPage = () => {
     GestionoBeneficiary[]
   >([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean;
@@ -70,11 +72,11 @@ const ContactsPage = () => {
   }, []);
 
   useEffect(() => {
-    filterContacts();
-  }, [searchQuery, contacts]);
-
-  const filterContacts = () => {
     let filtered = [...contacts];
+
+    if (selectedType !== "all") {
+      filtered = filtered.filter((contact) => contact.type === selectedType);
+    }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -90,7 +92,7 @@ const ContactsPage = () => {
     }
 
     setFilteredContacts(filtered);
-  };
+  }, [searchQuery, selectedType, contacts]);
 
   const getStats = () => {
     const total = contacts.length;
@@ -248,17 +250,45 @@ const ContactsPage = () => {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-200">
+          {/* Search & Filters */}
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-200 space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por nombre o email..."
+                placeholder="Buscar por nombre, email o RNC..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F80FF] focus:border-transparent"
               />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "all", label: "Todos" },
+                { value: "CLIENT", label: "Cliente" },
+                { value: "PROVIDER", label: "Proveedor" },
+                { value: "EMPLOYEE", label: "Empleado" },
+                { value: "SELLER", label: "Vendedor" },
+                { value: "ORGANIZATION", label: "Organización" },
+                { value: "GOVERNMENT", label: "Gobierno" },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setSelectedType(value)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    selectedType === value
+                      ? "bg-[#07234B] text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  {label}
+                  {value !== "all" && (
+                    <span className="ml-1 opacity-70">
+                      ({contacts.filter((c) => c.type === value).length})
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -294,8 +324,8 @@ const ContactsPage = () => {
                 No se encontraron contactos
               </p>
               <p className="text-gray-500 text-sm mt-2">
-                {searchQuery
-                  ? "Intenta con otra búsqueda"
+                {searchQuery || selectedType !== "all"
+                  ? "Intenta con otra búsqueda o cambia el filtro"
                   : "Agrega tu primer contacto"}
               </p>
             </div>
@@ -315,15 +345,21 @@ const ContactsPage = () => {
 
                 if (contact.contacts) {
                   contact.contacts.forEach((c) => {
+                    const cType = c.type as string;
                     let Icon = Briefcase;
-                    // Map API lowercase types to Icons
-                    if (c.type === "phone") Icon = Phone;
-                    else if (c.type === "email") Icon = Mail;
-                    else if (c.type === "address") Icon = MapPin;
-                    else if (c.type === "website") Icon = Globe;
+                    if (cType === "phone") Icon = Phone;
+                    else if (cType === "email") Icon = Mail;
+                    else if (cType === "address") Icon = MapPin;
+                    else if (cType === "website") Icon = Globe;
+                    else if (
+                      cType === "banco" ||
+                      cType === "numero_cuenta" ||
+                      cType === "tipo_cuenta"
+                    )
+                      Icon = CreditCard;
 
                     contactMethods.push({
-                      type: c.type.toUpperCase(),
+                      type: cType.toUpperCase(),
                       value: c.data,
                       icon: Icon,
                     });

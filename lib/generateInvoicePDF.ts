@@ -16,6 +16,8 @@ interface InvoicePDFData {
   userName: string;
   applyRetention?: boolean;
   retentionRate?: number;
+  projectName?: string;
+  category?: string;
 }
 
 export async function generateInvoicePDF(data: InvoicePDFData) {
@@ -27,6 +29,8 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
     isSell = true,
     applyRetention = false,
     retentionRate = 0,
+    projectName = "",
+    category = "",
   } = data;
 
   // Create a new PDF document
@@ -132,6 +136,37 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   if (invoice.reference) {
     yPosition -= 15;
     page.drawText(`Nº Comprobante: ${invoice.reference}`, {
+      x: margin,
+      y: yPosition,
+      size: 9,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
+
+  yPosition -= 15;
+  page.drawText(`Tipo: Factura de ${isSell ? "Venta" : "Compra"}`, {
+    x: margin,
+    y: yPosition,
+    size: 9,
+    font,
+    color: rgb(0, 0, 0),
+  });
+
+  if (projectName) {
+    yPosition -= 15;
+    page.drawText(`Proyecto: ${projectName}`, {
+      x: margin,
+      y: yPosition,
+      size: 9,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
+
+  if (category) {
+    yPosition -= 15;
+    page.drawText(`Categoría: ${category}`, {
       x: margin,
       y: yPosition,
       size: 9,

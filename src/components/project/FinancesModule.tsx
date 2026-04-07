@@ -43,6 +43,7 @@ import { useAuth } from "@/src/context/AuthContext";
 
 interface FinancesModuleProps {
   projectId: string | number;
+  projectName?: string;
   budgetCategories?: {
     id: string;
     name: string;
@@ -191,6 +192,7 @@ function getFileProxyUrl(gestionoUrl: string): string {
 
 export function FinancesModule({
   projectId,
+  projectName = "",
   budgetCategories = [],
   refreshTrigger = 0,
   onConvertSaleToInvoice,
@@ -828,7 +830,7 @@ export function FinancesModule({
             (sum, el) => sum + (el.quantity || 0) * (el.price || 0),
             0,
           ) ?? 0;
-        const title = recordWithElements.description || "Sin nombre";
+        const title = recordWithElements.elements?.[0]?.comment || "Sin nombre";
         onConvertSaleToInvoice(title, docTotal);
       }
 
@@ -942,9 +944,18 @@ export function FinancesModule({
           : 0;
         const hasRetention = isPurchase && isrRate > 0;
 
+        const category = recordWithElements.elements?.[0]?.comment || "";
+
+        console.log("📄 PDF Debug:", {
+          type: recordWithElements.type,
+          isSell: recordWithElements.isSell,
+          divisionId: recordWithElements.divisionId,
+          projectName,
+          category,
+        });
+
         // Check document type to determine which PDF generator to use
         if (recordWithElements.type === "INVOICE") {
-          // Generate Invoice PDF
           await generateInvoicePDF({
             invoice: recordWithElements,
             beneficiary,
@@ -954,9 +965,10 @@ export function FinancesModule({
             userName: user?.user_metadata?.full_name || user?.email || "",
             applyRetention: hasRetention,
             retentionRate: hasRetention ? isrRate : 0,
+            projectName,
+            category,
           });
         } else {
-          // Generate Quote or Order PDF
           await generateQuotePDF({
             quote: recordWithElements,
             beneficiary,
@@ -966,6 +978,8 @@ export function FinancesModule({
             userName: user?.user_metadata?.full_name || user?.email || "",
             applyRetention: hasRetention,
             retentionRate: hasRetention ? isrRate : 0,
+            projectName,
+            category,
           });
         }
       }

@@ -8,6 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Search,
+  X,
 } from "lucide-react";
 import { CustomCard } from "@/src/components/project/CustomCard";
 import type { GestionoInvoiceItem } from "@/src/types/gestiono";
@@ -60,6 +62,7 @@ export function CuentasPorCobrarModule({
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch all invoices at once — paginate client-side
   useEffect(() => {
@@ -102,6 +105,17 @@ export function CuentasPorCobrarModule({
     return () => controller.abort();
   }, [projectId]);
 
+  // Filter rows client-side based on search query
+  const filteredRows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allRows;
+    return allRows.filter(
+      (r) =>
+        r.descripcion.toLowerCase().includes(q) ||
+        r.fecha.toLowerCase().includes(q),
+    );
+  }, [allRows, searchQuery]);
+
   // Column totals from the full dataset (not just current page)
   const totals = useMemo(
     () =>
@@ -116,9 +130,12 @@ export function CuentasPorCobrarModule({
     [allRows],
   );
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(allRows.length / ITEMS_PER_PAGE));
-  const pageRows = allRows.slice(
+  // Pagination — operates on filtered rows
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRows.length / ITEMS_PER_PAGE),
+  );
+  const pageRows = filteredRows.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
@@ -224,16 +241,40 @@ export function CuentasPorCobrarModule({
 
       {/* Table */}
       <CustomCard className="p-0 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center  justify-center">
-            <h3 className="font-semibold text-gray-900">Detalle de Cuenta</h3>
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900 shrink-0">
+            Detalle de Cuenta
+          </h3>
           {!isLoading && allRows.length > 0 && (
             <>
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar por descripción o fecha..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery("");
+                      setCurrentPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <button
                 onClick={handleDownloadPDF}
                 disabled={isDownloading}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 {isDownloading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -254,6 +295,10 @@ export function CuentasPorCobrarModule({
           <div className="text-sm text-gray-400 text-center py-12">
             No hay facturas de venta registradas
           </div>
+        ) : filteredRows.length === 0 ? (
+          <div className="text-sm text-gray-400 text-center py-12">
+            No se encontraron resultados para &quot;{searchQuery}&quot;
+          </div>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -263,7 +308,7 @@ export function CuentasPorCobrarModule({
                     <th className="text-left py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
                       Fecha
                     </th>
-                    <th className="text-left py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                    <th className="text-left py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide w-full min-w-[200px]">
                       Descripción
                     </th>
                     <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
@@ -309,25 +354,6 @@ export function CuentasPorCobrarModule({
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50 border-t-2 border-gray-200">
-                    <td
-                      colSpan={2}
-                      className="py-3 px-5 font-bold text-gray-600 text-xs uppercase tracking-wide"
-                    >
-                      Total
-                    </td>
-                    <td className="py-3 px-5 text-right font-bold text-gray-800 whitespace-nowrap">
-                      {formatCurrency(totals.montoTotal)}
-                    </td>
-                    <td className="py-3 px-5 text-right font-bold text-green-700 whitespace-nowrap">
-                      {formatCurrency(totals.montoAplicado)}
-                    </td>
-                    <td className="py-3 px-5 text-right font-bold text-slate-600 whitespace-nowrap">
-                      {formatCurrency(totals.balancePendiente)}
-                    </td>
-                  </tr>
-                </tfoot>
               </table>
             </div>
 

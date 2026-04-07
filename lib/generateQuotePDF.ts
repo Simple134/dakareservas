@@ -15,6 +15,8 @@ interface QuotePDFData {
   userName?: string;
   applyRetention?: boolean;
   retentionRate?: number;
+  projectName?: string;
+  category?: string;
 }
 
 export async function generateQuotePDF(data: QuotePDFData) {
@@ -27,6 +29,8 @@ export async function generateQuotePDF(data: QuotePDFData) {
     userName = "",
     applyRetention = false,
     retentionRate = 0,
+    projectName = "",
+    category = "",
   } = data;
 
   // Create a new PDF document
@@ -81,10 +85,12 @@ export async function generateQuotePDF(data: QuotePDFData) {
   // RIGHT SIDE: Document header based on type
   let rightYPosition = leftStartY;
 
-  // Determine document label based on type
-  let documentLabel = "COTIZACION";
+  // Determine document label based on type and direction
+  let documentLabel: string;
   if (documentType === "ORDER") {
     documentLabel = isSell ? "ORDEN DE VENTA" : "ORDEN DE COMPRA";
+  } else {
+    documentLabel = isSell ? "COTIZACION DE VENTA" : "COTIZACION DE COMPRA";
   }
 
   const documentTitle = `${documentLabel} Nº${quoteNumber}`;
@@ -124,6 +130,31 @@ export async function generateQuotePDF(data: QuotePDFData) {
     font,
     color: rgb(0, 0, 0),
   });
+
+  // Project and category on the right side
+  if (projectName) {
+    rightYPosition -= 12;
+    const projectLabel = `Proyecto: ${projectName}`;
+    page.drawText(projectLabel, {
+      x: width - margin - fontBold.widthOfTextAtSize(projectLabel, 9),
+      y: rightYPosition,
+      size: 9,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
+
+  if (category) {
+    rightYPosition -= 12;
+    const categoryLabel = `Categoría: ${category}`;
+    page.drawText(categoryLabel, {
+      x: width - margin - fontBold.widthOfTextAtSize(categoryLabel, 9),
+      y: rightYPosition,
+      size: 9,
+      font,
+      color: rgb(0, 0, 0),
+    });
+  }
 
   // Move to next section (use the lower of the two positions)
   yPosition = Math.min(yPosition, rightYPosition) - 30;
