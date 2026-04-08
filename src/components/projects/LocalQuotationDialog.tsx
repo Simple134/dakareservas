@@ -276,8 +276,6 @@ export function LocalQuotationDialog({
         },
       };
 
-      console.log("📤 Creando cotización:", quotationPayload);
-
       const response = await fetch("/api/gestiono/pendingRecord", {
         method: "POST",
         headers: {
@@ -292,7 +290,6 @@ export function LocalQuotationDialog({
         throw new Error(result.error || "Error al crear cotización");
       }
 
-      console.log("✅ Cotización creada:", result);
       alert("Cotización generada y guardada exitosamente!");
       onClose();
     } catch (error) {

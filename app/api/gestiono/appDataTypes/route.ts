@@ -7,9 +7,7 @@ export async function GET(request: NextRequest) {
     const appId =
       searchParams.get("appId") || searchParams.get("unique_id") || "";
 
-    console.log(`📍 Llamando a getAppDataTypes(${appId})...`);
     const appData = await getAppDataTypes(parseInt(appId));
-    console.log("✅ AppData obtenida:", appData);
     return NextResponse.json(appData);
   } catch (error: unknown) {
     console.error("❌ Error fetching appData:", error);

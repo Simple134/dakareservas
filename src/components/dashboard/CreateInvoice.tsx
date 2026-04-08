@@ -203,7 +203,6 @@ export function CreateInvoiceDialog({
         if (response.ok) {
           const data = await response.json();
           setTaxesList(data || []);
-          console.log("📋 Taxes list:", data);
         }
       } catch (error) {
         console.error("Error fetching taxes:", error);
@@ -378,8 +377,6 @@ export function CreateInvoiceDialog({
     setIsSubmitting(true);
 
     try {
-      console.log("📤 Enviando factura a Gestiono...");
-
       // Helper function to convert YYYY-MM-DD to ISO 8601
       const formatDateToISO = (dateStr: string | undefined): string => {
         if (!dateStr) return new Date().toISOString();
@@ -419,8 +416,6 @@ export function CreateInvoiceDialog({
         (el) => el.taxes?.[0]?.taxRateId ?? 0,
       );
 
-      console.log("📦 Payload:", payload);
-
       const response = await fetch("/api/gestiono/pendingRecord", {
         method: "POST",
         headers: {
@@ -450,16 +445,11 @@ export function CreateInvoiceDialog({
         throw new Error(result.error || "Error al crear factura");
       }
 
-      console.log("✅ Factura creada en Gestiono:", result);
-
       // Add taxes to each element via separate endpoint
       const createdElements = result.data?.elements || [];
       for (let i = 0; i < createdElements.length; i++) {
         const taxRateId = elementTaxes[i];
         if (taxRateId > 0 && createdElements[i]?.id) {
-          console.log(
-            `➕ Adding tax ${taxRateId} to element ${createdElements[i].id}`,
-          );
           await fetch(`/api/gestiono/element/taxes`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },

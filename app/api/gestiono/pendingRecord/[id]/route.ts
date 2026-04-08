@@ -17,10 +17,6 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid record ID" }, { status: 400 });
     }
 
-    console.log("📦 archivePendingRecord payload:", {
-      id: recordId,
-      metadata: { isArchived: true },
-    });
     const result = await archivePendingRecord(recordId);
 
     return NextResponse.json({
@@ -55,7 +51,6 @@ export async function DELETE(
     }
 
     const result = await deletePendingRecord(recordId);
-    console.log("✅ Pending record deleted:", result);
 
     return NextResponse.json({
       success: true,

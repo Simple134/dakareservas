@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { BudgetModule } from "@/src/components/project/BudgetModule";
 import { FinancesModule } from "@/src/components/project/FinancesModule";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { PurchaseDropdown } from "@/src/components/project/PurchaseDropdown";
 import { SaleDropdown } from "@/src/components/project/SaleDropdown";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
@@ -33,6 +33,7 @@ import {
 import {
   GestionoDivision,
   GestionoDivisionWithBalance,
+  GestionoInvoiceItem,
 } from "@/src/types/gestiono";
 import { MaterialsModule } from "@/src/components/project/MaterialsModule";
 import { PersonnelModule } from "@/src/components/project/PersonnelModule";
@@ -84,6 +85,14 @@ export function ProjectContent({
   const [expensesTotal, setExpensesTotal] = useState<number>(0);
   const [isLoadingExpenses, setIsLoadingExpenses] = useState<boolean>(false);
 
+  // Sales invoices for BudgetModule progress
+  const [salesInvoices, setSalesInvoices] = useState<GestionoInvoiceItem[]>([]);
+
+  const totalExecuted = useMemo(
+    () => salesInvoices.reduce((sum, inv) => sum + (inv.paid || 0), 0),
+    [salesInvoices],
+  );
+
   useEffect(() => {
     const fetchExpenses = async () => {
       if (selectedSection === "gastos" && division?.id) {
@@ -116,6 +125,33 @@ export function ProjectContent({
     };
     fetchExpenses();
   }, [selectedSection, division?.id]);
+
+  // Fetch sales invoices for BudgetModule progress bars
+  useEffect(() => {
+    if (!division?.id) return;
+    const fetchSalesInvoices = async () => {
+      try {
+        const params = new URLSearchParams({
+          divisionId: String(division.id),
+          isSell: "true",
+          type: "INVOICE",
+          ignoreDetailedData: "false",
+          elements: "100",
+          page: "1",
+        });
+        const res = await fetch(
+          `/api/gestiono/pendingRecord?${params.toString()}`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setSalesInvoices(data.items || []);
+        }
+      } catch (error) {
+        console.error("Error fetching sales invoices for budget:", error);
+      }
+    };
+    fetchSalesInvoices();
+  }, [division?.id, financeRefreshKey]);
 
   // Estado unificado para manejar todos los documentos
   const [documentDialogState, setDocumentDialogState] = useState<{
@@ -301,7 +337,7 @@ export function ProjectContent({
                   Ejecutado
                 </p>
                 <p className="text-lg md:text-2xl font-bold text-gray-900 truncate">
-                  {formatCurrency(project?.executedBudget || 0)}
+                  {formatCurrency(totalExecuted)}
                 </p>
               </div>
             </div>
@@ -317,7 +353,13 @@ export function ProjectContent({
                   Progreso
                 </p>
                 <p className="text-lg md:text-2xl font-bold text-gray-900">
-                  {project?.completionPercentage || 0}%
+                  {project?.totalBudget
+                    ? Math.min(
+                        100,
+                        Math.round((totalExecuted / project.totalBudget) * 100),
+                      )
+                    : 0}
+                  %
                 </p>
               </div>
             </div>
@@ -365,6 +407,7 @@ export function ProjectContent({
               categories={project?.budgetCategories}
               totalBudget={project?.totalBudget}
               divisionData={division as GestionoDivision}
+              salesInvoices={salesInvoices}
               onUpdate={() => {
                 // Refresh division data after updating budget categories
                 const fetchDivision = async () => {

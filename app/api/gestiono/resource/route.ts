@@ -27,10 +27,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log("📍 Calling v2GetPendingRecords with params:", query);
-
     const pendingRecords = await v2GetResources(query);
-    console.log("✅ v2GetPendingRecords obtenidas:", pendingRecords);
     return NextResponse.json(pendingRecords);
   } catch (error: unknown) {
     console.error("❌ Error fetching v2GetPendingRecords:", error);

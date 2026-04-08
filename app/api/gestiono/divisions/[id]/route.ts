@@ -12,9 +12,7 @@ export async function GET(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
-    console.log(`📍 Fetching division ${id}...`);
     const divisionData = await getDivisionById(id);
-    console.log("✅ Division fetched:", divisionData);
     return NextResponse.json(divisionData);
   } catch (error: unknown) {
     console.error("❌ Error fetching division:", error);

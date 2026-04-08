@@ -42,7 +42,6 @@ const ContactsPage = () => {
   const fetchGestionoBeneficiaries = async () => {
     setIsLoading(true);
     try {
-      console.log("🔄 Obteniendo beneficiarios de Gestiono...");
       const params = new URLSearchParams({
         withContacts: "true",
         withTaxData: "false",
@@ -58,7 +57,6 @@ const ContactsPage = () => {
 
       const data = await response.json();
 
-      console.log("✅ Beneficiarios de Gestiono:", data);
       setContacts(data || []);
     } catch (error) {
       console.error("❌ Error obteniendo beneficiarios:", error);

@@ -11,7 +11,7 @@ async function getDivisionData(projectId: string) {
     }
 
     const data = await getDivisionById(id);
-    console.log(data);
+    console.log(data, "data");
     return Array.isArray(data) ? data[0] : data;
   } catch (error) {
     console.error("Error fetching division:", error);

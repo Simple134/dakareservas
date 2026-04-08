@@ -260,7 +260,6 @@ export function DashboardView() {
         isOpen={isInvoiceDialogOpen}
         onClose={() => setIsInvoiceDialogOpen(false)}
         onCreateInvoice={(invoice) => {
-          console.log("Invoice created:", invoice);
           setIsInvoiceDialogOpen(false);
         }}
       />

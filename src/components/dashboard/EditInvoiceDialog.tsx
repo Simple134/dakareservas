@@ -164,7 +164,6 @@ export function EditInvoiceDialog({
         if (response.ok) {
           const data = await response.json();
           setTaxesList(data || []);
-          console.log("📋 Taxes list:", data);
         }
       } catch (error) {
         console.error("Error fetching taxes:", error);
@@ -309,7 +308,6 @@ export function EditInvoiceDialog({
           return;
         }
 
-        console.log("✅ Element deleted:", element.id);
         remove(index);
       } catch (error) {
         console.error("Error deleting element:", error);
@@ -342,8 +340,6 @@ export function EditInvoiceDialog({
           variation: Number(element.variation) || 0,
         };
 
-        console.log("📦 Creating new element:", elementPayload);
-
         const response = await fetch(`/api/gestiono/element`, {
           method: "POST",
           headers: {
@@ -365,8 +361,6 @@ export function EditInvoiceDialog({
         } else if (result?.id) {
           elementId = result.id;
         }
-
-        console.log("✅ Elemento creado, id:", elementId);
       } else {
         // Update existing element using PATCH
         const elementPayload = {
@@ -378,8 +372,6 @@ export function EditInvoiceDialog({
           price: Number(element.price) || 0,
           variation: Number(element.variation) || 0,
         };
-
-        console.log("📦 Updating element:", elementPayload);
 
         const response = await fetch(`/api/gestiono/element`, {
           method: "PATCH",
@@ -395,8 +387,6 @@ export function EditInvoiceDialog({
             errorData.details || `Error al actualizar elemento ${element.id}`,
           );
         }
-
-        console.log("✅ Elemento actualizado");
       }
 
       // Handle taxes separately via add/remove endpoints
@@ -410,7 +400,6 @@ export function EditInvoiceDialog({
         if (oldTaxRateId !== newTaxRateId) {
           // Remove old tax if it existed
           if (oldTaxRateId > 0) {
-            console.log("🗑️ Removing old tax:", oldTaxRateId);
             await fetch(`/api/gestiono/element/taxes`, {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
@@ -423,7 +412,6 @@ export function EditInvoiceDialog({
 
           // Add new tax if selected
           if (newTaxRateId > 0) {
-            console.log("➕ Adding new tax:", newTaxRateId);
             await fetch(`/api/gestiono/element/taxes`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -478,8 +466,6 @@ export function EditInvoiceDialog({
     setIsSubmitting(true);
 
     try {
-      console.log("📤 Actualizando registro...");
-
       const formatDateToISO = (dateStr: string | undefined): string => {
         if (!dateStr) return new Date().toISOString();
         try {
@@ -502,8 +488,6 @@ export function EditInvoiceDialog({
         description: generalTitle,
       };
 
-      console.log("📦 Updating record metadata:", recordPayload);
-
       const recordResponse = await fetch(`/api/gestiono/pendingRecord/update`, {
         method: "PATCH",
         headers: {
@@ -516,8 +500,6 @@ export function EditInvoiceDialog({
         const errorData = await recordResponse.json().catch(() => ({}));
         throw new Error(errorData.details || "Error al actualizar registro");
       }
-
-      console.log("✅ Registro actualizado");
 
       setSubmitSuccess(true);
       onUpdate();

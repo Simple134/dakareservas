@@ -4,9 +4,7 @@ import { GestionoDivisionPayload } from "@/src/types/gestiono";
 
 export async function GET(request: NextRequest) {
   try {
-    console.log("📍 Llamando a getDivisions()...");
     const divisions = await getDivisions();
-    console.log("✅ Divisiones obtenidas:", divisions);
     return NextResponse.json(divisions);
   } catch (error: unknown) {
     console.error("❌ Error fetching divisions:", error);

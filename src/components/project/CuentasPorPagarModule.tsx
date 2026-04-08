@@ -50,7 +50,7 @@ function mapRow(item: GestionoInvoiceItem): CuentaRow {
     descripcion:
       item.elements?.[0]?.comment || item.description || "Sin descripción",
     itbis: item.taxes || 0,
-    montoTotal: item.amount,
+    montoTotal: item.subTotal,
     montoAplicado: item.paid || 0,
     balancePendiente: item.dueToPay || 0,
   };

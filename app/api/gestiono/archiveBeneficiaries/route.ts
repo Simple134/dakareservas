@@ -12,12 +12,7 @@ export async function PATCH(request: NextRequest) {
         { status: 400 },
       );
     }
-
-    console.log("📍 Archiving beneficiary with ID:", id);
-
     const result = await archiveBeneficiary(Number(id));
-    console.log("✅ Beneficiary archived:", result);
-
     return NextResponse.json(result);
   } catch (error: unknown) {
     console.error("❌ Error archiving beneficiary:", error);

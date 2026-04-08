@@ -1,8 +1,8 @@
 "use client";
 
-import { GestionoDivision } from "@/src/types/gestiono";
+import { GestionoDivision, GestionoInvoiceItem } from "@/src/types/gestiono";
 import { Plus, X, Save, Loader2 } from "lucide-react";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 
 interface BudgetCategory {
   id: string;
@@ -17,6 +17,7 @@ interface BudgetModuleProps {
   categories?: BudgetCategory[];
   totalBudget?: number;
   divisionData?: GestionoDivision;
+  salesInvoices?: GestionoInvoiceItem[];
   onUpdate?: () => void;
 }
 
@@ -28,11 +29,11 @@ function generateUniqueId(): string {
 }
 
 export function BudgetModule({
-  projectId,
   divisionId,
   categories = [],
   totalBudget = 0,
   divisionData,
+  salesInvoices = [],
   onUpdate,
 }: BudgetModuleProps) {
   // Sanitize categories to ensure all fields have valid defaults
@@ -229,13 +230,31 @@ export function BudgetModule({
     0,
   );
 
+  // Sum paid amounts from sales invoices grouped by category (elements[0].comment)
+  const executedByCategory = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const invoice of salesInvoices) {
+      const category = invoice.elements?.[0]?.comment;
+      if (category) {
+        map[category] = (map[category] || 0) + (invoice.paid || 0);
+      }
+    }
+    return map;
+  }, [salesInvoices]);
+
   // Map categories to budget items format for display
   const budgetItems = budgetCategories.map((cat) => ({
     id: cat.id,
     category: cat.name,
     budgeted: Number.isFinite(cat.amount) ? cat.amount : 0,
-    executed: 0, // Not tracked in metadata currently
-    status: "pending" as const,
+    executed: executedByCategory[cat.name] || 0,
+    status:
+      (executedByCategory[cat.name] || 0) >=
+      (Number.isFinite(cat.amount) ? cat.amount : 0)
+        ? ("completed" as const)
+        : (executedByCategory[cat.name] || 0) > 0
+          ? ("in-progress" as const)
+          : ("pending" as const),
   }));
 
   // Format percentage for display (avoid long floats)

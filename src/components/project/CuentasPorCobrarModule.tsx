@@ -24,6 +24,7 @@ interface CuentaRow {
   id: string;
   fecha: string;
   descripcion: string;
+  itbis: number;
   montoTotal: number;
   montoAplicado: number;
   balancePendiente: number;
@@ -48,7 +49,8 @@ function mapRow(item: GestionoInvoiceItem): CuentaRow {
     }),
     descripcion:
       item.elements?.[0]?.comment || item.description || "Sin descripción",
-    montoTotal: item.amount,
+    itbis: item.taxes || 0,
+    montoTotal: item.subTotal,
     montoAplicado: item.paid || 0,
     balancePendiente: item.dueToPay || 0,
   };
@@ -312,6 +314,9 @@ export function CuentasPorCobrarModule({
                       Descripción
                     </th>
                     <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
+                      ITBIS
+                    </th>
+                    <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
                       Monto Total
                     </th>
                     <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
@@ -333,6 +338,9 @@ export function CuentasPorCobrarModule({
                       </td>
                       <td className="py-3 px-5 text-gray-900 font-medium">
                         {row.descripcion}
+                      </td>
+                      <td className="py-3 px-5 text-right text-gray-700 whitespace-nowrap">
+                        {formatCurrency(row.itbis)}
                       </td>
                       <td className="py-3 px-5 text-right text-gray-700 whitespace-nowrap">
                         {formatCurrency(row.montoTotal)}

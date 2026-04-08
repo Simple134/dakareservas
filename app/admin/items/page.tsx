@@ -97,7 +97,6 @@ const ItemsPage = () => {
         }
 
         const data: V2GetResourcesResponse = await response.json();
-        console.log("📦 Resources fetched:", data);
 
         setItems(data.items || []);
         setTotalPages(data.totalPages || 1);

@@ -87,22 +87,29 @@ function mapGestionoToInvoice(
 
   if (gestionoInvoice.state === "DRAFT") {
     status = "draft";
+  } else if (gestionoInvoice.state === "COMPLETED") {
+    status = "paid";
   } else if (
     gestionoInvoice.amount > 0 &&
-    gestionoInvoice.paid >= gestionoInvoice.amount
+    (gestionoInvoice.dueToPay <= 0 ||
+      gestionoInvoice.paid >= gestionoInvoice.amount)
   ) {
     status = "paid";
   } else if (gestionoInvoice.dueDate) {
     const dueDate = new Date(gestionoInvoice.dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (dueDate < today && gestionoInvoice.paid < gestionoInvoice.amount) {
+    if (dueDate < today && gestionoInvoice.dueToPay > 0) {
       status = "overdue";
     }
   }
 
-  // Recalculate amount with ISR from subtotal + full ITBIS retained
-  let displayAmount = gestionoInvoice.amount - gestionoInvoice.paid;
+  // Use dueToPay from API as it handles floating-point accurately;
+  // fallback to amount - paid for cases where dueToPay is not available
+  let displayAmount =
+    typeof gestionoInvoice.dueToPay === "number"
+      ? gestionoInvoice.dueToPay
+      : gestionoInvoice.amount - gestionoInvoice.paid;
   const isPurchase = gestionoInvoice.isSell === 0;
   const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
   if (isPurchase && isrRate > 0) {
@@ -216,7 +223,6 @@ export function FinancesModule({
     toChargeRecordsCount: 0,
     toPayRecordsCount: 0,
   });
-  // KPI totals: sales = resume.toCharge + ITBIS charged; purchases = ISR-corrected
   const [kpiTotals, setKpiTotals] = useState({ toCharge: 0, toPay: 0 });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -226,25 +232,9 @@ export function FinancesModule({
     "QUOTE" | "INVOICE" | "ORDER" | "HISTORY"
   >("QUOTE");
 
-  // History tab date range state
-  const [historyFromDate, setHistoryFromDate] = useState(() => {
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    return firstDay.toISOString();
-  });
-  const [historyToDate, setHistoryToDate] = useState(() => {
-    const now = new Date();
-    const lastDay = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
-    return lastDay.toISOString();
-  });
+  // History tab date range state — empty by default to load all completed records
+  const [historyFromDate, setHistoryFromDate] = useState("");
+  const [historyToDate, setHistoryToDate] = useState("");
   const [activePage, setActivePage] = useState(1);
   const [activeTotalPages, setActiveTotalPages] = useState(1);
   const [activeTotalItems, setActiveTotalItems] = useState(0);
@@ -307,30 +297,12 @@ export function FinancesModule({
           );
         }
 
-        // KPI fetch: all records without pagination to compute accurate totals
-        const kpiParams = new URLSearchParams({
-          divisionId: String(projectId),
-          ignoreDetailedData: "true",
-          state: "PENDING",
-          type: activeTab,
-          elements: "1000",
-          page: "1",
-        });
-        if (activeTab === "QUOTE" || activeTab === "ORDER") {
-          kpiParams.append(
-            "advancedSearch",
-            JSON.stringify([
-              { field: "sourcePendingRecordId", method: "is null", value: "" },
-            ]),
-          );
-        }
-
         // Use cached beneficiaries if available for the current project/refresh key
         const cacheKey = `${projectId}-${refreshKey}-${refreshTrigger}`;
         const hasBeneficiaryCache =
           beneficiaryCacheRef.current?.key === cacheKey;
 
-        const [invoicesRes, maybeBeneficiariesRes, kpiRes] = await Promise.all([
+        const [invoicesRes, maybeBeneficiariesRes] = await Promise.all([
           fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`, {
             signal,
           }),
@@ -340,18 +312,11 @@ export function FinancesModule({
                 `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
                 { signal },
               ),
-          fetch(`/api/gestiono/pendingRecord?${kpiParams.toString()}`, {
-            signal,
-          }),
         ]);
 
-        const [invoiceData, kpiData]: [
-          GestionoInvoicesResponse,
-          GestionoInvoicesResponse,
-        ] = await Promise.all([
-          invoicesRes.ok ? invoicesRes.json() : Promise.resolve({ items: [] }),
-          kpiRes.ok ? kpiRes.json() : Promise.resolve({ items: [] }),
-        ]);
+        const invoiceData: GestionoInvoicesResponse = invoicesRes.ok
+          ? await invoicesRes.json()
+          : { items: [] };
 
         // Build beneficiary maps — from cache or from fresh fetch
         const map: Record<number, string> = {};
@@ -369,36 +334,26 @@ export function FinancesModule({
           });
           beneficiaryCacheRef.current = { key: cacheKey, map, isrMap };
         }
-        // KPI: sales = resume.toCharge + all ITBIS charged; purchases = ISR-corrected
+
+        const items = invoiceData.items || [];
+
+        // KPI: uses same formula as mapGestionoToInvoice — no ratio, full subTotal/taxes
         const serverToCharge = invoiceData.resume?.toCharge || 0;
         let salesTaxes = 0;
         let kpiToPay = 0;
-        (kpiData.items || []).forEach((inv) => {
+        items.forEach((inv) => {
           if (inv.isSell !== 0) {
             salesTaxes += inv.taxes || 0;
           } else {
             const isrRate = isrMap[inv.beneficiaryId] || 0;
-            let amount = inv.amount - inv.paid;
-            if (isrRate > 0) {
-              const ratio =
-                inv.amount > 0 ? (inv.amount - inv.paid) / inv.amount : 1;
-              const remainingSubTotal = inv.subTotal * ratio;
-              const remainingTaxes = inv.taxes * ratio;
-              if (isrRate >= 0.1 && isrRate < 0.3) {
-                const isrAmount = remainingSubTotal * isrRate;
-                const itbisRetenido = remainingTaxes;
-                amount =
-                  remainingSubTotal +
-                  remainingTaxes -
-                  itbisRetenido -
-                  isrAmount;
-              } else if (isrRate >= 0.3) {
-                const isrAmount = remainingTaxes * isrRate;
-                amount = remainingSubTotal + remainingTaxes - isrAmount;
-              } else {
-                const isrAmount = remainingSubTotal * isrRate;
-                amount = remainingSubTotal - isrAmount;
-              }
+            let amount = inv.subTotal + inv.taxes;
+            if (isrRate >= 0.1 && isrRate < 0.3) {
+              // ITBIS totalmente retenido + ISR sobre subtotal → subTotal * (1 - isrRate)
+              amount = inv.subTotal * (1 - isrRate);
+            } else if (isrRate >= 0.3) {
+              amount = inv.subTotal + inv.taxes - inv.taxes * isrRate;
+            } else if (isrRate > 0) {
+              amount = inv.subTotal - inv.subTotal * isrRate;
             }
             kpiToPay += amount;
           }
@@ -408,7 +363,6 @@ export function FinancesModule({
           toPay: kpiToPay,
         });
 
-        const items = invoiceData.items || [];
         setRawInvoices(items);
         setActiveTotalPages(invoiceData.totalPages || 1);
         setActiveTotalItems(invoiceData.totalItems || 0);
@@ -464,14 +418,12 @@ export function FinancesModule({
         const historyParams = new URLSearchParams({
           itemsPerPage: itemsPerPage.toString(),
           divisionId: String(projectId),
-          amountMethod: "ALL",
-          amount: "0",
           ignoreDetailedData: "false",
           state: "COMPLETED",
-          fromDate: historyFromDate,
-          toDate: historyToDate,
           page: String(historyPage),
         });
+        if (historyFromDate) historyParams.set("fromDate", historyFromDate);
+        if (historyToDate) historyParams.set("toDate", historyToDate);
 
         const cacheKey = `${projectId}-${refreshKey}-${refreshTrigger}`;
         const hasBeneficiaryCache =
@@ -512,6 +464,7 @@ export function FinancesModule({
         const items = historyData.items || [];
 
         setHistoryTotalPages(historyData.totalPages || 1);
+        setRawInvoices(items);
 
         const mapped = items.map((item) =>
           mapGestionoToInvoice(item, map, isrMap),
@@ -945,15 +898,6 @@ export function FinancesModule({
         const hasRetention = isPurchase && isrRate > 0;
 
         const category = recordWithElements.elements?.[0]?.comment || "";
-
-        console.log("📄 PDF Debug:", {
-          type: recordWithElements.type,
-          isSell: recordWithElements.isSell,
-          divisionId: recordWithElements.divisionId,
-          projectName,
-          category,
-        });
-
         // Check document type to determine which PDF generator to use
         if (recordWithElements.type === "INVOICE") {
           await generateInvoicePDF({

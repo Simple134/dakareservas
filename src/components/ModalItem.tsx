@@ -170,10 +170,7 @@ export const ModalItem = ({
         const errorData = await response.json();
         throw new Error(errorData.details || "Error al crear el item");
       }
-
-      const result = await response.json();
-      console.log("✅ Item creado exitosamente:", result);
-
+      await response.json();
       // Resetear el formulario y cerrar el modal
       reset();
       setShowNewItemModal(false);
