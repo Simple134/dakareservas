@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Search,
   Building2,
@@ -13,9 +13,54 @@ import {
   Trash2,
   AlertCircle,
   CreditCard,
+  Users,
+  Filter,
+  X,
 } from "lucide-react";
 import { GestionoBeneficiary } from "@/src/types/gestiono";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
+
+const BENEFICIARY_TYPES = [
+  { value: "all", label: "Todos" },
+  { value: "CLIENT", label: "Cliente" },
+  { value: "PROVIDER", label: "Proveedor" },
+  { value: "EMPLOYEE", label: "Empleado" },
+  { value: "SELLER", label: "Vendedor" },
+  { value: "ORGANIZATION", label: "Organización" },
+  { value: "GOVERNMENT", label: "Gobierno" },
+  { value: "BOTH", label: "Ambos" },
+  { value: "OTHER", label: "Otro" },
+];
+
+const CONTACT_TYPES = [
+  { value: "all", label: "Todos", icon: Users },
+  { value: "phone", label: "Teléfono", icon: Phone },
+  { value: "email", label: "Email", icon: Mail },
+  { value: "address", label: "Dirección", icon: MapPin },
+  { value: "website", label: "Sitio web", icon: Globe },
+];
+
+const TYPE_LABELS: Record<string, string> = {
+  CLIENT: "Cliente",
+  PROVIDER: "Proveedor",
+  EMPLOYEE: "Empleado",
+  SELLER: "Vendedor",
+  GOVERNMENT: "Gobierno",
+  ORGANIZATION: "Organización",
+  BOTH: "Ambos",
+  OTHER: "Otro",
+};
+
+const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  CLIENT: { bg: "bg-emerald-100", text: "text-emerald-700" },
+  PROVIDER: { bg: "bg-blue-100", text: "text-blue-700" },
+  EMPLOYEE: { bg: "bg-purple-100", text: "text-purple-700" },
+  SELLER: { bg: "bg-orange-100", text: "text-orange-700" },
+  GOVERNMENT: { bg: "bg-red-100", text: "text-red-700" },
+  ORGANIZATION: { bg: "bg-amber-100", text: "text-amber-700" },
+  BOTH: { bg: "bg-cyan-100", text: "text-cyan-700" },
+  OTHER: { bg: "bg-gray-100", text: "text-gray-600" },
+};
 
 const ContactsPage = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -25,16 +70,14 @@ const ContactsPage = () => {
   >([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedContactType, setSelectedContactType] = useState<string>("all");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteModalState, setDeleteModalState] = useState<{
     isOpen: boolean;
     beneficiaryId: number | null;
     beneficiaryName: string | null;
-  }>({
-    isOpen: false,
-    beneficiaryId: null,
-    beneficiaryName: null,
-  });
+  }>({ isOpen: false, beneficiaryId: null, beneficiaryName: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const [editBeneficiary, setEditBeneficiary] =
     useState<GestionoBeneficiary | null>(null);
@@ -46,17 +89,12 @@ const ContactsPage = () => {
         withContacts: "true",
         withTaxData: "false",
       });
-
       const response = await fetch(
         `/api/gestiono/beneficiaries?${params.toString()}`,
       );
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
       const data = await response.json();
-
       setContacts(data || []);
     } catch (error) {
       console.error("❌ Error obteniendo beneficiarios:", error);
@@ -69,74 +107,99 @@ const ContactsPage = () => {
     fetchGestionoBeneficiaries();
   }, []);
 
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set<string>();
+    contacts.forEach((c) =>
+      c.contacts
+        ?.filter((ct) => ct.type === "categoria" && ct.data?.trim())
+        .forEach((ct) => cats.add(ct.data.trim())),
+    );
+    return Array.from(cats).sort();
+  }, [contacts]);
+
   useEffect(() => {
     let filtered = [...contacts];
 
     if (selectedType !== "all") {
-      filtered = filtered.filter((contact) => contact.type === selectedType);
+      filtered = filtered.filter((c) => c.type === selectedType);
+    }
+
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter((c) =>
+        c.contacts?.some(
+          (ct) =>
+            ct.type === "categoria" && ct.data?.trim() === selectedCategory,
+        ),
+      );
+    }
+
+    if (selectedContactType !== "all") {
+      filtered = filtered.filter((c) =>
+        c.contacts?.some((contact) => contact.type === selectedContactType),
+      );
     }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        (contact) =>
-          contact.name.toLowerCase().includes(query) ||
-          contact.contacts
-            ?.find((c) => c.type === "phone" || c.type === "email")
-            ?.data?.toLowerCase()
-            .includes(query) ||
-          (contact.taxId && contact.taxId.includes(query)),
+        (c) =>
+          c.name.toLowerCase().includes(query) ||
+          c.contacts?.some((contact) =>
+            contact.data?.toLowerCase().includes(query),
+          ) ||
+          (c.taxId && c.taxId.includes(query)),
       );
     }
 
     setFilteredContacts(filtered);
-  }, [searchQuery, selectedType, contacts]);
+  }, [
+    searchQuery,
+    selectedType,
+    selectedCategory,
+    selectedContactType,
+    contacts,
+  ]);
 
-  const getStats = () => {
-    const total = contacts.length;
-    // Clientes: All types except ORGANIZATION and GOVERNMENT
-    const clients = contacts.filter(
+  const stats = {
+    total: contacts.length,
+    clients: contacts.filter(
       (c) => c.type !== "ORGANIZATION" && c.type !== "GOVERNMENT",
-    ).length;
-    // Organizaciones: Only ORGANIZATION and GOVERNMENT types
-    const organizations = contacts.filter(
+    ).length,
+    organizations: contacts.filter(
       (c) => c.type === "ORGANIZATION" || c.type === "GOVERNMENT",
-    ).length;
-
-    return { total, clients, organizations };
+    ).length,
   };
 
-  const stats = getStats();
+  const activeFilterCount =
+    (selectedType !== "all" ? 1 : 0) +
+    (selectedCategory !== "all" ? 1 : 0) +
+    (selectedContactType !== "all" ? 1 : 0) +
+    (searchQuery ? 1 : 0);
+
+  const clearFilters = () => {
+    setSelectedType("all");
+    setSelectedCategory("all");
+    setSelectedContactType("all");
+    setSearchQuery("");
+  };
 
   const handleDeleteClick = (
     beneficiaryId: number,
     beneficiaryName: string,
   ) => {
-    setDeleteModalState({
-      isOpen: true,
-      beneficiaryId,
-      beneficiaryName,
-    });
+    setDeleteModalState({ isOpen: true, beneficiaryId, beneficiaryName });
   };
 
   const handleDeleteConfirm = async () => {
     if (!deleteModalState.beneficiaryId) return;
-
     setIsDeleting(true);
     try {
       const response = await fetch("/api/gestiono/archiveBeneficiaries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: deleteModalState.beneficiaryId,
-        }),
+        body: JSON.stringify({ id: deleteModalState.beneficiaryId }),
       });
-
-      if (!response.ok) {
-        throw new Error("Error al archivar el contacto");
-      }
-
-      // Cerrar modal y refrescar lista
+      if (!response.ok) throw new Error("Error al archivar el contacto");
       setDeleteModalState({
         isOpen: false,
         beneficiaryId: null,
@@ -151,14 +214,6 @@ const ContactsPage = () => {
     }
   };
 
-  const handleDeleteCancel = () => {
-    setDeleteModalState({
-      isOpen: false,
-      beneficiaryId: null,
-      beneficiaryName: null,
-    });
-  };
-
   const handleContactClick = (contact: GestionoBeneficiary) => {
     setEditBeneficiary(contact);
     setIsModalOpen(true);
@@ -170,194 +225,329 @@ const ContactsPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen bg-gray-50">
       <div className="flex-1">
-        <div className="p-4 md:p-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-[#131E29] mb-1">
-                Contactos
-              </h1>
-              <p className="text-sm text-gray-500">
-                Gestiona clientes y organizaciones
+              <h1 className="text-2xl font-bold text-[#131E29]">Contactos</h1>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {isLoading
+                  ? "Cargando..."
+                  : `${stats.total} contactos registrados`}
               </p>
             </div>
             <button
-              style={{ borderRadius: "10px" }}
               onClick={() => setIsModalOpen(true)}
-              className="bg-[#07234B] text-white px-5 py-2.5 rounded-lg hover:bg-[#0a2d5c] transition-colors font-medium flex items-center gap-2 justify-center sm:w-auto"
+              className="bg-[#07234B] text-white px-5 py-2.5 rounded-xl hover:bg-[#0a2d5c] transition-colors font-medium flex items-center gap-2 justify-center sm:w-auto shadow-sm"
             >
-              <span className="text-lg">+</span>
+              <span className="text-lg leading-none">+</span>
               Nuevo Contacto
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Total</p>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
+                    Total
+                  </p>
                   <div className="text-3xl font-bold text-[#131E29]">
                     {isLoading ? (
-                      <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-9 w-12 bg-gray-100 rounded animate-pulse" />
                     ) : (
                       stats.total
                     )}
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-[#4F80FF]/10 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-[#4F80FF]" />
+                <div className="w-11 h-11 bg-[#07234B]/8 rounded-xl flex items-center justify-center">
+                  <Users className="w-5 h-5 text-[#07234B]" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Clientes</p>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
+                    Clientes
+                  </p>
                   <div className="text-3xl font-bold text-[#131E29]">
                     {isLoading ? (
-                      <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-9 w-12 bg-gray-100 rounded animate-pulse" />
                     ) : (
                       stats.clients
                     )}
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-[#10B981]/10 rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-[#10B981]" />
+                <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center">
+                  <User className="w-5 h-5 text-emerald-600" />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl p-6 border border-gray-200">
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Organizaciones</p>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
+                    Organizaciones
+                  </p>
                   <div className="text-3xl font-bold text-[#131E29]">
                     {isLoading ? (
-                      <div className="h-9 w-16 bg-gray-200 rounded animate-pulse" />
+                      <div className="h-9 w-12 bg-gray-100 rounded animate-pulse" />
                     ) : (
                       stats.organizations
                     )}
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-[#F59E0B]/10 rounded-full flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-[#F59E0B]" />
+                <div className="w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center">
+                  <Building2 className="w-5 h-5 text-amber-600" />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Search & Filters */}
-          <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-200 space-y-3">
+          {/* Filters */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6 space-y-4">
+            {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Buscar por nombre, email o RNC..."
+                placeholder="Buscar por nombre, email, teléfono o RNC..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4F80FF] focus:border-transparent"
+                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#07234B]/20 focus:border-[#07234B] transition-all"
               />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { value: "all", label: "Todos" },
-                { value: "CLIENT", label: "Cliente" },
-                { value: "PROVIDER", label: "Proveedor" },
-                { value: "EMPLOYEE", label: "Empleado" },
-                { value: "SELLER", label: "Vendedor" },
-                { value: "ORGANIZATION", label: "Organización" },
-                { value: "GOVERNMENT", label: "Gobierno" },
-              ].map(({ value, label }) => (
+              {searchQuery && (
                 <button
-                  key={value}
-                  onClick={() => setSelectedType(value)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    selectedType === value
-                      ? "bg-[#07234B] text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  {label}
-                  {value !== "all" && (
-                    <span className="ml-1 opacity-70">
-                      ({contacts.filter((c) => c.type === value).length})
-                    </span>
-                  )}
+                  <X className="w-4 h-4" />
                 </button>
-              ))}
+              )}
             </div>
+
+            {/* Beneficiary type filter */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                Rol
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {BENEFICIARY_TYPES.map(({ value, label }) => {
+                  const count =
+                    value === "all"
+                      ? contacts.length
+                      : contacts.filter((c) => c.type === value).length;
+                  if (value !== "all" && count === 0) return null;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setSelectedType(value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        selectedType === value
+                          ? "bg-[#07234B] text-white shadow-sm"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      {label}
+                      {value !== "all" && (
+                        <span
+                          className={`ml-1.5 ${selectedType === value ? "opacity-60" : "opacity-50"}`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Category filter — derived dynamically from contact entries with type="categoria" */}
+            {uniqueCategories.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Briefcase className="w-3 h-3" />
+                  Categoría
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSelectedCategory("all")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      selectedCategory === "all"
+                        ? "bg-[#07234B] text-white shadow-sm"
+                        : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {uniqueCategories.map((cat) => {
+                    const count = contacts.filter((c) =>
+                      c.contacts?.some(
+                        (ct) =>
+                          ct.type === "categoria" && ct.data?.trim() === cat,
+                      ),
+                    ).length;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          selectedCategory === cat
+                            ? "bg-[#07234B] text-white shadow-sm"
+                            : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                        }`}
+                      >
+                        {cat}
+                        <span
+                          className={`ml-1.5 ${selectedCategory === cat ? "opacity-60" : "opacity-50"}`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Contact method type filter */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Filter className="w-3 h-3" />
+                Tiene
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {CONTACT_TYPES.map(({ value, label, icon: Icon }) => {
+                  const count =
+                    value === "all"
+                      ? contacts.length
+                      : contacts.filter((c) =>
+                          c.contacts?.some((ct) => ct.type === value),
+                        ).length;
+                  if (value !== "all" && count === 0) return null;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setSelectedContactType(value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        selectedContactType === value
+                          ? "bg-[#07234B] text-white shadow-sm"
+                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
+                      }`}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {label}
+                      {value !== "all" && (
+                        <span
+                          className={`${selectedContactType === value ? "opacity-60" : "opacity-50"}`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Active filters bar */}
+            {activeFilterCount > 0 && (
+              <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                <p className="text-xs text-gray-500">
+                  <span className="font-semibold text-[#07234B]">
+                    {filteredContacts.length}
+                  </span>{" "}
+                  resultado{filteredContacts.length !== 1 ? "s" : ""} encontrado
+                  {filteredContacts.length !== 1 ? "s" : ""}
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-gray-500 hover:text-[#07234B] flex items-center gap-1 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                  Limpiar filtros ({activeFilterCount})
+                </button>
+              </div>
+            )}
           </div>
 
+          {/* Content */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(6)].map((_, i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 animate-pulse"
+                  className="bg-white rounded-2xl p-5 border border-gray-100 animate-pulse"
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-gray-200 rounded-lg" />
-                      <div className="space-y-2">
-                        <div className="h-4 w-32 bg-gray-200 rounded" />
-                        <div className="h-3 w-20 bg-gray-200 rounded" />
-                      </div>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-11 h-11 bg-gray-100 rounded-xl flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-gray-100 rounded" />
+                      <div className="h-3 w-1/3 bg-gray-100 rounded" />
                     </div>
-                    <div className="h-6 w-16 bg-gray-200 rounded-full" />
                   </div>
                   <div className="space-y-2.5">
-                    <div className="h-4 w-full bg-gray-200 rounded" />
-                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
-                    <div className="h-4 w-1/2 bg-gray-200 rounded" />
+                    <div className="h-3 w-full bg-gray-100 rounded" />
+                    <div className="h-3 w-2/3 bg-gray-100 rounded" />
                   </div>
                 </div>
               ))}
             </div>
           ) : filteredContacts.length === 0 ? (
-            <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
-              <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">
+            <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-gray-700 font-medium">
                 No se encontraron contactos
               </p>
-              <p className="text-gray-500 text-sm mt-2">
-                {searchQuery || selectedType !== "all"
-                  ? "Intenta con otra búsqueda o cambia el filtro"
+              <p className="text-gray-400 text-sm mt-1">
+                {activeFilterCount > 0
+                  ? "Intenta con otra búsqueda o limpia los filtros"
                   : "Agrega tu primer contacto"}
               </p>
+              {activeFilterCount > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="mt-4 text-sm text-[#07234B] hover:underline font-medium"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredContacts.map((contact, index) => {
                 const isOrganization =
                   contact.type === "ORGANIZATION" ||
                   contact.type === "GOVERNMENT";
+                const colors = TYPE_COLORS[contact.type] ?? TYPE_COLORS.OTHER;
 
-                // Collect distinct contact methods to display based on available data
+                const categoria = contact.contacts
+                  ?.find((c) => c.type === "categoria")
+                  ?.data?.trim();
+
                 const contactMethods: {
                   type: string;
                   value: string;
-                  icon: any;
+                  icon: typeof Phone;
                 }[] = [];
-
                 if (contact.contacts) {
                   contact.contacts.forEach((c) => {
-                    const cType = c.type as string;
-                    let Icon = Briefcase;
-                    if (cType === "phone") Icon = Phone;
-                    else if (cType === "email") Icon = Mail;
-                    else if (cType === "address") Icon = MapPin;
-                    else if (cType === "website") Icon = Globe;
-                    else if (
-                      cType === "banco" ||
-                      cType === "numero_cuenta" ||
-                      cType === "tipo_cuenta"
-                    )
-                      Icon = CreditCard;
-
+                    if (c.type === "categoria") return; // shown separately
+                    let Icon: typeof Phone = Briefcase as typeof Phone;
+                    if (c.type === "phone") Icon = Phone;
+                    else if (c.type === "email") Icon = Mail;
+                    else if (c.type === "address") Icon = MapPin;
+                    else if (c.type === "website") Icon = Globe;
                     contactMethods.push({
-                      type: cType.toUpperCase(),
+                      type: c.type.toUpperCase(),
                       value: c.data,
                       icon: Icon,
                     });
@@ -368,90 +558,73 @@ const ContactsPage = () => {
                   <div
                     key={contact.id || index}
                     onClick={() => handleContactClick(contact)}
-                    className="bg-white rounded-xl shadow-sm p-5 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                    className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all cursor-pointer group"
                   >
+                    {/* Card header */}
                     <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
                         <div
-                          className={`w-11 h-11 rounded-lg flex items-center justify-center ${
-                            isOrganization
-                              ? "bg-[#F59E0B]/10"
-                              : "bg-[#10B981]/10"
+                          className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            isOrganization ? "bg-amber-50" : "bg-emerald-50"
                           }`}
                         >
                           {isOrganization ? (
-                            <Building2 className="w-5 h-5 text-[#F59E0B]" />
+                            <Building2 className="w-5 h-5 text-amber-600" />
                           ) : (
-                            <User className="w-5 h-5 text-[#10B981]" />
+                            <User className="w-5 h-5 text-emerald-600" />
                           )}
                         </div>
-                        <div>
-                          <p className="font-semibold text-[#131E29] text-base leading-tight">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-[#131E29] text-sm leading-tight truncate">
                             {contact.name || "Sin Nombre"}
                           </p>
-                          <span
-                            className={`text-xs text-gray-500 mt-0.5 block ${isOrganization ? "bg-[#F59E0B]/10 text-[#F59E0B] w-fit p-1 rounded-full" : "bg-[#10B981]/10 text-[#10B981] w-fit p-1 rounded-full"}`}
-                          >
-                            {contact.type === "CLIENT"
-                              ? "Cliente"
-                              : contact.type === "PROVIDER"
-                                ? "Proveedor"
-                                : contact.type === "EMPLOYEE"
-                                  ? "Empleado"
-                                  : contact.type === "SELLER"
-                                    ? "Vendedor"
-                                    : contact.type === "GOVERNMENT"
-                                      ? "Gobierno"
-                                      : contact.type === "ORGANIZATION"
-                                        ? "Organización"
-                                        : contact.type}
-                          </span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span
+                              className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md ${colors.bg} ${colors.text}`}
+                            >
+                              {TYPE_LABELS[contact.type] ?? contact.type}
+                            </span>
+                            {categoria && (
+                              <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#07234B]/8 text-[#07234B]">
+                                {categoria}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 bg-[#22C55E]/10 text-[#22C55E] text-xs font-medium rounded-full">
-                          Activo
-                        </span>
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteClick(contact.id, contact.name);
                           }}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           title="Eliminar contacto"
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="space-y-2.5">
-                      {contact.reference && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <span className="font-medium text-xs bg-gray-100 px-2 py-0.5 rounded">
-                            Ref: {contact.reference}
-                          </span>
-                        </div>
-                      )}
-
+                    {/* Contact details */}
+                    <div className="space-y-2">
                       {contact.taxId && (
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                          <span>ID: {contact.taxId}</span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <CreditCard className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
+                          <span className="font-mono">{contact.taxId}</span>
                         </div>
                       )}
 
-                      {contactMethods.map((method, idx) => {
+                      {contactMethods.slice(0, 3).map((method, idx) => {
                         const Icon = method.icon;
                         const isAddress = method.type === "ADDRESS";
                         return (
                           <div
                             key={idx}
-                            className={`flex ${isAddress ? "items-start" : "items-center"} gap-2 text-sm text-gray-600`}
+                            className={`flex ${isAddress ? "items-start" : "items-center"} gap-2 text-xs text-gray-600`}
                           >
                             <Icon
-                              className={`w-4 h-4 text-gray-400 flex-shrink-0 ${isAddress ? "mt-0.5" : ""}`}
+                              className={`w-3.5 h-3.5 text-gray-300 flex-shrink-0 ${isAddress ? "mt-0.5" : ""}`}
                             />
                             <span
                               className={
@@ -463,13 +636,44 @@ const ContactsPage = () => {
                           </div>
                         );
                       })}
+
+                      {contactMethods.length > 3 && (
+                        <p className="text-[10px] text-gray-400 pl-5.5">
+                          +{contactMethods.length - 3} más
+                        </p>
+                      )}
                     </div>
+
+                    {/* Contact type pills at bottom */}
+                    {contactMethods.length > 0 && (
+                      <div className="flex gap-1 mt-3 pt-3 border-t border-gray-50 flex-wrap">
+                        {Array.from(
+                          new Set(contactMethods.map((m) => m.type)),
+                        ).map((type) => (
+                          <span
+                            key={type}
+                            className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 uppercase tracking-wide"
+                          >
+                            {type === "PHONE"
+                              ? "Tel"
+                              : type === "EMAIL"
+                                ? "Email"
+                                : type === "ADDRESS"
+                                  ? "Dir"
+                                  : type === "WEBSITE"
+                                    ? "Web"
+                                    : type}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           )}
         </div>
+
         <AddBeneficiaryModal
           isOpen={isModalOpen}
           onClose={handleModalClose}
@@ -480,7 +684,7 @@ const ContactsPage = () => {
                   name: editBeneficiary.name,
                   type: editBeneficiary.type,
                   contact: editBeneficiary.contacts?.map((c) => ({
-                    id: c.id, // ✅ IMPORTANTE: Incluir el ID del contacto
+                    id: c.id,
                     type: c.type,
                     data: c.data,
                     dataType: c.dataType as
@@ -489,7 +693,7 @@ const ContactsPage = () => {
                       | "image"
                       | "date"
                       | undefined,
-                    beneficiaryId: c.beneficiaryId, // También incluir beneficiaryId
+                    beneficiaryId: c.beneficiaryId,
                   })) || [{ type: "phone", data: "", dataType: "string" }],
                   taxId: editBeneficiary.taxId || undefined,
                   reference: editBeneficiary.reference || undefined,
@@ -507,35 +711,43 @@ const ContactsPage = () => {
 
         {/* Delete Confirmation Modal */}
         {deleteModalState.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 bg-red-100 rounded-full">
-                  <AlertCircle className="w-6 h-6 text-red-600" />
+                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-500" />
                 </div>
-                <h3 className="text-xl font-semibold">Confirmar Eliminación</h3>
+                <h3 className="text-base font-semibold text-[#131E29]">
+                  Confirmar eliminación
+                </h3>
               </div>
-              <p className="text-gray-600 mb-6">
-                ¿Estás seguro que quieres eliminar el contacto{" "}
-                <span className="font-semibold">
+              <p className="text-sm text-gray-600 mb-6">
+                ¿Seguro que quieres archivar a{" "}
+                <span className="font-semibold text-[#131E29]">
                   {deleteModalState.beneficiaryName}
                 </span>
-                ? Este contacto será archivado y no aparecerá en la lista.
+                ? No aparecerá más en la lista.
               </p>
-              <div className="flex gap-3 justify-end">
+              <div className="flex gap-2 justify-end">
                 <button
-                  onClick={handleDeleteCancel}
+                  onClick={() =>
+                    setDeleteModalState({
+                      isOpen: false,
+                      beneficiaryId: null,
+                      beneficiaryName: null,
+                    })
+                  }
                   disabled={isDeleting}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
                   disabled={isDeleting}
-                  className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-xl transition-colors disabled:opacity-50"
                 >
-                  {isDeleting ? "Eliminando..." : "Eliminar"}
+                  {isDeleting ? "Archivando..." : "Archivar"}
                 </button>
               </div>
             </div>

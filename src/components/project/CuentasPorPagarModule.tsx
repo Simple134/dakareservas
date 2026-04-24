@@ -25,6 +25,7 @@ interface CuentaRow {
   fecha: string;
   descripcion: string;
   itbis: number;
+  isrRetenido: number;
   montoTotal: number;
   montoAplicado: number;
   balancePendiente: number;
@@ -50,8 +51,9 @@ function mapRow(item: GestionoInvoiceItem): CuentaRow {
     descripcion:
       item.elements?.[0]?.comment || item.description || "Sin descripción",
     itbis: item.taxes || 0,
-    montoTotal: item.subTotal,
-    montoAplicado: item.paid || 0,
+    isrRetenido: item.isrTaxRetention || 0,
+    montoTotal: item.amount,
+    montoAplicado: item.payments?.reduce((sum, p) => sum + p.amount, 0) ?? 0,
     balancePendiente: item.dueToPay || 0,
   };
 }
@@ -122,10 +124,16 @@ export function CuentasPorPagarModule({
       allRows.reduce(
         (acc, r) => ({
           montoTotal: acc.montoTotal + r.montoTotal,
+          isrRetenido: acc.isrRetenido + r.isrRetenido,
           montoAplicado: acc.montoAplicado + r.montoAplicado,
           balancePendiente: acc.balancePendiente + r.balancePendiente,
         }),
-        { montoTotal: 0, montoAplicado: 0, balancePendiente: 0 },
+        {
+          montoTotal: 0,
+          isrRetenido: 0,
+          montoAplicado: 0,
+          balancePendiente: 0,
+        },
       ),
     [allRows],
   );
@@ -311,6 +319,9 @@ export function CuentasPorPagarModule({
                       ITBIS
                     </th>
                     <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
+                      ISR Retenido
+                    </th>
+                    <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
                       Monto Total
                     </th>
                     <th className="text-right py-3 px-5 font-semibold text-gray-600 text-xs uppercase tracking-wide whitespace-nowrap">
@@ -335,6 +346,15 @@ export function CuentasPorPagarModule({
                       </td>
                       <td className="py-3 px-5 text-right text-gray-700 whitespace-nowrap">
                         {formatCurrency(row.itbis)}
+                      </td>
+                      <td className="py-3 px-5 text-right whitespace-nowrap">
+                        {row.isrRetenido > 0 ? (
+                          <span className="text-red-600 font-medium">
+                            {formatCurrency(row.isrRetenido)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="py-3 px-5 text-right text-gray-700 whitespace-nowrap">
                         {formatCurrency(row.montoTotal)}

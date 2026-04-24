@@ -307,7 +307,15 @@ export interface GestionoBeneficiaryPayload {
 export interface BeneficiaryContactResponse {
   id: number;
   beneficiaryId: number;
-  type: "phone" | "email" | "address" | "website";
+  type:
+    | "phone"
+    | "email"
+    | "address"
+    | "website"
+    | "banco"
+    | "numero_cuenta"
+    | "tipo_cuenta"
+    | "categoria";
   data: string;
   dataType: "string";
   createdAt: string;
@@ -529,6 +537,7 @@ export interface GestionoInvoiceItem {
   organizationId: number;
   paid: number;
   dueToPay: number;
+  isrTaxRetention?: number;
   elements?: PendingRecordElement[];
   payments?: PaymentRecord[];
   clientdata?: Record<string, unknown> | string;

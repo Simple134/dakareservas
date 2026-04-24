@@ -1187,13 +1187,15 @@ export function EditInvoiceDialog({
                       {formatCurrency(total)}
                     </span>
                   </div>
-                  {record.paid > 0 && (
+                  {record.payments && record.payments.length > 0 && (
                     <div className="flex justify-between mt-2">
                       <span className="text-sm font-medium text-green-600">
                         Total Pagado:
                       </span>
                       <span className="text-sm font-medium text-green-600">
-                        {formatCurrency(record.paid)}
+                        {formatCurrency(
+                          record.payments.reduce((sum, p) => sum + p.amount, 0),
+                        )}
                       </span>
                     </div>
                   )}
