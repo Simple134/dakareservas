@@ -3,8 +3,9 @@
 import { ReactNode, useState, useEffect } from "react";
 import { AppSidebar } from "@/src/components/AppSidebar";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Building2 } from "lucide-react";
+import { Menu, Building2, Loader2 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
+import { PAYMENT_GATED } from "@/src/config/paymentGate";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -80,7 +81,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       />
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">{children}</main>
+      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
+        {PAYMENT_GATED ? (
+          <div className="flex items-center justify-center h-screen">
+            <Loader2 className="w-8 h-8 animate-spin text-[#A9780F]" />
+          </div>
+        ) : (
+          children
+        )}
+      </main>
     </div>
   );
 }

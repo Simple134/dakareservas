@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { SidebarPayment } from "@/src/components/Sidebar";
 import { sendPaymentNotificationAction } from "@/src/actions/send-payment-notification";
 import { useParams } from "next/navigation";
+import { PAYMENT_GATED } from "@/src/config/paymentGate";
 
 type DashboardData = {
   userName: string;
@@ -31,6 +32,7 @@ export default function UserPage() {
     useState<string | null>(null);
 
   useEffect(() => {
+    if (PAYMENT_GATED) return;
     if (!user || !profileId) {
       setDataLoading(false);
       return;

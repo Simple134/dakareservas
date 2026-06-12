@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { GestionoDivision } from "@/src/types/gestiono";
 import { V2GetPendingRecordsResponse } from "@/src/types/gestiono";
+import { PAYMENT_GATED } from "@/src/config/paymentGate";
 
 interface GestionoContextProps {
   divisions: GestionoDivision[];
@@ -30,6 +31,7 @@ export const GestionoProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchDivisions = async () => {
+    if (PAYMENT_GATED) return;
     setIsLoading(true);
     setError(null);
     try {
