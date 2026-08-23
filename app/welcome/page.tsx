@@ -24,7 +24,7 @@ export default function WelcomePage() {
           borderBottomRightRadius: step === "explanation" ? "20px" : "0px",
         }}
         transition={{ duration: 0.8, ease: "easeInOut" }}
-        className="absolute top-0 left-0 w-full bg-[#081845] z-0"
+        className="absolute top-0 left-0 w-full bg-ink z-0"
       />
 
       {/* Main Content Container */}
@@ -55,7 +55,7 @@ export default function WelcomePage() {
               <div className="w-full flex flex-col items-center space-y-6">
                 <button
                   onClick={() => setStep("explanation")}
-                  className="bg-[#C8A31D] w-full text-white font-semibold py-4 px-8 rounded-2xl"
+                  className="bg-gold w-full text-white font-semibold py-4 px-8 rounded-2xl"
                   style={{ borderRadius: "20px" }}
                 >
                   <span>Ir al Sistema</span>
@@ -110,7 +110,7 @@ export default function WelcomePage() {
               >
                 <Link
                   href="/formulario"
-                  className="group w-full bg-[#C8A31D] text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
+                  className="group w-full bg-gold text-white font-semibold py-4 px-8 rounded-2xl transition-all duration-300 transform active:scale-95 flex items-center justify-center space-x-2 shadow-[0_8px_30px_rgb(169,120,15,0.3)]"
                 >
                   <span>Continuar</span>
                 </Link>

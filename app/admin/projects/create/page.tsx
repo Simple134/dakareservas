@@ -3,12 +3,9 @@ import { ArrowLeft, Upload, Plus, X, FileCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, DragEvent } from "react";
 
-import {
-  GestionoDivisionPayload,
-  GestionoBeneficiary,
-} from "@/src/types/gestiono";
+import { DivisionPayload, Beneficiary } from "@/src/types/erp";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
-import { useGestiono } from "@/src/context/Gestiono";
+import { useErp } from "@/src/context/ErpContext";
 
 interface BudgetCategory {
   id: string;
@@ -19,15 +16,15 @@ interface BudgetCategory {
 
 const CreateProject = () => {
   const router = useRouter();
-  const { refreshDivisions } = useGestiono();
+  const { refreshDivisions } = useErp();
   const [loading, setLoading] = useState(false);
-  const [clients, setClients] = useState<GestionoBeneficiary[]>([]);
+  const [clients, setClients] = useState<Beneficiary[]>([]);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
 
   const fetchClients = async () => {
     try {
       const response = await fetch(
-        "/api/gestiono/beneficiaries?withContacts=true&withTaxData=false",
+        "/api/erp/beneficiaries?withContacts=true&withTaxData=false",
       );
       if (response.ok) {
         const data = await response.json();
@@ -205,7 +202,7 @@ const CreateProject = () => {
     setLoading(true);
 
     try {
-      const payload: GestionoDivisionPayload = {
+      const payload: DivisionPayload = {
         name: projectName,
         type: "PROJECT",
         subDivisionOf: 183,
@@ -224,7 +221,7 @@ const CreateProject = () => {
         },
       };
 
-      const response = await fetch("/api/gestiono/divisions", {
+      const response = await fetch("/api/erp/divisions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -255,12 +252,12 @@ const CreateProject = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white p-8">
+    <div className="min-h-screen bg-paper p-8">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-2 text-ink-2 hover:text-ink transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span className="text-sm">Volver</span>
@@ -268,25 +265,23 @@ const CreateProject = () => {
         </div>
 
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Crear Nuevo Proyecto
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-3xl font-bold text-ink">Crear Nuevo Proyecto</h1>
+          <p className="text-sm text-ink-2 mt-1">
             Complete la información básica del proyecto
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-paper border border-rule rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-ink">
                 Información del Proyecto
               </h2>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Nombre del Proyecto *
                 </label>
                 <input
@@ -294,19 +289,19 @@ const CreateProject = () => {
                   placeholder="Ej: Casa Familiar Los Jardines"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-900">
+                  <label className="block text-sm font-medium text-ink">
                     Cliente *
                   </label>
                   <button
                     type="button"
                     onClick={() => setIsClientModalOpen(true)}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors"
+                    className="text-xs text-info hover:text-info font-medium flex items-center gap-1 transition-colors"
                   >
                     <Plus className="w-3 h-3" />
                     Añadir nuevo Cliente
@@ -315,7 +310,7 @@ const CreateProject = () => {
                 <select
                   value={client}
                   onChange={(e) => setClient(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 >
                   <option value="">Seleccione un cliente</option>
                   {clients.map((c) => (
@@ -327,7 +322,7 @@ const CreateProject = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Ubicación
                 </label>
                 <input
@@ -335,18 +330,18 @@ const CreateProject = () => {
                   placeholder="Santiago, República Dominicana"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Estado Inicial
                 </label>
                 <select
                   value={initialStatus}
                   onChange={(e) => setInitialStatus(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 >
                   <option value="Planificación">Planificación</option>
                   <option value="Ejecución">Ejecución</option>
@@ -355,13 +350,13 @@ const CreateProject = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Tipo de Proyecto
                 </label>
                 <select
                   value={projectType}
                   onChange={(e) => setProjectType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 >
                   <option value="Residencial">Residencial</option>
                   <option value="Comercial">Comercial</option>
@@ -371,13 +366,13 @@ const CreateProject = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Categoría de Permisología
                 </label>
                 <select
                   value={permissionCategory}
                   onChange={(e) => setPermissionCategory(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 >
                   <option value="Mayor">Mayor</option>
                   <option value="Menor">Menor</option>
@@ -387,16 +382,16 @@ const CreateProject = () => {
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-paper border border-rule rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-ink">
                 Presupuesto y Cronograma
               </h2>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Presupuesto Total (RD$) *
                 </label>
                 <input
@@ -415,55 +410,55 @@ const CreateProject = () => {
                     }
                     setTotalBudget(val);
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Fecha de Inicio
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-ink mb-2">
                   Fecha de Finalización
                 </label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                  className="w-full px-4 py-2 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent"
                 />
               </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-paper border border-rule rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-ink">
               Documento de Presupuesto
             </h2>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">
+            <label className="block text-sm font-medium text-ink mb-2">
               Subir Documento de Presupuesto
             </label>
             <div
               className={`relative border-2 border-dashed rounded-xl p-10 text-center transition-all duration-300 cursor-pointer ${
                 isDragging
-                  ? "border-[#07234B] bg-gradient-to-br from-blue-50 to-indigo-50 scale-[1.02] shadow-lg"
+                  ? "border-ink bg-gradient-to-br from-paper-2 to-paper-3 scale-[1.02] shadow-lg"
                   : budgetDocument
-                    ? "border-green-500 bg-green-50 shadow-md"
-                    : "border-gray-300 hover:border-[#224397] hover:bg-gray-50"
+                    ? "border-success bg-success-soft shadow-md"
+                    : "border-rule-strong hover:border-info hover:bg-paper-2"
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -481,20 +476,20 @@ const CreateProject = () => {
                   // File uploaded state
                   <div className="space-y-3 animate-fade-in">
                     <div className="relative inline-block">
-                      <FileCheck className="w-12 h-12 text-green-600 mx-auto animate-bounce" />
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                      <FileCheck className="w-12 h-12 text-success mx-auto animate-bounce" />
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-success rounded-full flex items-center justify-center">
                         <span className="text-white text-xs font-bold">✓</span>
                       </div>
                     </div>
                     <div>
-                      <p className="text-lg font-semibold text-green-700 mb-1">
+                      <p className="text-lg font-semibold text-success mb-1">
                         ¡Archivo cargado exitosamente!
                       </p>
-                      <p className="text-sm text-gray-700 font-medium bg-white px-4 py-2 rounded-lg inline-block shadow-sm">
+                      <p className="text-sm text-ink-2 font-medium bg-paper px-4 py-2 rounded-lg inline-block shadow-sm">
                         📄 {budgetDocument.name}
                       </p>
                       {budgetDocument.name.endsWith(".csv") && (
-                        <p className="text-xs text-green-600 mt-2 font-medium">
+                        <p className="text-xs text-success mt-2 font-medium">
                           ✨ Tabla actualizada automáticamente
                         </p>
                       )}
@@ -504,7 +499,7 @@ const CreateProject = () => {
                         e.preventDefault();
                         setBudgetDocument(null);
                       }}
-                      className="mt-2 text-sm text-gray-600 hover:text-red-600 underline transition-colors"
+                      className="mt-2 text-sm text-ink-2 hover:text-danger underline transition-colors"
                     >
                       Cambiar archivo
                     </button>
@@ -512,12 +507,12 @@ const CreateProject = () => {
                 ) : isDragging ? (
                   // Dragging state
                   <div className="space-y-3 animate-pulse">
-                    <Upload className="w-12 h-12 text-[#07234B] mx-auto animate-bounce" />
+                    <Upload className="w-12 h-12 text-ink mx-auto animate-bounce" />
                     <div>
-                      <p className="text-lg font-bold text-[#07234B]">
+                      <p className="text-lg font-bold text-ink">
                         ¡Suelta el archivo aquí! 🎯
                       </p>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-ink-2 mt-1">
                         Archivo listo para cargar
                       </p>
                     </div>
@@ -526,16 +521,16 @@ const CreateProject = () => {
                   // Default state
                   <div className="space-y-3">
                     <div className="relative inline-block">
-                      <Upload className="w-12 h-12 text-gray-400 mx-auto transition-transform hover:scale-110" />
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[#07234B] rounded-full flex items-center justify-center">
+                      <Upload className="w-12 h-12 text-ink-3 mx-auto transition-transform hover:scale-110" />
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-ink rounded-full flex items-center justify-center">
                         <Plus className="w-4 h-4 text-white" />
                       </div>
                     </div>
                     <div>
-                      <p className="text-base font-semibold text-gray-700">
+                      <p className="text-base font-semibold text-ink-2">
                         Haga clic para subir o arrastre el archivo aquí
                       </p>
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-ink-3 mt-1">
                         PDF, Excel, Word, CSV (máx. 10MB)
                       </p>
                     </div>
@@ -544,11 +539,11 @@ const CreateProject = () => {
               </label>
             </div>
             <div className="mt-3 flex items-center justify-center gap-2 text-sm">
-              <span className="text-gray-600">¿No tienes un formato?</span>
+              <span className="text-ink-2">¿No tienes un formato?</span>
               <a
                 href="/templates/presupuesto_ejemplo.csv"
                 download="presupuesto_ejemplo.csv"
-                className="text-[#07234B] hover:text-[#0a2d5f] font-medium underline flex items-center gap-1"
+                className="text-ink hover:text-ink font-medium underline flex items-center gap-1"
               >
                 📥 Descargar plantilla CSV de ejemplo
               </a>
@@ -556,19 +551,19 @@ const CreateProject = () => {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="bg-paper border border-rule rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-ink">
               Distribución del Presupuesto por Categorías
             </h2>
           </div>
-          <p className="text-sm text-gray-600 mb-4">
+          <p className="text-sm text-ink-2 mb-4">
             Asigne el consumo del presupuesto por categorías (Total:{" "}
             {totalPercentage.toFixed(1)}%)
           </p>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-gray-700 pb-2 border-b">
+            <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-ink-2 pb-2 border-b">
               <div className="col-span-4">Categoría</div>
               <div className="col-span-3 text-center">%</div>
               <div className="col-span-4 text-center">RD$</div>
@@ -593,7 +588,7 @@ const CreateProject = () => {
                         ),
                       )
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-rule-strong rounded-lg text-sm focus:ring-2 focus:ring-ink focus:border-transparent"
                   />
                 </div>
                 <div className="col-span-3">
@@ -607,7 +602,7 @@ const CreateProject = () => {
                       )
                     }
                     placeholder="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-rule-strong rounded-lg text-sm text-center focus:ring-2 focus:ring-ink focus:border-transparent"
                   />
                 </div>
                 <div className="col-span-4">
@@ -621,13 +616,13 @@ const CreateProject = () => {
                       )
                     }
                     placeholder="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-rule-strong rounded-lg text-sm text-center focus:ring-2 focus:ring-ink focus:border-transparent"
                   />
                 </div>
                 <div className="col-span-1 flex justify-center">
                   <button
                     onClick={() => removeCategory(category.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors"
+                    className="text-ink-3 hover:text-danger transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -637,7 +632,7 @@ const CreateProject = () => {
 
             <button
               onClick={addCategory}
-              className="w-full py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-[#07234B] hover:text-[#07234B] transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2 border border-dashed border-rule-strong rounded-lg text-sm text-ink-2 hover:border-ink hover:text-ink transition-colors flex items-center justify-center gap-2"
             >
               <Plus className="w-4 h-4" />
               Agregar Categoría
@@ -645,8 +640,8 @@ const CreateProject = () => {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-paper border border-rule rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-ink mb-4">
             Descripción del Proyecto
           </h2>
           <textarea
@@ -654,20 +649,20 @@ const CreateProject = () => {
             onChange={(e) => setProjectDescription(e.target.value)}
             placeholder="Descripción detallada del proyecto, alcance, especificaciones técnicas..."
             rows={6}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent resize-none"
+            className="w-full px-4 py-3 border border-rule-strong rounded-lg focus:ring-2 focus:ring-ink focus:border-transparent resize-none"
           />
         </div>
 
         <div className="flex justify-end gap-3 pt-4">
           <button
             onClick={() => router.back()}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="px-6 py-2 border border-rule-strong rounded-lg text-ink-2 hover:bg-paper-2 transition-colors"
           >
             Cancelar
           </button>
           <button
             onClick={handleCreateProject}
-            className="px-6 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5f] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 bg-ink text-white rounded-lg hover:bg-ink transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
           >
             <span>{loading ? "⏳" : "📋"}</span>

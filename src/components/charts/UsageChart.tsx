@@ -10,6 +10,7 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
+import { alpha, chart } from "@/src/lib/chartColors";
 
 ChartJS.register(
   CategoryScale,
@@ -33,8 +34,8 @@ export const UsageChart = ({ items }: UsageChartProps) => {
       {
         label: "Usos",
         data: items.map((item) => item.usageCount),
-        backgroundColor: "rgba(34, 197, 94, 0.8)", // green-500
-        borderColor: "rgb(34, 197, 94)",
+        backgroundColor: alpha(chart.gold, 0.85),
+        borderColor: chart.gold,
         borderWidth: 1,
       },
     ],

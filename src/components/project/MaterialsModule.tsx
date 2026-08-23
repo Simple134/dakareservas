@@ -71,14 +71,14 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
   const getDeliveryIcon = (status: string | null) => {
     switch (status) {
       case "delivered":
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return <CheckCircle className="w-4 h-4 text-success" />;
       case "ordered":
       case "pending":
-        return <AlertCircle className="w-4 h-4 text-yellow-600" />;
+        return <AlertCircle className="w-4 h-4 text-warning" />;
       case "in_transit":
-        return <Truck className="w-4 h-4 text-blue-600" />;
+        return <Truck className="w-4 h-4 text-info" />;
       default:
-        return <Package className="w-4 h-4 text-gray-600" />;
+        return <Package className="w-4 h-4 text-ink-2" />;
     }
   };
 
@@ -112,7 +112,7 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <Package className="w-8 h-8 text-blue-600" />
+              <Package className="w-8 h-8 text-info" />
               <div>
                 <p className="text-sm text-muted-foreground">Total Gastado</p>
                 <p className="text-2xl font-bold">
@@ -126,7 +126,7 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+              <CheckCircle className="w-8 h-8 text-success" />
               <div>
                 <p className="text-sm text-muted-foreground">Entregados</p>
                 <p className="text-2xl font-bold">{deliveredCount}</p>
@@ -138,7 +138,7 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <AlertCircle className="w-8 h-8 text-yellow-600" />
+              <AlertCircle className="w-8 h-8 text-warning" />
               <div>
                 <p className="text-sm text-muted-foreground">Pendientes</p>
                 <p className="text-2xl font-bold">{pendingCount}</p>
@@ -150,7 +150,7 @@ export function MaterialsModule({ projectId }: MaterialsModuleProps) {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
-              <Truck className="w-8 h-8 text-purple-600" />
+              <Truck className="w-8 h-8 text-info" />
               <div>
                 <p className="text-sm text-muted-foreground">Proveedores</p>
                 <p className="text-2xl font-bold">

@@ -50,12 +50,12 @@ export default function AlertModal({
       case "warning":
         return "bg-orange-600 hover:bg-orange-700";
       default:
-        return "bg-[#A9780F] hover:bg-[#8e650c]";
+        return "bg-gold hover:bg-gold-strong";
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[60]  flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity">
+    <div className="fixed inset-0 z-[60]  flex items-center justify-center p-4 bg-[oklch(21%_0.021_250_/_0.45)] backdrop-blur-[2px] transition-opacity">
       <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full transform transition-all scale-100 p-6 relative animate-in fade-in zoom-in duration-200">
         <button
           onClick={onClose}

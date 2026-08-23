@@ -39,7 +39,7 @@ export const CustomSelect = ({
     <div className="relative w-64" ref={ref}>
       <div
         onClick={() => setIsOpen(!isOpen)}
-        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer border-gray-200"
+        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-paper px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer border-rule"
       >
         <div className="flex items-center gap-2">
           {selectedOption?.icon && <selectedOption.icon className="w-4 h-4" />}
@@ -48,7 +48,7 @@ export const CustomSelect = ({
         <ChevronDown className="h-4 w-4 opacity-50" />
       </div>
       {isOpen && (
-        <div className="absolute z-50 mt-1 max-h-96 w-full overflow-auto rounded-md border bg-white text-popover-foreground shadow-md animate-in fade-in-80">
+        <div className="absolute z-50 mt-1 max-h-96 w-full overflow-auto rounded-md border bg-paper text-popover-foreground shadow-md animate-in fade-in-80">
           <div className="p-1">
             {options.map((option) => {
               const Icon = option.icon;
@@ -59,7 +59,7 @@ export const CustomSelect = ({
                     onChange(option.value);
                     setIsOpen(false);
                   }}
-                  className={`relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-2 text-sm outline-none hover:bg-gray-100 ${value === option.value ? "bg-gray-100 font-medium" : ""}`}
+                  className={`relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 pl-2 pr-2 text-sm outline-none hover:bg-paper-3 ${value === option.value ? "bg-paper-3 font-medium" : ""}`}
                 >
                   <div className="flex items-center gap-2 w-full">
                     {Icon && <Icon className="w-4 h-4" />}

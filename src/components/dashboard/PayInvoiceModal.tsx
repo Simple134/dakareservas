@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
-  X,
   DollarSign,
   CreditCard,
   Banknote,
   Building2,
   Upload,
 } from "lucide-react";
+import { Modal } from "@/src/components/ui/modal";
+import { Button } from "@/src/components/ui/button";
 
 interface PayInvoiceModalProps {
   isOpen: boolean;
@@ -92,7 +93,7 @@ export function PayInvoiceModal({
         const formData = new FormData();
         formData.append("file", selectedFile);
 
-        const uploadRes = await fetch("/api/gestiono/uploadFile", {
+        const uploadRes = await fetch("/api/erp/uploadFile", {
           method: "POST",
           body: formData,
         });
@@ -126,16 +127,13 @@ export function PayInvoiceModal({
         metadata,
       };
 
-      const response = await fetch(
-        `/api/gestiono/pendingRecord/pay/${invoice.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
+      const response = await fetch(`/api/erp/pendingRecord/pay/${invoice.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify(payload),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -177,244 +175,225 @@ export function PayInvoiceModal({
     }
   };
 
+  const FORM_ID = "registrar-pago";
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b z-10 border-gray-200 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size="md"
+      busy={isSubmitting}
+      title="Registrar pago"
+      description={`${invoice.invoiceNumber} · ${
+        invoice.type === "sale" ? "cobro al cliente" : "pago al proveedor"
+      }`}
+      footer={
+        <>
+          {submitError && (
+            <p
+              role="alert"
+              className="mr-auto text-[0.75rem] text-danger sm:max-w-xs"
+            >
+              {submitError}
+            </p>
+          )}
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            Registrar pago
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={FORM_ID}
+        onSubmit={handleSubmit(onSubmit)}
+        className="space-y-5"
+      >
+        {/* Invoice Summary */}
+        <div className="bg-paper-2 border border-rule rounded-lg p-4">
+          <h3 className="text-sm font-medium text-ink-2 mb-3">
+            Resumen de la Factura
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-ink-2">
+                {invoice.type === "sale" ? "Cliente" : "Proveedor"}
+              </p>
+              <p className="text-sm font-medium text-ink">
+                {invoice.type === "sale"
+                  ? invoice.clientName
+                  : invoice.supplierName}
+              </p>
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Procesar Pago
-              </h2>
-              <p className="text-sm text-gray-600">{invoice.invoiceNumber}</p>
+              <p className="text-xs text-ink-2">Monto Total</p>
+              <p className="text-sm font-medium text-ink">
+                {formatCurrency(invoice.amount)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-ink-2">Monto Pagado</p>
+              <p className="text-sm font-medium text-ink">
+                {formatCurrency(invoice.paid)}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-ink-2">Monto Pendiente</p>
+              <p className="text-sm font-medium text-success">
+                {formatCurrency(invoice.dueToPay)}
+              </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Error Message */}
-        {submitError && (
-          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-start gap-2">
-              <span className="text-red-600 text-xl">❌</span>
-              <div>
-                <p className="text-sm font-medium text-red-800">Error</p>
-                <p className="text-sm text-red-600 mt-1">{submitError}</p>
+        {/* Payment Method */}
+        <div>
+          <label className="block text-sm font-medium text-ink-2 mb-2">
+            Método de Pago *
+          </label>
+          <div className="grid grid-cols-3 gap-3 z-0">
+            {(["CASH", "TRANSFER", "CARD"] as const).map((method) => (
+              <label
+                key={method}
+                className={`relative flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                  selectedMethod === method
+                    ? "border-info bg-info-soft"
+                    : "border-rule hover:border-rule-strong"
+                }`}
+              >
+                <input
+                  type="radio"
+                  value={method}
+                  {...register("paymentMethod", { required: true })}
+                  className="sr-only"
+                />
+                {getPaymentMethodIcon(method)}
+                <span className="text-sm font-medium">
+                  {method === "CASH"
+                    ? "Efectivo"
+                    : method === "TRANSFER"
+                      ? "Transferencia"
+                      : "Tarjeta"}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* File Upload for Transfer/Card */}
+        {(selectedMethod === "TRANSFER" || selectedMethod === "CARD") && (
+          <div>
+            <label className="block text-sm font-medium text-ink-2 mb-1.5">
+              Comprobante de Pago
+            </label>
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-rule-strong border-dashed rounded-lg cursor-pointer bg-paper-2 hover:bg-paper-3 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <Upload className="w-8 h-8 text-ink-3 mb-2" />
+                <p className="text-sm text-ink-3">
+                  {selectedFile
+                    ? selectedFile.name
+                    : "Click para subir comprobante"}
+                </p>
               </div>
-            </div>
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setSelectedFile(e.target.files[0]);
+                  }
+                }}
+                accept="image/*,application/pdf"
+              />
+            </label>
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-          {/* Invoice Summary */}
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
-              Resumen de la Factura
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-gray-600">
-                  {invoice.type === "sale" ? "Cliente" : "Proveedor"}
-                </p>
-                <p className="text-sm font-medium text-gray-900">
-                  {invoice.type === "sale"
-                    ? invoice.clientName
-                    : invoice.supplierName}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Monto Total</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {formatCurrency(invoice.amount)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Monto Pagado</p>
-                <p className="text-sm font-medium text-gray-900">
-                  {formatCurrency(invoice.paid)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-600">Monto Pendiente</p>
-                <p className="text-sm font-medium text-green-600">
-                  {formatCurrency(invoice.dueToPay)}
-                </p>
-              </div>
+        {/* Amount */}
+        <div>
+          <label className="block text-sm font-medium text-ink-2 mb-1.5">
+            Monto a Pagar *
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-ink-3">RD$</span>
             </div>
-          </div>
-
-          {/* Payment Method */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Método de Pago *
-            </label>
-            <div className="grid grid-cols-3 gap-3 z-0">
-              {(["CASH", "TRANSFER", "CARD"] as const).map((method) => (
-                <label
-                  key={method}
-                  className={`relative flex items-center justify-center gap-2 p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    selectedMethod === method
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    value={method}
-                    {...register("paymentMethod", { required: true })}
-                    className="sr-only"
-                  />
-                  {getPaymentMethodIcon(method)}
-                  <span className="text-sm font-medium">
-                    {method === "CASH"
-                      ? "Efectivo"
-                      : method === "TRANSFER"
-                        ? "Transferencia"
-                        : "Tarjeta"}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* File Upload for Transfer/Card */}
-          {(selectedMethod === "TRANSFER" || selectedMethod === "CARD") && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Comprobante de Pago
-              </label>
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">
-                    {selectedFile
-                      ? selectedFile.name
-                      : "Click para subir comprobante"}
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setSelectedFile(e.target.files[0]);
-                    }
-                  }}
-                  accept="image/*,application/pdf"
-                />
-              </label>
-            </div>
-          )}
-
-          {/* Amount */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Monto a Pagar *
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500">RD$</span>
-              </div>
-              <input
-                type="number"
-                step="0.01"
-                {...register("amount", {
-                  required: "El monto es requerido",
-                  valueAsNumber: true,
-                  min: 0.01,
-                  max: invoice.dueToPay,
-                })}
-                className="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="0.00"
-              />
-            </div>
-            {errors.amount && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.amount.message}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Máximo: {formatCurrency(invoice.dueToPay)}
-            </p>
-          </div>
-
-          {/* Reference */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Referencia *
-            </label>
             <input
-              type="text"
-              {...register("reference", {
-                required: "El número de referencia es requerido",
+              type="number"
+              step="0.01"
+              {...register("amount", {
+                required: "El monto es requerido",
+                valueAsNumber: true,
+                min: 0.01,
+                max: invoice.dueToPay,
               })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Número de referencia, cheque, etc."
+              className="w-full pl-12 pr-3 py-2 border border-rule-strong rounded-md focus:outline-none focus:ring-2 focus:ring-gold"
+              placeholder="0.00"
             />
-            {errors.reference && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.reference.message}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Número de cheque, transferencia u otro identificador
+          </div>
+          {errors.amount && (
+            <p className="mt-1 text-sm text-danger">{errors.amount.message}</p>
+          )}
+          <p className="mt-1 text-xs text-ink-3">
+            Máximo: {formatCurrency(invoice.dueToPay)}
+          </p>
+        </div>
+
+        {/* Reference */}
+        <div>
+          <label className="block text-sm font-medium text-ink-2 mb-1.5">
+            Referencia *
+          </label>
+          <input
+            type="text"
+            {...register("reference", {
+              required: "El número de referencia es requerido",
+            })}
+            className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+            placeholder="Número de referencia, cheque, etc."
+          />
+          {errors.reference && (
+            <p className="mt-1 text-sm text-danger">
+              {errors.reference.message}
             </p>
-          </div>
+          )}
+          <p className="mt-1 text-xs text-ink-3">
+            Número de cheque, transferencia u otro identificador
+          </p>
+        </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Descripción
-            </label>
-            <textarea
-              {...register("description")}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Notas adicionales sobre el pago..."
-            />
-          </div>
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-ink-2 mb-1.5">
+            Descripción
+          </label>
+          <textarea
+            {...register("description")}
+            rows={3}
+            className="min-h-20 py-2 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 resize-none focus:outline-none focus:ring-2 focus:ring-gold"
+            placeholder="Notas adicionales sobre el pago..."
+          />
+        </div>
 
-          {/* Date */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Fecha del Pago
-            </label>
-            <input
-              type="date"
-              {...register("date")}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Procesando..." : "Procesar Pago"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {/* Date */}
+        <div>
+          <label className="block text-sm font-medium text-ink-2 mb-1.5">
+            Fecha del Pago
+          </label>
+          <input
+            type="date"
+            {...register("date")}
+            className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }

@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-08-22",
+    "scope": "app",
+    "genre": "modern-minimal",
+    "macrostructure": "Workbench / Long Document / Marquee Hero",
+    "theme": "custom (marina + oro, claro)",
+    "theme_axes": "light / grotesk-sans / warm-gold",
+    "vibe": "lujo institucional, densidad de ERP",
+    "enrichment": "none",
+    "designed-as-app": true,
+    "brief": "Daka ERP · fundación de diseño: tokens OKLCH, primitivas, retirada de Bootstrap"
+  }
+]

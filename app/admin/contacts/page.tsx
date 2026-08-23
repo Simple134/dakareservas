@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import {
-  Search,
   Building2,
   User,
   Phone,
@@ -11,14 +10,24 @@ import {
   Briefcase,
   Globe,
   Trash2,
-  AlertCircle,
   CreditCard,
   Users,
   Filter,
   X,
+  Plus,
 } from "lucide-react";
-import { GestionoBeneficiary } from "@/src/types/gestiono";
+import { cn } from "@/src/lib/utils";
+import { Beneficiary } from "@/src/types/erp";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
+import { PageHeader, PageBody } from "@/src/components/ui/page-header";
+import { Button } from "@/src/components/ui/button";
+import { Badge } from "@/src/components/ui/badge";
+import { FilterChip, FilterGroup } from "@/src/components/ui/filter-chip";
+import { SearchInput } from "@/src/components/ui/search-input";
+import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
+import { EmptyState } from "@/src/components/ui/empty-state";
+import { KPICard } from "@/src/components/dashboard/KPICard";
+import { count as fmtCount } from "@/src/lib/format";
 
 const BENEFICIARY_TYPES = [
   { value: "all", label: "Todos" },
@@ -51,23 +60,28 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: "Otro",
 };
 
-const TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  CLIENT: { bg: "bg-emerald-100", text: "text-emerald-700" },
-  PROVIDER: { bg: "bg-blue-100", text: "text-blue-700" },
-  EMPLOYEE: { bg: "bg-purple-100", text: "text-purple-700" },
-  SELLER: { bg: "bg-orange-100", text: "text-orange-700" },
-  GOVERNMENT: { bg: "bg-red-100", text: "text-red-700" },
-  ORGANIZATION: { bg: "bg-amber-100", text: "text-amber-700" },
-  BOTH: { bg: "bg-cyan-100", text: "text-cyan-700" },
-  OTHER: { bg: "bg-gray-100", text: "text-gray-600" },
-};
+/* Ocho colores planos (esmeralda, azul, morado, naranja, rojo, ámbar, cian,
+ * gris) en una misma rejilla de tarjetas era un arcoíris sin jerarquía: nada
+ * destacaba porque todo destacaba. El rol de un contacto no es un estado de
+ * dato con semántica de alerta, así que la mayoría va en neutro y sólo se
+ * distinguen los dos ejes que el usuario filtra de verdad: quién nos compra
+ * (cliente) y a quién le compramos (proveedor). */
+const TYPE_VARIANT: Record<string, "default" | "success" | "info" | "outline"> =
+  {
+    CLIENT: "success",
+    PROVIDER: "info",
+    EMPLOYEE: "default",
+    SELLER: "default",
+    GOVERNMENT: "outline",
+    ORGANIZATION: "outline",
+    BOTH: "default",
+    OTHER: "default",
+  };
 
 const ContactsPage = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [contacts, setContacts] = useState<GestionoBeneficiary[]>([]);
-  const [filteredContacts, setFilteredContacts] = useState<
-    GestionoBeneficiary[]
-  >([]);
+  const [contacts, setContacts] = useState<Beneficiary[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<Beneficiary[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedContactType, setSelectedContactType] = useState<string>("all");
@@ -79,10 +93,11 @@ const ContactsPage = () => {
     beneficiaryName: string | null;
   }>({ isOpen: false, beneficiaryId: null, beneficiaryName: null });
   const [isDeleting, setIsDeleting] = useState(false);
-  const [editBeneficiary, setEditBeneficiary] =
-    useState<GestionoBeneficiary | null>(null);
+  const [editBeneficiary, setEditBeneficiary] = useState<Beneficiary | null>(
+    null,
+  );
 
-  const fetchGestionoBeneficiaries = async () => {
+  const fetchErpBeneficiaries = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -90,7 +105,7 @@ const ContactsPage = () => {
         withTaxData: "false",
       });
       const response = await fetch(
-        `/api/gestiono/beneficiaries?${params.toString()}`,
+        `/api/erp/beneficiaries?${params.toString()}`,
       );
       if (!response.ok)
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -104,7 +119,7 @@ const ContactsPage = () => {
   };
 
   useEffect(() => {
-    fetchGestionoBeneficiaries();
+    fetchErpBeneficiaries();
   }, []);
 
   const uniqueCategories = useMemo(() => {
@@ -194,7 +209,7 @@ const ContactsPage = () => {
     if (!deleteModalState.beneficiaryId) return;
     setIsDeleting(true);
     try {
-      const response = await fetch("/api/gestiono/archiveBeneficiaries", {
+      const response = await fetch("/api/erp/archiveBeneficiaries", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: deleteModalState.beneficiaryId }),
@@ -205,7 +220,7 @@ const ContactsPage = () => {
         beneficiaryId: null,
         beneficiaryName: null,
       });
-      fetchGestionoBeneficiaries();
+      fetchErpBeneficiaries();
     } catch (error) {
       console.error("❌ Error archiving contact:", error);
       alert("Error al eliminar el contacto. Por favor, intenta de nuevo.");
@@ -214,7 +229,7 @@ const ContactsPage = () => {
     }
   };
 
-  const handleContactClick = (contact: GestionoBeneficiary) => {
+  const handleContactClick = (contact: Beneficiary) => {
     setEditBeneficiary(contact);
     setIsModalOpen(true);
   };
@@ -224,537 +239,402 @@ const ContactsPage = () => {
     setEditBeneficiary(null);
   };
 
+  const CONTACT_ICON: Record<string, typeof Phone> = {
+    phone: Phone,
+    email: Mail,
+    address: MapPin,
+    website: Globe,
+  };
+
+  const METHOD_LABEL: Record<string, string> = {
+    PHONE: "Tel",
+    EMAIL: "Email",
+    ADDRESS: "Dir",
+    WEBSITE: "Web",
+  };
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <div className="flex-1">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-[#131E29]">Contactos</h1>
-              <p className="text-sm text-gray-500 mt-0.5">
-                {isLoading
-                  ? "Cargando..."
-                  : `${stats.total} contactos registrados`}
-              </p>
-            </div>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-[#07234B] text-white px-5 py-2.5 rounded-xl hover:bg-[#0a2d5c] transition-colors font-medium flex items-center gap-2 justify-center sm:w-auto shadow-sm"
-            >
-              <span className="text-lg leading-none">+</span>
-              Nuevo Contacto
-            </button>
-          </div>
+    <>
+      <PageHeader
+        title="Contactos"
+        description="Clientes, proveedores, empleados y organizaciones con los que opera Daka."
+        actions={
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="mr-1.5 h-4 w-4" strokeWidth={2} />
+            Crear contacto
+          </Button>
+        }
+      />
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
-                    Total
-                  </p>
-                  <div className="text-3xl font-bold text-[#131E29]">
-                    {isLoading ? (
-                      <div className="h-9 w-12 bg-gray-100 rounded animate-pulse" />
-                    ) : (
-                      stats.total
-                    )}
-                  </div>
-                </div>
-                <div className="w-11 h-11 bg-[#07234B]/8 rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 text-[#07234B]" />
-                </div>
-              </div>
-            </div>
+      <PageBody className="space-y-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <KPICard
+            loading={isLoading}
+            kpi={{
+              title: "Total de contactos",
+              value: fmtCount(stats.total),
+              icon: "Users",
+              hint: "Registrados sin archivar",
+            }}
+          />
+          <KPICard
+            loading={isLoading}
+            kpi={{
+              title: "Personas",
+              value: fmtCount(stats.clients),
+              icon: "Users",
+              hint: "Clientes, proveedores y empleados",
+            }}
+          />
+          <KPICard
+            loading={isLoading}
+            kpi={{
+              title: "Organizaciones",
+              value: fmtCount(stats.organizations),
+              icon: "Building2",
+              hint: "Empresas y entidades de gobierno",
+            }}
+          />
+        </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
-                    Clientes
-                  </p>
-                  <div className="text-3xl font-bold text-[#131E29]">
-                    {isLoading ? (
-                      <div className="h-9 w-12 bg-gray-100 rounded animate-pulse" />
-                    ) : (
-                      stats.clients
-                    )}
-                  </div>
-                </div>
-                <div className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center">
-                  <User className="w-5 h-5 text-emerald-600" />
-                </div>
-              </div>
-            </div>
+        {/* Filtros */}
+        <section className="space-y-4 rounded-[12px] border border-rule bg-paper p-4">
+          <SearchInput
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            placeholder="Buscar por nombre, correo, teléfono o RNC…"
+          />
 
-            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
-                    Organizaciones
-                  </p>
-                  <div className="text-3xl font-bold text-[#131E29]">
-                    {isLoading ? (
-                      <div className="h-9 w-12 bg-gray-100 rounded animate-pulse" />
-                    ) : (
-                      stats.organizations
-                    )}
-                  </div>
-                </div>
-                <div className="w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center">
-                  <Building2 className="w-5 h-5 text-amber-600" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6 space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre, email, teléfono o RNC..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#07234B]/20 focus:border-[#07234B] transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          <FilterGroup label="Rol">
+            {BENEFICIARY_TYPES.map(({ value, label }) => {
+              const n =
+                value === "all"
+                  ? contacts.length
+                  : contacts.filter((c) => c.type === value).length;
+              if (value !== "all" && n === 0) return null;
+              return (
+                <FilterChip
+                  key={value}
+                  active={selectedType === value}
+                  count={value === "all" ? undefined : n}
+                  onClick={() => setSelectedType(value)}
                 >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+                  {label}
+                </FilterChip>
+              );
+            })}
+          </FilterGroup>
 
-            {/* Beneficiary type filter */}
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                Rol
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {BENEFICIARY_TYPES.map(({ value, label }) => {
-                  const count =
-                    value === "all"
-                      ? contacts.length
-                      : contacts.filter((c) => c.type === value).length;
-                  if (value !== "all" && count === 0) return null;
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => setSelectedType(value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        selectedType === value
-                          ? "bg-[#07234B] text-white shadow-sm"
-                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
-                      }`}
-                    >
-                      {label}
-                      {value !== "all" && (
-                        <span
-                          className={`ml-1.5 ${selectedType === value ? "opacity-60" : "opacity-50"}`}
-                        >
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Category filter — derived dynamically from contact entries with type="categoria" */}
-            {uniqueCategories.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                  <Briefcase className="w-3 h-3" />
-                  Categoría
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    onClick={() => setSelectedCategory("all")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      selectedCategory === "all"
-                        ? "bg-[#07234B] text-white shadow-sm"
-                        : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
-                    }`}
-                  >
-                    Todas
-                  </button>
-                  {uniqueCategories.map((cat) => {
-                    const count = contacts.filter((c) =>
+          {uniqueCategories.length > 0 && (
+            <FilterGroup label="Categoría" icon={Briefcase}>
+              <FilterChip
+                active={selectedCategory === "all"}
+                onClick={() => setSelectedCategory("all")}
+              >
+                Todas
+              </FilterChip>
+              {uniqueCategories.map((cat) => (
+                <FilterChip
+                  key={cat}
+                  active={selectedCategory === cat}
+                  count={
+                    contacts.filter((c) =>
                       c.contacts?.some(
                         (ct) =>
                           ct.type === "categoria" && ct.data?.trim() === cat,
                       ),
-                    ).length;
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          selectedCategory === cat
-                            ? "bg-[#07234B] text-white shadow-sm"
-                            : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
-                        }`}
-                      >
-                        {cat}
-                        <span
-                          className={`ml-1.5 ${selectedCategory === cat ? "opacity-60" : "opacity-50"}`}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Contact method type filter */}
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
-                <Filter className="w-3 h-3" />
-                Tiene
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {CONTACT_TYPES.map(({ value, label, icon: Icon }) => {
-                  const count =
-                    value === "all"
-                      ? contacts.length
-                      : contacts.filter((c) =>
-                          c.contacts?.some((ct) => ct.type === value),
-                        ).length;
-                  if (value !== "all" && count === 0) return null;
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => setSelectedContactType(value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
-                        selectedContactType === value
-                          ? "bg-[#07234B] text-white shadow-sm"
-                          : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200"
-                      }`}
-                    >
-                      <Icon className="w-3 h-3" />
-                      {label}
-                      {value !== "all" && (
-                        <span
-                          className={`${selectedContactType === value ? "opacity-60" : "opacity-50"}`}
-                        >
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Active filters bar */}
-            {activeFilterCount > 0 && (
-              <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                <p className="text-xs text-gray-500">
-                  <span className="font-semibold text-[#07234B]">
-                    {filteredContacts.length}
-                  </span>{" "}
-                  resultado{filteredContacts.length !== 1 ? "s" : ""} encontrado
-                  {filteredContacts.length !== 1 ? "s" : ""}
-                </p>
-                <button
-                  onClick={clearFilters}
-                  className="text-xs text-gray-500 hover:text-[#07234B] flex items-center gap-1 transition-colors"
+                    ).length
+                  }
+                  onClick={() => setSelectedCategory(cat)}
                 >
-                  <X className="w-3 h-3" />
-                  Limpiar filtros ({activeFilterCount})
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Content */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-2xl p-5 border border-gray-100 animate-pulse"
-                >
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="w-11 h-11 bg-gray-100 rounded-xl flex-shrink-0" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 w-3/4 bg-gray-100 rounded" />
-                      <div className="h-3 w-1/3 bg-gray-100 rounded" />
-                    </div>
-                  </div>
-                  <div className="space-y-2.5">
-                    <div className="h-3 w-full bg-gray-100 rounded" />
-                    <div className="h-3 w-2/3 bg-gray-100 rounded" />
-                  </div>
-                </div>
+                  {cat}
+                </FilterChip>
               ))}
-            </div>
-          ) : filteredContacts.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center">
-              <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-gray-300" />
-              </div>
-              <p className="text-gray-700 font-medium">
-                No se encontraron contactos
-              </p>
-              <p className="text-gray-400 text-sm mt-1">
-                {activeFilterCount > 0
-                  ? "Intenta con otra búsqueda o limpia los filtros"
-                  : "Agrega tu primer contacto"}
-              </p>
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="mt-4 text-sm text-[#07234B] hover:underline font-medium"
+            </FilterGroup>
+          )}
+
+          <FilterGroup label="Tiene" icon={Filter}>
+            {CONTACT_TYPES.map(({ value, label, icon: Icon }) => {
+              const n =
+                value === "all"
+                  ? contacts.length
+                  : contacts.filter((c) =>
+                      c.contacts?.some((ct) => ct.type === value),
+                    ).length;
+              if (value !== "all" && n === 0) return null;
+              return (
+                <FilterChip
+                  key={value}
+                  icon={Icon}
+                  active={selectedContactType === value}
+                  count={value === "all" ? undefined : n}
+                  onClick={() => setSelectedContactType(value)}
                 >
-                  Limpiar filtros
-                </button>
-              )}
+                  {label}
+                </FilterChip>
+              );
+            })}
+          </FilterGroup>
+
+          {activeFilterCount > 0 && (
+            <div className="flex items-center justify-between gap-3 border-t border-rule pt-3">
+              <p className="text-[0.75rem] text-ink-2">
+                <span className="tabular font-semibold text-ink">
+                  {fmtCount(filteredContacts.length)}
+                </span>{" "}
+                resultado{filteredContacts.length !== 1 ? "s" : ""}
+              </p>
+              <Button variant="ghost" size="xs" onClick={clearFilters}>
+                <X className="mr-1 h-3 w-3" />
+                Limpiar filtros ({activeFilterCount})
+              </Button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredContacts.map((contact, index) => {
-                const isOrganization =
-                  contact.type === "ORGANIZATION" ||
-                  contact.type === "GOVERNMENT";
-                const colors = TYPE_COLORS[contact.type] ?? TYPE_COLORS.OTHER;
+          )}
+        </section>
 
-                const categoria = contact.contacts
-                  ?.find((c) => c.type === "categoria")
-                  ?.data?.trim();
+        {/* Rejilla */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[12px] border border-rule bg-paper p-4"
+                aria-busy
+              >
+                <div className="h-4 w-2/3 animate-pulse rounded bg-paper-3" />
+                <div className="mt-2 h-3 w-1/4 animate-pulse rounded bg-paper-3" />
+                <div className="mt-4 space-y-2">
+                  <div className="h-3 w-full animate-pulse rounded bg-paper-3" />
+                  <div className="h-3 w-3/5 animate-pulse rounded bg-paper-3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredContacts.length === 0 ? (
+          <EmptyState
+            title="No se encontraron contactos"
+            description={
+              activeFilterCount > 0
+                ? "Ningún contacto coincide con los filtros aplicados."
+                : "Todavía no hay contactos registrados."
+            }
+            action={
+              activeFilterCount > 0 ? (
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Limpiar filtros
+                </Button>
+              ) : (
+                <Button size="sm" onClick={() => setIsModalOpen(true)}>
+                  <Plus className="mr-1.5 h-4 w-4" strokeWidth={2} />
+                  Crear el primer contacto
+                </Button>
+              )
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredContacts.map((contact, index) => {
+              const isOrganization =
+                contact.type === "ORGANIZATION" ||
+                contact.type === "GOVERNMENT";
+              const categoria = contact.contacts
+                ?.find((c) => c.type === "categoria")
+                ?.data?.trim();
 
-                const contactMethods: {
-                  type: string;
-                  value: string;
-                  icon: typeof Phone;
-                }[] = [];
-                if (contact.contacts) {
-                  contact.contacts.forEach((c) => {
-                    if (c.type === "categoria") return; // shown separately
-                    let Icon: typeof Phone = Briefcase as typeof Phone;
-                    if (c.type === "phone") Icon = Phone;
-                    else if (c.type === "email") Icon = Mail;
-                    else if (c.type === "address") Icon = MapPin;
-                    else if (c.type === "website") Icon = Globe;
-                    contactMethods.push({
-                      type: c.type.toUpperCase(),
-                      value: c.data,
-                      icon: Icon,
-                    });
-                  });
-                }
+              const metodos = (contact.contacts ?? [])
+                .filter((c) => c.type !== "categoria")
+                .map((c) => ({
+                  type: c.type.toUpperCase(),
+                  value: c.data,
+                  icon: CONTACT_ICON[c.type] ?? Briefcase,
+                }));
 
-                return (
-                  <div
-                    key={contact.id || index}
+              return (
+                <div
+                  key={contact.id || index}
+                  className="group relative flex flex-col rounded-[12px] border border-rule bg-paper shadow-[0_1px_2px_rgba(7,35,75,0.04)] transition-colors duration-[120ms] hover:border-rule-strong"
+                >
+                  {/* La tarjeta entera abre la ficha; el botón de archivar vive
+                      fuera de ese botón para no anidar controles. */}
+                  <button
+                    type="button"
                     onClick={() => handleContactClick(contact)}
-                    className="bg-white rounded-2xl p-5 border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all cursor-pointer group"
+                    className="flex flex-1 flex-col p-4 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold"
                   >
-                    {/* Card header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <div
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            isOrganization ? "bg-amber-50" : "bg-emerald-50"
-                          }`}
-                        >
-                          {isOrganization ? (
-                            <Building2 className="w-5 h-5 text-amber-600" />
-                          ) : (
-                            <User className="w-5 h-5 text-emerald-600" />
+                    <div className="flex items-start gap-2.5 pr-8">
+                      <span
+                        className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-paper-3"
+                        aria-hidden
+                      >
+                        {isOrganization ? (
+                          <Building2
+                            className="h-4 w-4 text-ink-2"
+                            strokeWidth={1.75}
+                          />
+                        ) : (
+                          <User
+                            className="h-4 w-4 text-ink-2"
+                            strokeWidth={1.75}
+                          />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[0.875rem] font-semibold leading-tight text-ink">
+                          {contact.name || "Sin nombre"}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          <Badge
+                            variant={TYPE_VARIANT[contact.type] ?? "default"}
+                          >
+                            {TYPE_LABELS[contact.type] ?? contact.type}
+                          </Badge>
+                          {categoria && (
+                            <Badge variant="outline">{categoria}</Badge>
                           )}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[#131E29] text-sm leading-tight truncate">
-                            {contact.name || "Sin Nombre"}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            <span
-                              className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md ${colors.bg} ${colors.text}`}
-                            >
-                              {TYPE_LABELS[contact.type] ?? contact.type}
-                            </span>
-                            {categoria && (
-                              <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#07234B]/8 text-[#07234B]">
-                                {categoria}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteClick(contact.id, contact.name);
-                          }}
-                          className="p-1.5 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                          title="Eliminar contacto"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                        </button>
                       </div>
                     </div>
 
-                    {/* Contact details */}
-                    <div className="space-y-2">
+                    <div className="mt-3.5 space-y-1.5">
                       {contact.taxId && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <CreditCard className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-                          <span className="font-mono">{contact.taxId}</span>
+                        <div className="flex items-center gap-2 text-[0.75rem] text-ink-2">
+                          <CreditCard
+                            className="h-3.5 w-3.5 shrink-0 text-ink-3"
+                            strokeWidth={1.75}
+                            aria-hidden
+                          />
+                          <span className="tabular">{contact.taxId}</span>
                         </div>
                       )}
-
-                      {contactMethods.slice(0, 3).map((method, idx) => {
-                        const Icon = method.icon;
-                        const isAddress = method.type === "ADDRESS";
+                      {metodos.slice(0, 3).map((m, idx) => {
+                        const Icon = m.icon;
+                        const esDireccion = m.type === "ADDRESS";
                         return (
                           <div
                             key={idx}
-                            className={`flex ${isAddress ? "items-start" : "items-center"} gap-2 text-xs text-gray-600`}
+                            className={cn(
+                              "flex gap-2 text-[0.75rem] text-ink-2",
+                              esDireccion ? "items-start" : "items-center",
+                            )}
                           >
                             <Icon
-                              className={`w-3.5 h-3.5 text-gray-300 flex-shrink-0 ${isAddress ? "mt-0.5" : ""}`}
+                              className={cn(
+                                "h-3.5 w-3.5 shrink-0 text-ink-3",
+                                esDireccion && "mt-0.5",
+                              )}
+                              strokeWidth={1.75}
+                              aria-hidden
                             />
                             <span
                               className={
-                                isAddress ? "line-clamp-2" : "truncate"
+                                esDireccion ? "line-clamp-2" : "truncate"
                               }
                             >
-                              {method.value}
+                              {m.value}
                             </span>
                           </div>
                         );
                       })}
-
-                      {contactMethods.length > 3 && (
-                        <p className="text-[10px] text-gray-400 pl-5.5">
-                          +{contactMethods.length - 3} más
+                      {metodos.length > 3 && (
+                        <p className="pl-[1.375rem] text-[0.6875rem] text-ink-3">
+                          +{metodos.length - 3} más
+                        </p>
+                      )}
+                      {metodos.length === 0 && !contact.taxId && (
+                        <p className="text-[0.75rem] text-ink-3">
+                          Sin datos de contacto
                         </p>
                       )}
                     </div>
 
-                    {/* Contact type pills at bottom */}
-                    {contactMethods.length > 0 && (
-                      <div className="flex gap-1 mt-3 pt-3 border-t border-gray-50 flex-wrap">
-                        {Array.from(
-                          new Set(contactMethods.map((m) => m.type)),
-                        ).map((type) => (
-                          <span
-                            key={type}
-                            className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-50 text-gray-400 uppercase tracking-wide"
-                          >
-                            {type === "PHONE"
-                              ? "Tel"
-                              : type === "EMAIL"
-                                ? "Email"
-                                : type === "ADDRESS"
-                                  ? "Dir"
-                                  : type === "WEBSITE"
-                                    ? "Web"
-                                    : type}
-                          </span>
-                        ))}
+                    {metodos.length > 0 && (
+                      <div className="mt-3.5 flex flex-wrap gap-1 border-t border-rule pt-3">
+                        {Array.from(new Set(metodos.map((m) => m.type))).map(
+                          (type) => (
+                            <span
+                              key={type}
+                              className="rounded-[4px] bg-paper-2 px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-[0.06em] text-ink-3"
+                            >
+                              {METHOD_LABEL[type] ?? type}
+                            </span>
+                          ),
+                        )}
                       </div>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  </button>
 
-        <AddBeneficiaryModal
-          isOpen={isModalOpen}
-          onClose={handleModalClose}
-          onSuccess={fetchGestionoBeneficiaries}
-          beneficiaryData={
-            editBeneficiary
-              ? {
-                  name: editBeneficiary.name,
-                  type: editBeneficiary.type,
-                  contact: editBeneficiary.contacts?.map((c) => ({
-                    id: c.id,
-                    type: c.type,
-                    data: c.data,
-                    dataType: c.dataType as
-                      | "string"
-                      | "json"
-                      | "image"
-                      | "date"
-                      | undefined,
-                    beneficiaryId: c.beneficiaryId,
-                  })) || [{ type: "phone", data: "", dataType: "string" }],
-                  taxId: editBeneficiary.taxId || undefined,
-                  reference: editBeneficiary.reference || undefined,
-                  creditLimit: editBeneficiary.creditLimit || undefined,
-                }
-              : undefined
-          }
-          beneficiaryId={editBeneficiary?.id}
-          isrTaxRetention={
-            editBeneficiary?.metadata?.isrTaxRetention
-              ? String(editBeneficiary.metadata.isrTaxRetention)
-              : "0"
-          }
-        />
-
-        {/* Delete Confirmation Modal */}
-        {deleteModalState.isOpen && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteClick(contact.id, contact.name)}
+                    title={`Archivar ${contact.name}`}
+                    aria-label={`Archivar ${contact.name}`}
+                    className="absolute right-2.5 top-3 rounded-[6px] p-1.5 text-ink-3 opacity-0 transition-[color,opacity] duration-[120ms] hover:bg-danger-soft hover:text-danger focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  </button>
                 </div>
-                <h3 className="text-base font-semibold text-[#131E29]">
-                  Confirmar eliminación
-                </h3>
-              </div>
-              <p className="text-sm text-gray-600 mb-6">
-                ¿Seguro que quieres archivar a{" "}
-                <span className="font-semibold text-[#131E29]">
-                  {deleteModalState.beneficiaryName}
-                </span>
-                ? No aparecerá más en la lista.
-              </p>
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() =>
-                    setDeleteModalState({
-                      isOpen: false,
-                      beneficiaryId: null,
-                      beneficiaryName: null,
-                    })
-                  }
-                  disabled={isDeleting}
-                  className="px-4 py-2 text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeleteConfirm}
-                  disabled={isDeleting}
-                  className="px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 rounded-xl transition-colors disabled:opacity-50"
-                >
-                  {isDeleting ? "Archivando..." : "Archivar"}
-                </button>
-              </div>
-            </div>
+              );
+            })}
           </div>
         )}
-      </div>
-    </div>
+      </PageBody>
+
+      <AddBeneficiaryModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSuccess={fetchErpBeneficiaries}
+        beneficiaryData={
+          editBeneficiary
+            ? {
+                name: editBeneficiary.name,
+                type: editBeneficiary.type,
+                contact: editBeneficiary.contacts?.map((c) => ({
+                  id: c.id,
+                  type: c.type,
+                  data: c.data,
+                  dataType: c.dataType as
+                    "string" | "json" | "image" | "date" | undefined,
+                  beneficiaryId: c.beneficiaryId,
+                })) || [{ type: "phone", data: "", dataType: "string" }],
+                taxId: editBeneficiary.taxId || undefined,
+                reference: editBeneficiary.reference || undefined,
+                creditLimit: editBeneficiary.creditLimit || undefined,
+              }
+            : undefined
+        }
+        beneficiaryId={editBeneficiary?.id}
+        isrTaxRetention={
+          editBeneficiary?.metadata?.isrTaxRetention
+            ? String(editBeneficiary.metadata.isrTaxRetention)
+            : "0"
+        }
+      />
+
+      <ConfirmDialog
+        open={deleteModalState.isOpen}
+        title="Archivar contacto"
+        description={
+          <>
+            <span className="font-semibold text-ink">
+              {deleteModalState.beneficiaryName}
+            </span>{" "}
+            dejará de aparecer en la lista y en los selectores de factura. Sus
+            documentos anteriores no se tocan.
+          </>
+        }
+        confirmLabel="Archivar"
+        pendingLabel="Archivando…"
+        pending={isDeleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() =>
+          setDeleteModalState({
+            isOpen: false,
+            beneficiaryId: null,
+            beneficiaryName: null,
+          })
+        }
+      />
+    </>
   );
 };
 

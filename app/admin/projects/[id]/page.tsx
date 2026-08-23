@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { ProjectContent } from "./ProjectContent";
-import { getDivisionById } from "@/src/lib/gestiono";
+import { getDivisionById } from "@/src/lib/erp";
 
 // Server Component - Obtiene los datos del proyecto
 async function getDivisionData(projectId: string) {

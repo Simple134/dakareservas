@@ -28,7 +28,7 @@ export default function ClientForm() {
             priority
           />
         </div>
-        <h2 className="text-2xl font-bold text-[#131E29] mb-2">
+        <h2 className="text-2xl font-bold text-shell mb-2">
           Formulario de Solicitud
         </h2>
       </div>
@@ -40,7 +40,7 @@ export default function ClientForm() {
             onClick={() => setPersonType("juridica")}
             className={`px-6 py-2 rounded-md font-medium transition-all ${
               personType === "juridica"
-                ? "bg-white text-[#131E29] shadow-sm"
+                ? "bg-white text-shell shadow-sm"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >
@@ -50,7 +50,7 @@ export default function ClientForm() {
             onClick={() => setPersonType("fisica")}
             className={`px-6 py-2 rounded-md font-medium transition-all ${
               personType === "fisica"
-                ? "bg-white text-[#131E29] shadow-sm"
+                ? "bg-white text-shell shadow-sm"
                 : "text-gray-500 hover:text-gray-700"
             }`}
           >

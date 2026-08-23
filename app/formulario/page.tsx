@@ -6,7 +6,10 @@ import { Suspense } from "react";
 
 export default function CompraPage() {
   return (
-    <div className="min-vh-100 py-5" style={{ backgroundColor: "#f8f7f5" }}>
+    <div
+      className="min-vh-100 py-5"
+      style={{ backgroundColor: "var(--color-paper-2)" }}
+    >
       <Container fluid>
         {/* Main Content */}
         <Row className="justify-content-center">

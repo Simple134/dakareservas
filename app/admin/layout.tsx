@@ -1,9 +1,9 @@
 "use client";
 
 import { ReactNode, useState, useEffect } from "react";
-import { AppSidebar } from "@/src/components/AppSidebar";
+import { AppSidebar, DakaMark } from "@/src/components/AppSidebar";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, Building2, Loader2 } from "lucide-react";
+import { Menu, Loader2 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { PAYMENT_GATED } from "@/src/config/paymentGate";
 
@@ -41,33 +41,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Navbar - Only visible on small screens */}
-      <nav className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#07234B] text-white flex items-center px-4 z-40 border-b border-[#1a3a5c]">
+    <div className="min-h-dvh bg-paper-2">
+      {/* Barra móvil: sólo por debajo de lg, donde el side-rail está oculto */}
+      <nav className="fixed inset-x-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-shell-3 bg-shell px-4 text-white lg:hidden">
         <button
           onClick={() => setIsMobileMenuOpen(true)}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          className="-ml-2 rounded-[8px] p-2 text-white/75 transition-colors duration-[120ms] hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           aria-label="Abrir menú"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-2 ml-3">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <Building2 className="w-5 h-5 text-[#0F2744]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-sm leading-none">DAKA ERP</span>
-            <span className="text-[10px] text-white/70 leading-none mt-1">
-              Sistema de Construcción
-            </span>
-          </div>
+        <div className="flex min-w-0 items-center">
+          <DakaMark />
         </div>
       </nav>
 
       {/* Overlay for mobile menu */}
       {isMobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity"
+          className="fixed inset-0 z-40 bg-[oklch(21%_0.021_250_/_0.45)] backdrop-blur-[2px] lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />
@@ -81,10 +73,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       />
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-64 pt-16 lg:pt-0">
+      <main className="min-w-0 pt-14 lg:ml-64 lg:pt-0">
         {PAYMENT_GATED ? (
-          <div className="flex items-center justify-center h-screen">
-            <Loader2 className="w-8 h-8 animate-spin text-[#A9780F]" />
+          <div className="flex h-dvh items-center justify-center">
+            <Loader2
+              className="h-7 w-7 animate-spin text-gold"
+              aria-label="Cargando"
+            />
           </div>
         ) : (
           children

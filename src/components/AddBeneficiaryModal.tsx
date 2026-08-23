@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { X, Plus, Trash2, Save, Loader2 } from "lucide-react";
-import { CreateBeneficiaryBody } from "@/src/types/gestiono";
+import { Plus, Trash2, Save } from "lucide-react";
+import { Modal } from "@/src/components/ui/modal";
+import { Button } from "@/src/components/ui/button";
+import { CreateBeneficiaryBody } from "@/src/types/erp";
 
 interface AddBeneficiaryModalProps {
   isOpen: boolean;
@@ -121,7 +123,7 @@ export default function AddBeneficiaryModal({
     if (contactId && beneficiaryId) {
       try {
         const response = await fetch(
-          `/api/gestiono/beneficiaries/contact/${contactId}`,
+          `/api/erp/beneficiaries/contact/${contactId}`,
           { method: "DELETE" },
         );
         if (!response.ok) {
@@ -150,7 +152,7 @@ export default function AddBeneficiaryModal({
       if (isEditMode) {
         // 1. Update beneficiary fields
         const beneficiaryResponse = await fetch(
-          `/api/gestiono/beneficiaries/${beneficiaryId}`,
+          `/api/erp/beneficiaries/${beneficiaryId}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -187,7 +189,7 @@ export default function AddBeneficiaryModal({
 
           if (!contact.id) {
             // New contact → POST
-            const res = await fetch("/api/gestiono/beneficiaries/contact", {
+            const res = await fetch("/api/erp/beneficiaries/contact", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -210,7 +212,7 @@ export default function AddBeneficiaryModal({
               original.type !== contact.type;
 
             if (hasChanged) {
-              const res = await fetch("/api/gestiono/beneficiaries/contact", {
+              const res = await fetch("/api/erp/beneficiaries/contact", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -230,7 +232,7 @@ export default function AddBeneficiaryModal({
         }
       } else {
         // CREATE MODE: send everything in one request
-        const response = await fetch("/api/gestiono/beneficiaries", {
+        const response = await fetch("/api/erp/beneficiaries", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -238,6 +240,14 @@ export default function AddBeneficiaryModal({
             creditLimit: data.creditLimit
               ? Number(String(data.creditLimit).replace(/,/g, ""))
               : undefined,
+            // La retención viaja en el alta. Antes se mandaba en un PATCH
+            // posterior cuyo fallo sólo llegaba a `console.warn`: el alta se
+            // daba por buena y el trabajador nacía con retención 0, que es
+            // justo el filtro con el que la planilla de personal lo lista —
+            // se creaba y no aparecía en ninguna parte.
+            metadata: {
+              isrTaxRetention: parseFloat(isrTaxRetentionVar || "0") / 100,
+            },
           }),
         });
 
@@ -248,34 +258,6 @@ export default function AddBeneficiaryModal({
               errorData?.message ||
               `Error al crear el beneficiario (${response.status})`,
           );
-        }
-
-        // Set ISR retention for new beneficiary if needed
-        if (isrTaxRetentionVar !== "0") {
-          try {
-            const responseData = await response.json().catch(() => null);
-            const newId = responseData?.id || responseData?.beneficiaryId;
-            if (newId) {
-              await fetch(`/api/gestiono/beneficiaries/${newId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  id: newId,
-                  name: data.name,
-                  type: data.type,
-                  metadata: {
-                    isrTaxRetention:
-                      parseFloat(isrTaxRetentionVar || "0") / 100,
-                  },
-                }),
-              });
-            }
-          } catch (retentionErr) {
-            console.warn(
-              "⚠️ Beneficiary created but failed to set ISR retention:",
-              retentionErr,
-            );
-          }
         }
       }
 
@@ -293,86 +275,102 @@ export default function AddBeneficiaryModal({
 
   if (!isOpen) return null;
 
+  const FORM_ID = "contacto";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-10 flex items-center justify-between p-6 bg-white border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-900">
-            {isEditMode ? "Editar Contacto" : "Nuevo Contacto"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size="md"
+      busy={isSubmitting}
+      title={isEditMode ? "Editar contacto" : "Crear contacto"}
+      description="Clientes, proveedores, empleados y organizaciones."
+      footer={
+        <>
           {error && (
-            <div className="p-4 text-sm text-red-600 bg-red-50 rounded-lg border border-red-100">
+            <p
+              role="alert"
+              className="mr-auto text-[0.75rem] text-danger sm:max-w-xs"
+            >
               {error}
-            </div>
+            </p>
           )}
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            <Save className="mr-1.5 h-4 w-4" strokeWidth={2} />
+            {isEditMode ? "Guardar cambios" : "Crear contacto"}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={FORM_ID}
+        onSubmit={handleSubmit(onSubmit)}
+        className="space-y-5"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Nombre */}
+          <div className="space-y-2 md:col-span-2">
+            <label className="eyebrow">
+              Nombre Completo <span className="text-danger">*</span>
+            </label>
+            <input
+              {...register("name", { required: "El nombre es obligatorio" })}
+              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 transition-all"
+              placeholder="Ej. Empresa SA o Juan Pérez"
+            />
+            {errors.name && (
+              <span className="text-[0.75rem] text-danger">
+                {errors.name.message}
+              </span>
+            )}
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Nombre */}
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium text-gray-700">
-                Nombre Completo <span className="text-red-500">*</span>
-              </label>
-              <input
-                {...register("name", { required: "El nombre es obligatorio" })}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
-                placeholder="Ej. Empresa SA o Juan Pérez"
-              />
-              {errors.name && (
-                <span className="text-xs text-red-500">
-                  {errors.name.message}
-                </span>
-              )}
-            </div>
+          {/* Tipo */}
+          <div className="space-y-2">
+            <label className="eyebrow">Tipo</label>
+            <select
+              {...register("type", { required: true })}
+              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 transition-all bg-paper"
+            >
+              {BENEFICIARY_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            {/* Tipo */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Tipo</label>
-              <select
-                {...register("type", { required: true })}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all bg-white"
-              >
-                {BENEFICIARY_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Tax ID */}
+          <div className="space-y-2">
+            <label className="eyebrow">RNC / Cédula / Tax ID</label>
+            <input
+              {...register("taxId")}
+              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 transition-all"
+              placeholder="Identificación fiscal"
+            />
+          </div>
 
-            {/* Tax ID */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                RNC / Cédula / Tax ID
-              </label>
-              <input
-                {...register("taxId")}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
-                placeholder="Identificación fiscal"
-              />
-            </div>
-
-            {/* <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+          {/* <div className="space-y-2">
+              <label className="eyebrow">
                 Referencia
               </label>
               <input
                 {...register("reference")}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
+                className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 transition-all"
                 placeholder="Código interno o referencia"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="eyebrow">
                 Límite de Crédito
               </label>
               <Controller
@@ -382,7 +380,7 @@ export default function AddBeneficiaryModal({
                   <input
                     {...field}
                     type="text"
-                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
+                    className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 transition-all"
                     placeholder="0.00"
                     value={(value as unknown as string) || ""}
                     onChange={(e) => {
@@ -404,102 +402,74 @@ export default function AddBeneficiaryModal({
                 )}
               />
             </div> */}
-          </div>
+        </div>
 
-          {/* ISR Tax Retention */}
-          <div className="border-t border-gray-100 pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">
-                  Retención ISR (%)
-                </label>
-                <input
-                  type="text"
-                  value={isrTaxRetentionVar}
-                  onChange={(e) => setIsrTaxRetentionVar(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none transition-all"
-                  placeholder="Ej. 10 para 10%"
-                />
-              </div>
+        {/* ISR Tax Retention */}
+        <div className="border-t border-rule pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1">
+              <label className="eyebrow">Retención ISR (%)</label>
+              <input
+                type="text"
+                value={isrTaxRetentionVar}
+                onChange={(e) => setIsrTaxRetentionVar(e.target.value)}
+                className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 transition-all"
+                placeholder="Ej. 10 para 10%"
+              />
             </div>
           </div>
+        </div>
 
-          <div className="border-t border-gray-100 pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-900">
-                Información de Contacto
-              </h3>
-              <button
-                type="button"
-                onClick={() =>
-                  append({ type: "phone", data: "", dataType: "string" })
-                }
-                className="text-sm text-[#07234B] hover:text-[#0a2d5c] font-medium flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" /> Agregar
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div key={field.id} className="flex gap-3">
-                  <select
-                    {...register(`contact.${index}.type` as const)}
-                    className="w-1/3 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none bg-white text-sm"
-                  >
-                    {CONTACT_TYPES.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    {...register(`contact.${index}.data` as const, {
-                      required: "Este campo es requerido",
-                    })}
-                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent outline-none text-sm"
-                    placeholder={getPlaceholder(
-                      watchedContacts?.[index]?.type || "phone",
-                    )}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => deleteContact(index)}
-                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="border-t border-rule pt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-ink">
+              Información de Contacto
+            </h3>
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+              onClick={() =>
+                append({ type: "phone", data: "", dataType: "string" })
+              }
+              className="text-sm text-ink hover:text-ink font-medium flex items-center gap-1"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-[#07234B] text-white rounded-lg hover:bg-[#0a2d5c] font-medium flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Guardando...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" /> Guardar Contacto
-                </>
-              )}
+              <Plus className="w-4 h-4" /> Agregar
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+
+          <div className="space-y-3">
+            {fields.map((field, index) => (
+              <div key={field.id} className="flex gap-3">
+                <select
+                  {...register(`contact.${index}.type` as const)}
+                  className="h-10 w-1/3 rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                >
+                  {CONTACT_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  {...register(`contact.${index}.data` as const, {
+                    required: "Este campo es requerido",
+                  })}
+                  className="h-10 flex-1 rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                  placeholder={getPlaceholder(
+                    watchedContacts?.[index]?.type || "phone",
+                  )}
+                />
+                <button
+                  type="button"
+                  onClick={() => deleteContact(index)}
+                  className="p-2 text-danger hover:text-danger hover:bg-danger-soft rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </form>
+    </Modal>
   );
 }

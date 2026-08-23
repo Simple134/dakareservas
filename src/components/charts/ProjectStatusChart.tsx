@@ -7,7 +7,8 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
-import { PendingRecord } from "@/src/types/gestiono";
+import { PendingRecord } from "@/src/types/erp";
+import { chart } from "@/src/lib/chartColors";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -16,22 +17,29 @@ interface ProjectStatusChartProps {
 }
 
 export const ProjectStatusChart = ({ records }: ProjectStatusChartProps) => {
+  /* Los estados reales del sistema son PENDING · PAST_DUE · COMPLETED ·
+   * ARCHIVED. Este gráfico comparaba con "PAID", que no existe: la porción
+   * «Pagado» salía siempre en cero y todo lo cobrado caía en «En Proceso». */
   const statusData = [
     {
       name: "Pendiente",
       value: records.filter((r) => r.state === "PENDING").length,
-      color: "#f59e0b", // amber-500
+      color: chart.warning,
     },
     {
-      name: "En Proceso", // Covers PARTIALLY_PAID, DRAFT, etc if needed, or mapped logic
-      value: records.filter((r) => r.state !== "PENDING" && r.state !== "PAID")
-        .length,
-      color: "#3b82f6", // blue-500
+      name: "Vencida",
+      value: records.filter((r) => r.state === "PAST_DUE").length,
+      color: chart.danger,
     },
     {
-      name: "Pagado",
-      value: records.filter((r) => r.state === "PAID").length,
-      color: "#10b981", // green-500
+      name: "Pagada",
+      value: records.filter((r) => r.state === "COMPLETED").length,
+      color: chart.success,
+    },
+    {
+      name: "Anulada",
+      value: records.filter((r) => r.state === "ARCHIVED").length,
+      color: chart.ink3,
     },
   ].filter((item) => item.value > 0);
 
@@ -72,7 +80,7 @@ export const ProjectStatusChart = ({ records }: ProjectStatusChartProps) => {
   };
 
   return (
-    <div style={{ height: "300px" }}>
+    <div className="h-[300px]">
       <Pie data={data} options={options} />
     </div>
   );

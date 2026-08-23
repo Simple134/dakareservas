@@ -1,8 +1,10 @@
 "use client";
 
-import { X, Loader2, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+import { Modal } from "@/src/components/ui/modal";
+import { Button } from "@/src/components/ui/button";
 import { useState, useEffect } from "react";
-import { GestionoBeneficiary } from "@/src/types/gestiono";
+import { Beneficiary } from "@/src/types/erp";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
 
 interface EditProjectModalProps {
@@ -39,7 +41,7 @@ export function EditProjectModal({
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [clients, setClients] = useState<GestionoBeneficiary[]>([]);
+  const [clients, setClients] = useState<Beneficiary[]>([]);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
 
   // Form fields
@@ -69,7 +71,7 @@ export function EditProjectModal({
   const fetchClients = async () => {
     try {
       const response = await fetch(
-        "/api/gestiono/beneficiaries?withContacts=true&withTaxData=false",
+        "/api/erp/beneficiaries?withContacts=true&withTaxData=false",
       );
       if (response.ok) {
         const data = await response.json();
@@ -121,7 +123,7 @@ export function EditProjectModal({
     try {
       const budgetNumber = parseFloat(totalBudget.replace(/,/g, "")) || 0;
 
-      const response = await fetch("/api/gestiono/divisions", {
+      const response = await fetch("/api/erp/divisions", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -166,17 +168,17 @@ export function EditProjectModal({
     setError(null);
 
     try {
-      const response = await fetch("/api/gestiono/divisions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: divisionId,
-          metadata: { disabled: true },
-        }),
+      // Antes: PATCH con `metadata: { disabled: true }`, que sustituía la
+      // metadata entera y borraba presupuesto, cliente y partidas.
+      const response = await fetch(`/api/erp/divisions/${divisionId}`, {
+        method: "DELETE",
       });
 
       if (!response.ok) {
-        throw new Error("Error al eliminar el proyecto");
+        const detalle = await response.json().catch(() => null);
+        throw new Error(
+          detalle?.details || detalle?.error || "Error al eliminar el proyecto",
+        );
       }
 
       onClose();
@@ -209,271 +211,238 @@ export function EditProjectModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={onClose}
-        />
-
-        {/* Modal */}
-        <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto mx-4 animate-fade-in">
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-xl z-10">
-            <h2 className="text-xl font-bold text-gray-900">Editar Proyecto</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="p-6 space-y-6">
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-                {error}
-              </div>
-            )}
-
-            {/* Información del Proyecto */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                Información del Proyecto
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Nombre del Proyecto *
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej: Casa Familiar Los Jardines"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Cliente
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setIsClientModalOpen(true)}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Nuevo
-                    </button>
-                  </div>
-                  <select
-                    value={client}
-                    onChange={(e) => setClient(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  >
-                    <option value="">Seleccione un cliente</option>
-                    {/* Include current client value if not in list */}
-                    {client && !clients.some((c) => c.name === client) && (
-                      <option value={client}>{client}</option>
-                    )}
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Ubicación
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Santiago, República Dominicana"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Estado
-                  </label>
-                  <select
-                    value={statusDisplay}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  >
-                    <option value="Planificación">Planificación</option>
-                    <option value="Ejecución">Ejecución</option>
-                    <option value="Completado">Completado</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Tipo de Proyecto
-                  </label>
-                  <select
-                    value={projectType}
-                    onChange={(e) => setProjectType(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  >
-                    <option value="Residencial">Residencial</option>
-                    <option value="Comercial">Comercial</option>
-                    <option value="Industrial">Industrial</option>
-                    <option value="Infraestructura">Infraestructura</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Categoría de Permisología
-                  </label>
-                  <select
-                    value={permissionCategory}
-                    onChange={(e) => setPermissionCategory(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  >
-                    <option value="Mayor">Mayor</option>
-                    <option value="Menor">Menor</option>
-                    <option value="Especial">Especial</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Presupuesto y Cronograma */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                Presupuesto y Cronograma
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Presupuesto Total (RD$)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="2,500,000"
-                    value={totalBudget}
-                    onChange={(e) => {
-                      let val = e.target.value.replace(/[^\d.]/g, "");
-                      const parts = val.split(".");
-                      if (parts.length > 2)
-                        val = parts[0] + "." + parts.slice(1).join("");
-                      if (val) {
-                        const fparts = val.split(".");
-                        fparts[0] = fparts[0].replace(
-                          /\B(?=(\d{3})+(?!\d))/g,
-                          ",",
-                        );
-                        val = fparts.join(".");
-                      }
-                      setTotalBudget(val);
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Fecha de Inicio
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-900 mb-1">
-                    Fecha de Finalización
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Descripción */}
-            <div>
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">
-                Descripción
-              </h3>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Descripción detallada del proyecto, alcance, especificaciones técnicas..."
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#131E29] focus:border-transparent resize-none"
-              />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex flex-col md:flex-row md:items-center rounded-b-xl gap-3">
-            <button
-              onClick={handleSave}
-              disabled={saving || !projectName}
-              style={{ borderRadius: "1rem" }}
-              className="order-1 md:order-3 w-full md:w-auto px-5 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                "Guardar Cambios"
-              )}
-            </button>
-            <button
-              onClick={onClose}
-              disabled={saving}
-              className="order-2 md:order-2 w-full md:w-auto px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <div className="hidden md:block flex-1 order-none" />
-            <button
+      <Modal
+        open={isOpen}
+        onClose={onClose}
+        size="lg"
+        busy={saving || deleting}
+        title="Editar proyecto"
+        description="Los cambios afectan a la ficha, al presupuesto y a los selectores de factura."
+        footer={
+          <>
+            {/* La destructiva a la izquierda y en tenue: sólida sólo cuando
+                ya está pidiendo confirmación. */}
+            <Button
+              variant={confirmDelete ? "destructiveSolid" : "destructive"}
               onClick={handleDelete}
               disabled={saving || deleting}
-              className={`order-3 md:order-1 w-full md:w-auto px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50 ${
-                confirmDelete
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "text-red-600 hover:bg-red-50 border border-red-200"
-              }`}
+              loading={deleting}
+              className="sm:mr-auto"
             >
-              {deleting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Eliminando...
-                </>
-              ) : confirmDelete ? (
-                "¿Estás seguro?"
-              ) : (
-                <>
-                  <Trash2 className="w-4 h-4" />
-                  Eliminar
-                </>
+              {!deleting && !confirmDelete && (
+                <Trash2 className="mr-1.5 h-4 w-4" strokeWidth={1.75} />
               )}
-            </button>
+              {deleting
+                ? "Eliminando…"
+                : confirmDelete
+                  ? "Confirmar: eliminar proyecto"
+                  : "Eliminar proyecto"}
+            </Button>
+            {error && (
+              <p role="alert" className="text-[0.75rem] text-danger">
+                {error}
+              </p>
+            )}
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving || !projectName}
+              loading={saving}
+            >
+              Guardar cambios
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-5">
+          {/* Información del Proyecto */}
+          <div>
+            <h3 className="text-sm font-semibold text-ink-3 uppercase tracking-wider mb-4">
+              Información del Proyecto
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Nombre del Proyecto *
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Casa Familiar Los Jardines"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-ink">
+                    Cliente
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsClientModalOpen(true)}
+                    className="text-xs text-info hover:text-info font-medium flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Nuevo
+                  </button>
+                </div>
+                <select
+                  value={client}
+                  onChange={(e) => setClient(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                >
+                  <option value="">Seleccione un cliente</option>
+                  {/* Include current client value if not in list */}
+                  {client && !clients.some((c) => c.name === client) && (
+                    <option value={client}>{client}</option>
+                  )}
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Ubicación
+                </label>
+                <input
+                  type="text"
+                  placeholder="Santiago, República Dominicana"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Estado
+                </label>
+                <select
+                  value={statusDisplay}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                >
+                  <option value="Planificación">Planificación</option>
+                  <option value="Ejecución">Ejecución</option>
+                  <option value="Completado">Completado</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Tipo de Proyecto
+                </label>
+                <select
+                  value={projectType}
+                  onChange={(e) => setProjectType(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                >
+                  <option value="Residencial">Residencial</option>
+                  <option value="Comercial">Comercial</option>
+                  <option value="Industrial">Industrial</option>
+                  <option value="Infraestructura">Infraestructura</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Categoría de Permisología
+                </label>
+                <select
+                  value={permissionCategory}
+                  onChange={(e) => setPermissionCategory(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                >
+                  <option value="Mayor">Mayor</option>
+                  <option value="Menor">Menor</option>
+                  <option value="Especial">Especial</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Presupuesto y Cronograma */}
+          <div>
+            <h3 className="text-sm font-semibold text-ink-3 uppercase tracking-wider mb-4">
+              Presupuesto y Cronograma
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Presupuesto Total (RD$)
+                </label>
+                <input
+                  type="text"
+                  placeholder="2,500,000"
+                  value={totalBudget}
+                  onChange={(e) => {
+                    let val = e.target.value.replace(/[^\d.]/g, "");
+                    const parts = val.split(".");
+                    if (parts.length > 2)
+                      val = parts[0] + "." + parts.slice(1).join("");
+                    if (val) {
+                      const fparts = val.split(".");
+                      fparts[0] = fparts[0].replace(
+                        /\B(?=(\d{3})+(?!\d))/g,
+                        ",",
+                      );
+                      val = fparts.join(".");
+                    }
+                    setTotalBudget(val);
+                  }}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Fecha de Inicio
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Fecha de Finalización
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Descripción */}
+          <div>
+            <h3 className="text-sm font-semibold text-ink-3 uppercase tracking-wider mb-4">
+              Descripción
+            </h3>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descripción detallada del proyecto, alcance, especificaciones técnicas..."
+              rows={4}
+              className="min-h-20 w-full rounded-[8px] border border-rule-strong bg-paper px-3 py-2 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold resize-none"
+            />
           </div>
         </div>
-      </div>
+      </Modal>
 
       {/* Add beneficiary sub-modal */}
       {isClientModalOpen && (

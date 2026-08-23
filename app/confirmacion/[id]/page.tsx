@@ -234,13 +234,13 @@ export default function ConfirmacionPage() {
     return (
       <div
         className="min-vh-100 d-flex align-items-center justify-content-center"
-        style={{ backgroundColor: "#f8f7f5" }}
+        style={{ backgroundColor: "var(--color-paper-2)" }}
       >
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
           className="spinner-border text-warning"
-          style={{ width: "3rem", height: "3rem", color: "#A9780F" }}
+          style={{ width: "3rem", height: "3rem", color: "var(--color-gold)" }}
         />
       </div>
     );
@@ -279,7 +279,8 @@ export default function ConfirmacionPage() {
               style={{
                 width: "120px",
                 height: "120px",
-                background: "linear-gradient(135deg, #A9780F 0%, #D4AF37 100%)",
+                background:
+                  "linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold) 100%)",
                 boxShadow: "0 10px 40px rgba(169, 120, 15, 0.3)",
               }}
             >
@@ -309,7 +310,10 @@ export default function ConfirmacionPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            <h1 className="display-4 fw-bold mb-3" style={{ color: "#131E29" }}>
+            <h1
+              className="display-4 fw-bold mb-3"
+              style={{ color: "var(--color-shell)" }}
+            >
               ¡Producto Asignado!
             </h1>
             <p className="lead text-muted mb-4">
@@ -328,7 +332,10 @@ export default function ConfirmacionPage() {
             <div className="card-body p-5">
               {product && (
                 <div className="mb-4 text-center border-b pb-4">
-                  <h4 className="fw-bold" style={{ color: "#131E29" }}>
+                  <h4
+                    className="fw-bold"
+                    style={{ color: "var(--color-shell)" }}
+                  >
                     {product.name}
                   </h4>
                 </div>
@@ -388,7 +395,7 @@ export default function ConfirmacionPage() {
                     </label>
                     <div className="flex flex-col gap-3">
                       <label
-                        className={`flex-1 border rounded-xl p-3 cursor-pointer transition-all ${paymentMethod === "transfer" ? "border-[#C8A31D] bg-[#FFF8E7]" : "border-gray-200 hover:bg-gray-50"}`}
+                        className={`flex-1 border rounded-xl p-3 cursor-pointer transition-all ${paymentMethod === "transfer" ? "border-gold bg-gold-soft" : "border-gray-200 hover:bg-gray-50"}`}
                       >
                         <div className="flex items-center gap-3">
                           <input
@@ -396,7 +403,7 @@ export default function ConfirmacionPage() {
                             name="paymentMethod"
                             checked={paymentMethod === "transfer"}
                             onChange={() => setPaymentMethod("transfer")}
-                            className="accent-[#C8A31D] w-5 h-5"
+                            className="accent-gold w-5 h-5"
                           />
                           <div>
                             <span className="font-semibold block">
@@ -410,7 +417,7 @@ export default function ConfirmacionPage() {
                       </label>
 
                       <label
-                        className={`flex-1 border rounded-xl p-3 cursor-pointer transition-all ${paymentMethod === "card" ? "border-[#C8A31D] bg-[#FFF8E7]" : "border-gray-200 hover:bg-gray-50"}`}
+                        className={`flex-1 border rounded-xl p-3 cursor-pointer transition-all ${paymentMethod === "card" ? "border-gold bg-gold-soft" : "border-gray-200 hover:bg-gray-50"}`}
                       >
                         <div className="flex items-center gap-3">
                           <input
@@ -418,7 +425,7 @@ export default function ConfirmacionPage() {
                             name="paymentMethod"
                             checked={paymentMethod === "card"}
                             onChange={() => setPaymentMethod("card")}
-                            className="accent-[#C8A31D] w-5 h-5"
+                            className="accent-gold w-5 h-5"
                           />
                           <div>
                             <span className="font-semibold block">
@@ -450,7 +457,7 @@ export default function ConfirmacionPage() {
                             className="flex items-center justify-between bg-white p-2 rounded border border-gray-100 text-sm"
                           >
                             <div className="flex flex-col">
-                              <span className="font-semibold text-[#131E29]">
+                              <span className="font-semibold text-shell">
                                 {account.bank}
                               </span>
                               <span className="text-gray-600 font-mono">
@@ -485,7 +492,7 @@ export default function ConfirmacionPage() {
                       onChange={(e) =>
                         setReceiptFile(e.target.files?.[0] || null)
                       }
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-[#2C3E50]"
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-shell file:text-white hover:file:bg-shell-2"
                     />
                     {receiptPreview && (
                       <div className="mt-3 relative h-48 w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
@@ -504,7 +511,7 @@ export default function ConfirmacionPage() {
                       onClick={() => router.push("/")}
                       className="btn flex-fill py-3 fw-bold text-white shadow-sm rounded-xl transition-all"
                       style={{
-                        background: "#131E29",
+                        background: "var(--color-shell)",
                         border: "none",
                       }}
                     >
@@ -520,8 +527,8 @@ export default function ConfirmacionPage() {
                       }
                       className="btn flex-fill py-3 fw-bold text-white shadow-sm rounded-xl transition-all"
                       style={{
-                        backgroundColor: "#A9780F",
-                        borderColor: "#A9780F",
+                        backgroundColor: "var(--color-gold)",
+                        borderColor: "var(--color-gold)",
                       }}
                     >
                       {updating ? "Procesando..." : "Confirmar Inversión"}
@@ -548,8 +555,8 @@ export default function ConfirmacionPage() {
                       onClick={() => router.push("/welcome")}
                       className="btn btn-primary px-5 py-2 fw-bold"
                       style={{
-                        backgroundColor: "#A9780F",
-                        borderColor: "#A9780F",
+                        backgroundColor: "var(--color-gold)",
+                        borderColor: "var(--color-gold)",
                       }}
                     >
                       Regresar

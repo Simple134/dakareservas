@@ -75,7 +75,7 @@ export function EditLocalModal({
         ...form,
       };
 
-      const res = await fetch("/api/gestiono/appData", {
+      const res = await fetch("/api/erp/appData", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -106,19 +106,19 @@ export function EditLocalModal({
     }).format(n);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+    <div className="fixed inset-0 bg-[oklch(21%_0.021_250_/_0.45)] flex items-center justify-center z-50 p-4">
+      <div className="bg-paper rounded-xl shadow-xl w-full max-w-lg">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-rule">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-ink">
               Editar Local #{local.data.id}
             </h2>
-            <p className="text-sm text-gray-500">Nivel {local.data.level}</p>
+            <p className="text-sm text-ink-3">Nivel {local.data.level}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 text-ink-3 hover:text-ink-2 rounded-lg hover:bg-paper-3 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -127,13 +127,13 @@ export function EditLocalModal({
         <div className="p-6 space-y-5">
           {/* Status */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-ink-2 mb-1.5">
               Estado
             </label>
             <select
               value={form.status}
               onChange={(e) => handleChange("status", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 focus:border-transparent"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -146,7 +146,7 @@ export function EditLocalModal({
           {/* Area and price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-ink-2 mb-1.5">
                 Área (m²)
               </label>
               <input
@@ -156,11 +156,11 @@ export function EditLocalModal({
                 onChange={(e) =>
                   handleChange("area_mt2", parseFloat(e.target.value) || 0)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-ink-2 mb-1.5">
                 Precio / m²
               </label>
               <input
@@ -170,14 +170,14 @@ export function EditLocalModal({
                 onChange={(e) =>
                   handleChange("price_per_mt2", parseFloat(e.target.value) || 0)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 focus:border-transparent"
               />
             </div>
           </div>
 
           {/* Total value */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-ink-2 mb-1.5">
               Valor Total
             </label>
             <input
@@ -187,9 +187,9 @@ export function EditLocalModal({
               onChange={(e) =>
                 handleChange("total_value", parseFloat(e.target.value) || 0)
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 focus:border-transparent"
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-ink-3 mt-1">
               Se recalcula automáticamente al cambiar área × precio
             </p>
           </div>
@@ -197,7 +197,7 @@ export function EditLocalModal({
           {/* Separations */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-ink-2 mb-1.5">
                 Separación (10%)
               </label>
               <input
@@ -207,11 +207,11 @@ export function EditLocalModal({
                 onChange={(e) =>
                   handleChange("separation_10", parseFloat(e.target.value) || 0)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-ink-2 mb-1.5">
                 Inicial (45%)
               </label>
               <input
@@ -221,26 +221,26 @@ export function EditLocalModal({
                 onChange={(e) =>
                   handleChange("separation_45", parseFloat(e.target.value) || 0)
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 focus:border-transparent"
               />
             </div>
           </div>
 
           {/* Capital summary */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
+          <div className="bg-paper-2 rounded-lg p-4">
+            <div className="flex justify-between text-sm text-ink-2 mb-1">
               <span>Separación:</span>
               <span className="font-medium">
                 {formatCurrency(form.separation_10)}
               </span>
             </div>
-            <div className="flex justify-between text-sm text-gray-600 mb-1">
+            <div className="flex justify-between text-sm text-ink-2 mb-1">
               <span>Inicial:</span>
               <span className="font-medium">
                 {formatCurrency(form.separation_45)}
               </span>
             </div>
-            <div className="flex justify-between text-sm font-semibold text-gray-900 pt-1 border-t border-gray-200 mt-1">
+            <div className="flex justify-between text-sm font-semibold text-ink pt-1 border-t border-rule mt-1">
               <span>Capital restante:</span>
               <span>
                 {formatCurrency(
@@ -252,18 +252,18 @@ export function EditLocalModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-rule">
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-2 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-shell rounded-lg hover:bg-shell-3 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {isSaving ? (
               <Loader2 className="w-4 h-4 animate-spin" />

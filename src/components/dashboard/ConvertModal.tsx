@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { X, Upload, FileText, ArrowRight } from "lucide-react";
+import { Modal } from "@/src/components/ui/modal";
+import { Button } from "@/src/components/ui/button";
 import { useForm } from "react-hook-form";
 
 interface ConvertMetadata {
@@ -44,7 +46,7 @@ export function ConvertModal({
         const formData = new FormData();
         formData.append("file", selectedFile);
 
-        const uploadRes = await fetch("/api/gestiono/uploadFile", {
+        const uploadRes = await fetch("/api/erp/uploadFile", {
           method: "POST",
           body: formData,
         });
@@ -91,137 +93,112 @@ export function ConvertModal({
 
   if (!isOpen) return null;
 
+  const FORM_ID = "convertir-documento";
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <FileText className="w-6 h-6 text-indigo-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">
-                Convertir a Factura
-              </h3>
-              <p className="text-sm text-gray-600">{invoiceNumber}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+    <Modal
+      open={isOpen}
+      onClose={onClose}
+      size="sm"
+      busy={isSubmitting}
+      title="Convertir a factura"
+      description={`${invoiceNumber} · el comprobante es opcional`}
+      footer={
+        <>
           {submitError && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+            <p role="alert" className="mr-auto text-[0.75rem] text-danger">
               {submitError}
-            </div>
+            </p>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Comprobante / Documento Firmado
-            </label>
-            {selectedFile && selectedFile.type.startsWith("image/") ? (
-              <div className="relative w-full rounded-lg border-2 border-indigo-200 bg-indigo-50 overflow-hidden">
-                <img
-                  src={URL.createObjectURL(selectedFile)}
-                  alt="Preview"
-                  className="w-full max-h-48 object-contain"
-                />
-                <div className="flex items-center justify-between px-3 py-2 bg-white border-t border-indigo-100">
-                  <p className="text-sm text-gray-700 truncate flex-1">
-                    {selectedFile.name}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedFile(null)}
-                    className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ) : selectedFile ? (
-              <div className="flex items-center gap-3 w-full p-4 border-2 border-indigo-200 bg-indigo-50 rounded-lg">
-                <FileText className="w-8 h-8 text-indigo-500 flex-shrink-0" />
-                <p className="text-sm text-gray-700 truncate flex-1">
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form={FORM_ID}
+            loading={isSubmitting}
+            disabled={isSubmitting}
+          >
+            Convertir
+            <ArrowRight className="ml-1.5 h-4 w-4" strokeWidth={2} />
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={FORM_ID}
+        onSubmit={handleSubmit(onSubmit)}
+        className="space-y-4"
+      >
+        <div>
+          <label className="eyebrow mb-1.5 block">
+            Comprobante / Documento Firmado
+          </label>
+          {selectedFile && selectedFile.type.startsWith("image/") ? (
+            <div className="relative w-full rounded-lg border-2 border-info/20 bg-info-soft overflow-hidden">
+              <img
+                src={URL.createObjectURL(selectedFile)}
+                alt="Preview"
+                className="w-full max-h-48 object-contain"
+              />
+              <div className="flex items-center justify-between px-3 py-2 bg-paper border-t border-info/20">
+                <p className="text-sm text-ink-2 truncate flex-1">
                   {selectedFile.name}
                 </p>
                 <button
                   type="button"
                   onClick={() => setSelectedFile(null)}
-                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                  className="ml-2 p-1 text-ink-3 hover:text-danger transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500">
-                    Click para subir archivo
-                  </p>
-                </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setSelectedFile(e.target.files[0]);
-                    }
-                  }}
-                  accept="image/*,application/pdf"
-                />
-              </label>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Número de Comprobante
+            </div>
+          ) : selectedFile ? (
+            <div className="flex items-center gap-3 w-full p-4 border-2 border-info/20 bg-info-soft rounded-lg">
+              <FileText className="w-8 h-8 text-info flex-shrink-0" />
+              <p className="text-sm text-ink-2 truncate flex-1">
+                {selectedFile.name}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedFile(null)}
+                className="p-1 text-ink-3 hover:text-danger transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-rule-strong border-dashed rounded-lg cursor-pointer bg-paper-2 hover:bg-paper-3 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <Upload className="w-8 h-8 text-ink-3 mb-2" />
+                <p className="text-sm text-ink-3">Click para subir archivo</p>
+              </div>
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setSelectedFile(e.target.files[0]);
+                  }
+                }}
+                accept="image/*,application/pdf"
+              />
             </label>
-            <input
-              type="text"
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="Ej: NCF-B0100000001"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-            />
-          </div>
+          )}
+        </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md font-medium transition-colors disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-md font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                "Procesando..."
-              ) : (
-                <>
-                  Confirmar
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div>
+          <label className="eyebrow mb-1.5 block">Número de Comprobante</label>
+          <input
+            type="text"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            placeholder="Ej: NCF-B0100000001"
+            className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold"
+          />
+        </div>
+      </form>
+    </Modal>
   );
 }

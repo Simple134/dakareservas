@@ -1,7 +1,7 @@
 "use client";
 
-import { GestionoDivision, GestionoInvoiceItem } from "@/src/types/gestiono";
-import { Plus, X, Save, Loader2 } from "lucide-react";
+import { Division, InvoiceItem } from "@/src/types/erp";
+import { Plus, X, Save } from "lucide-react";
 import { useState, useCallback, useRef, useMemo } from "react";
 
 interface BudgetCategory {
@@ -11,13 +11,28 @@ interface BudgetCategory {
   percentage: number;
 }
 
+import { Button } from "@/src/components/ui/button";
+import { Badge } from "@/src/components/ui/badge";
+import { Input } from "@/src/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/src/components/ui/table";
+import { money } from "@/src/lib/format";
+import { cn } from "@/src/lib/utils";
+
 interface BudgetModuleProps {
   projectId: string | number;
   divisionId: number;
   categories?: BudgetCategory[];
   totalBudget?: number;
-  divisionData?: GestionoDivision;
-  salesInvoices?: GestionoInvoiceItem[];
+  divisionData?: Division;
+  salesInvoices?: InvoiceItem[];
   onUpdate?: () => void;
 }
 
@@ -61,41 +76,28 @@ export function BudgetModule({
   // Keep a ref to the initial categories for cancel
   const initialCategoriesRef = useRef(categories);
 
-  const formatCurrency = (amount: number) => {
-    const safeAmount = Number.isFinite(amount) ? amount : 0;
-    return new Intl.NumberFormat("es-DO", {
-      style: "currency",
-      currency: "DOP",
-      minimumFractionDigits: 0,
-    }).format(safeAmount);
-  };
+  const formatCurrency = (amount: number) =>
+    money(Number.isFinite(amount) ? amount : 0);
 
+  /* Los tres estados daban dos etiquetas: «completed» e «in-progress»
+   * mostraban ambos «Ejecutado» con el mismo relleno, así que una partida a
+   * medias y una terminada eran indistinguibles. */
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
         return (
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-[#131E29] text-white">
-            Ejecutado
-          </span>
+          <Badge variant="success" dot>
+            Ejecutada
+          </Badge>
         );
       case "in-progress":
         return (
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-[#131E29] text-white">
-            Ejecutado
-          </span>
-        );
-      case "pending":
-        return (
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200">
-            Presupuestado
-          </span>
+          <Badge variant="info" dot>
+            En curso
+          </Badge>
         );
       default:
-        return (
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-800">
-            {status}
-          </span>
-        );
+        return <Badge variant="default">Presupuestada</Badge>;
     }
   };
 
@@ -182,7 +184,7 @@ export function BudgetModule({
       const budgetDifference = newTotal - oldTotal;
       const updatedBudget = totalBudget + budgetDifference;
 
-      const response = await fetch("/api/gestiono/divisions", {
+      const response = await fetch("/api/erp/divisions", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -278,332 +280,324 @@ export function BudgetModule({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="p-4 md:p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-gray-100">
-        <div>
-          <h3 className="font-semibold text-lg text-gray-900">
-            Desglose por Categorias
+    <section className="overflow-hidden rounded-[12px] border border-rule bg-paper">
+      <header className="flex flex-col gap-3 border-b border-rule px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="font-display text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">
+            Partidas del presupuesto
           </h3>
-          {isEditing && (
-            <p className="text-xs text-gray-500 mt-1">
-              Total: {formatPercentage(totalPercentage)}%
-            </p>
-          )}
+          <p className="mt-0.5 text-[0.75rem] text-ink-2">
+            {isEditing ? (
+              <>
+                Reparto actual:{" "}
+                <span
+                  className={cn(
+                    "tabular font-semibold",
+                    Math.abs(totalPercentage - 100) < 0.01
+                      ? "text-success"
+                      : "text-warning",
+                  )}
+                >
+                  {formatPercentage(totalPercentage)} %
+                </span>
+              </>
+            ) : (
+              "El avance de cada partida sale de las facturas de venta imputadas a ella."
+            )}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {isEditing ? (
             <>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={cancelEditing}
                 disabled={isSaving}
-                className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors h-9 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
-                <X className="w-4 h-4 mr-2" />
+                <X className="mr-1.5 h-3.5 w-3.5" />
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={saveBudgetCategories}
+                loading={isSaving}
                 disabled={isSaving}
-                style={{ borderRadius: "1rem" }}
-                className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors h-9 px-4 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c] disabled:opacity-50"
               >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Guardar
-                  </>
-                )}
-              </button>
+                <Save className="mr-1.5 h-3.5 w-3.5" strokeWidth={2} />
+                Guardar partidas
+              </Button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={addCategory}
-              style={{ borderRadius: "1rem" }}
-              className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors h-9 px-4 py-2 bg-[#131E29] text-white hover:bg-[#1a2b3c]"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nueva Categoría
-            </button>
+            <Button size="sm" onClick={addCategory}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" strokeWidth={2} />
+              Añadir partida
+            </Button>
           )}
         </div>
-      </div>
+      </header>
 
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+        <p className="border-b border-rule bg-danger-soft px-4 py-2.5 text-[0.8125rem] text-danger">
           {error}
-        </div>
+        </p>
       )}
-
       {success && (
-        <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-600">
-          ✓ Partidas presupuestarias actualizadas correctamente
-        </div>
+        <p className="border-b border-rule bg-success-soft px-4 py-2.5 text-[0.8125rem] text-success">
+          Partidas actualizadas.
+        </p>
       )}
 
-      <div className="p-4 md:p-6">
-        {/* Mobile Card Layout */}
-        <div className="block md:hidden space-y-3">
-          {isEditing
-            ? budgetCategories.map((category) => (
-                <div
-                  key={category.id}
-                  className="p-3 border border-gray-100 rounded-lg space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <input
-                      type="text"
+      {/* Móvil */}
+      <ul className="divide-y divide-rule md:hidden">
+        {isEditing
+          ? budgetCategories.map((category) => (
+              <li key={category.id} className="space-y-2.5 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={category.name}
+                    aria-label="Nombre de la partida"
+                    onChange={(e) =>
+                      updateCategoryName(category.id, e.target.value)
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeCategory(category.id)}
+                    aria-label={`Quitar ${category.name}`}
+                    className="shrink-0 rounded-[6px] p-1.5 text-ink-3 transition-colors duration-[120ms] hover:bg-danger-soft hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold"
+                  >
+                    <X className="h-4 w-4" strokeWidth={1.75} />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block">
+                    <span className="eyebrow mb-1 block">Porcentaje</span>
+                    <Input
+                      type="number"
+                      numeric
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      value={getNumberInputValue(category.percentage, 2)}
+                      onChange={(e) =>
+                        updateCategoryPercentage(
+                          category.id,
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="eyebrow mb-1 block">Monto</span>
+                    <Input
+                      type="number"
+                      numeric
+                      step="0.01"
+                      min="0"
+                      placeholder="0"
+                      value={getNumberInputValue(category.amount)}
+                      onChange={(e) =>
+                        updateCategoryAmount(
+                          category.id,
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
+                  </label>
+                </div>
+              </li>
+            ))
+          : budgetItems.map((item) => {
+              const avance = getProgress(item.budgeted, item.executed);
+              return (
+                <li key={item.id} className="px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="min-w-0 truncate text-[0.8125rem] font-medium text-ink">
+                      {item.category}
+                    </p>
+                    {getStatusBadge(item.status)}
+                  </div>
+                  <div className="mt-1.5 flex items-baseline justify-between gap-3">
+                    <span className="tabular text-[0.75rem] text-ink-2">
+                      {formatPercentage(
+                        budgetCategories.find((c) => c.id === item.id)
+                          ?.percentage ?? 0,
+                      )}{" "}
+                      %
+                    </span>
+                    <span className="tabular font-mono text-[0.8125rem] font-medium text-ink">
+                      {formatCurrency(item.budgeted)}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-paper-3">
+                    <div
+                      className="h-full rounded-full bg-ink-2"
+                      style={{ width: `${avance}%` }}
+                    />
+                  </div>
+                  <p className="tabular mt-1 text-[0.75rem] text-ink-3">
+                    {avance} % ejecutado · {formatCurrency(item.executed)}
+                  </p>
+                </li>
+              );
+            })}
+        {budgetCategories.length === 0 && !isEditing && (
+          <li className="px-4 py-10 text-center text-[0.8125rem] text-ink-3">
+            Este proyecto no tiene partidas presupuestarias.
+          </li>
+        )}
+      </ul>
+
+      {/* Escritorio */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[32%]">Partida</TableHead>
+              <TableHead numeric className="w-[12%]">
+                %
+              </TableHead>
+              <TableHead numeric className="w-[18%]">
+                Presupuestado
+              </TableHead>
+              {!isEditing && (
+                <>
+                  <TableHead numeric className="w-[16%]">
+                    Ejecutado
+                  </TableHead>
+                  <TableHead className="w-[16%]">Avance</TableHead>
+                  <TableHead>Estado</TableHead>
+                </>
+              )}
+              {isEditing && (
+                <TableHead className="text-right">Quitar</TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isEditing ? (
+              budgetCategories.map((category) => (
+                <TableRow key={category.id}>
+                  <TableCell>
+                    <Input
                       value={category.name}
+                      aria-label="Nombre de la partida"
                       onChange={(e) =>
                         updateCategoryName(category.id, e.target.value)
                       }
-                      className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      numeric
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      aria-label="Porcentaje"
+                      value={getNumberInputValue(category.percentage, 2)}
+                      onChange={(e) =>
+                        updateCategoryPercentage(
+                          category.id,
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      numeric
+                      step="0.01"
+                      min="0"
+                      placeholder="0"
+                      aria-label="Monto"
+                      value={getNumberInputValue(category.amount)}
+                      onChange={(e) =>
+                        updateCategoryAmount(
+                          category.id,
+                          parseFloat(e.target.value) || 0,
+                        )
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="text-right">
                     <button
                       type="button"
                       onClick={() => removeCategory(category.id)}
-                      className="ml-2 text-gray-400 hover:text-red-600 p-1"
+                      aria-label={`Quitar ${category.name}`}
+                      className="rounded-[6px] p-1.5 text-ink-3 transition-colors duration-[120ms] hover:bg-danger-soft hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" strokeWidth={1.75} />
                     </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-gray-500">%</label>
-                      <input
-                        type="number"
-                        value={getNumberInputValue(category.percentage, 2)}
-                        onChange={(e) =>
-                          updateCategoryPercentage(
-                            category.id,
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        step="0.1"
-                        min="0"
-                        max="100"
-                        placeholder="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500">Monto</label>
-                      <input
-                        type="number"
-                        value={getNumberInputValue(category.amount)}
-                        onChange={(e) =>
-                          updateCategoryAmount(
-                            category.id,
-                            parseFloat(e.target.value) || 0,
-                          )
-                        }
-                        step="0.01"
-                        min="0"
-                        placeholder="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
+                  </TableCell>
+                </TableRow>
               ))
-            : budgetItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="p-3 border border-gray-100 rounded-lg"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-900">
+            ) : budgetItems.length === 0 ? (
+              <TableEmpty colSpan={6}>
+                Este proyecto no tiene partidas presupuestarias. Púlsalo en
+                «Añadir partida» para crear la primera.
+              </TableEmpty>
+            ) : (
+              budgetItems.map((item) => {
+                const avance = getProgress(item.budgeted, item.executed);
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="text-[0.8125rem] font-medium text-ink">
                       {item.category}
-                    </span>
-                    {getStatusBadge(item.status)}
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">
+                    </TableCell>
+                    <TableCell numeric className="text-[0.8125rem] text-ink-2">
                       {formatPercentage(
                         budgetCategories.find((c) => c.id === item.id)
                           ?.percentage ?? 0,
                       )}
-                      %
-                    </span>
-                    <span className="font-medium text-gray-900">
+                    </TableCell>
+                    <TableCell numeric className="text-[0.8125rem]">
                       {formatCurrency(item.budgeted)}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-[#131E29] rounded-full"
-                        style={{
-                          width: `${getProgress(item.budgeted, item.executed)}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {getProgress(item.budgeted, item.executed)}% ejecutado
-                    </span>
-                  </div>
-                </div>
-              ))}
-        </div>
-
-        {/* Desktop Table Layout */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[40%]" : "w-[30%]"}`}
-                >
-                  Categoría
-                </th>
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[20%]" : "w-[15%]"}`}
-                >
-                  %
-                </th>
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm ${isEditing ? "w-[30%]" : "w-[20%]"}`}
-                >
-                  Presupuestado
-                </th>
-                <th
-                  className={`text-left py-3 font-medium text-gray-500 text-sm w-[25%] ${isEditing ? "hidden" : ""}`}
-                >
-                  Progreso
-                </th>
-                <th className="text-left py-3 font-medium text-gray-500 text-sm w-[10%]">
-                  {isEditing ? "" : "Estado"}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {isEditing
-                ? budgetCategories.map((category) => (
-                    <tr
-                      key={category.id}
-                      className="border-b border-gray-50 last:border-0"
-                    >
-                      <td className="py-3">
-                        <input
-                          type="text"
-                          value={category.name}
-                          onChange={(e) =>
-                            updateCategoryName(category.id, e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                        />
-                      </td>
-                      <td className="py-3">
-                        <input
-                          type="number"
-                          value={getNumberInputValue(category.percentage, 2)}
-                          onChange={(e) =>
-                            updateCategoryPercentage(
-                              category.id,
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          step="0.1"
-                          min="0"
-                          max="100"
-                          placeholder="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                        />
-                      </td>
-                      <td className="py-3">
-                        <input
-                          type="number"
-                          value={getNumberInputValue(category.amount)}
-                          onChange={(e) =>
-                            updateCategoryAmount(
-                              category.id,
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                          step="0.01"
-                          min="0"
-                          placeholder="0"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-[#131E29] focus:border-transparent"
-                        />
-                      </td>
-                      <td className="py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => removeCategory(category.id)}
-                          className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                : budgetItems.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 transition-colors"
-                    >
-                      <td className="py-4 font-medium text-gray-900 text-sm">
-                        {item.category}
-                      </td>
-                      <td className="py-4 text-left text-gray-600 text-sm">
-                        {formatPercentage(
-                          budgetCategories.find((c) => c.id === item.id)
-                            ?.percentage ?? 0,
-                        )}
-                        %
-                      </td>
-                      <td className="py-4 text-left font-medium text-gray-900 text-sm">
-                        {formatCurrency(item.budgeted)}
-                      </td>
-                      <td className="py-4 w-[25%]">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-[#131E29] rounded-full"
-                              style={{
-                                width: `${getProgress(item.budgeted, item.executed)}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-500 min-w-[2rem]">
-                            {getProgress(item.budgeted, item.executed)}%
-                          </span>
+                    </TableCell>
+                    <TableCell numeric className="text-[0.8125rem] text-ink-2">
+                      {formatCurrency(item.executed)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-full min-w-14 overflow-hidden rounded-full bg-paper-3">
+                          <div
+                            className={cn(
+                              "h-full rounded-full",
+                              avance >= 100 ? "bg-success" : "bg-ink-2",
+                            )}
+                            style={{ width: `${avance}%` }}
+                          />
                         </div>
-                      </td>
-                      <td className="py-4 text-left">
-                        {getStatusBadge(item.status)}
-                      </td>
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
+                        <span className="tabular w-9 shrink-0 text-right text-[0.75rem] text-ink-2">
+                          {avance} %
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(item.status)}</TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
 
-          {isEditing && (
+        {isEditing && (
+          <div className="px-4 py-3">
             <button
               type="button"
               onClick={addCategory}
-              className="w-full mt-3 py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-[#131E29] hover:text-[#131E29] transition-colors flex items-center justify-center gap-2"
+              className="flex w-full items-center justify-center gap-2 rounded-[8px] border border-dashed border-rule-strong py-2 text-[0.8125rem] text-ink-2 transition-colors duration-[120ms] hover:border-gold hover:text-gold-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             >
-              <Plus className="w-4 h-4" />
-              Agregar Categoría
+              <Plus className="h-4 w-4" strokeWidth={1.75} />
+              Añadir partida
             </button>
-          )}
-
-          {budgetCategories.length === 0 && !isEditing && (
-            <div className="text-center py-8 text-gray-500">
-              No hay partidas presupuestarias definidas. Haga clic &quot;Nueva
-              Partida&quot; para agregar una.
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }

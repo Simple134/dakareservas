@@ -7,6 +7,7 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
+import { alpha, seriesColor } from "@/src/lib/chartColors";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -21,16 +22,8 @@ export const CategoryPieChart = ({ categories, totalItems }: PieChartProps) => {
     datasets: [
       {
         data: categories.map((c) => c.count),
-        backgroundColor: [
-          "rgba(168, 85, 247, 0.8)", // purple-400
-          "rgba(134, 239, 172, 0.8)", // green-300
-          "rgba(251, 191, 36, 0.8)", // yellow-400
-        ],
-        borderColor: [
-          "rgb(168, 85, 247)",
-          "rgb(134, 239, 172)",
-          "rgb(251, 191, 36)",
-        ],
+        backgroundColor: categories.map((_, i) => alpha(seriesColor(i), 0.85)),
+        borderColor: categories.map((_, i) => seriesColor(i)),
         borderWidth: 2,
       },
     ],
@@ -70,7 +63,9 @@ export const CategoryPieChart = ({ categories, totalItems }: PieChartProps) => {
           pointerEvents: "none",
         }}
       >
-        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Total</p>
+        <p style={{ fontSize: "12px", color: "var(--color-ink-2)", margin: 0 }}>
+          Total
+        </p>
         <p style={{ fontSize: "18px", fontWeight: "bold", margin: 0 }}>
           {totalItems}
         </p>

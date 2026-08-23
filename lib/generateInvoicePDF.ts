@@ -1,15 +1,15 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import type {
-  GestionoInvoiceItem,
+  InvoiceItem,
   PendingRecordElement,
-  GestionoBeneficiary,
+  Beneficiary,
   PaymentRecord,
-} from "@/src/types/gestiono";
+} from "@/src/types/erp";
 import { getTaxRateById } from "@/lib/taxRates";
 
 interface InvoicePDFData {
-  invoice: GestionoInvoiceItem;
-  beneficiary: GestionoBeneficiary | null;
+  invoice: InvoiceItem;
+  beneficiary: Beneficiary | null;
   elements: PendingRecordElement[];
   payments?: PaymentRecord[];
   isSell?: boolean;

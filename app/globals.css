@@ -1,34 +1,282 @@
+/* Orden de capas declarado antes de nada. La capa `bootstrap` es la más baja:
+ * contiene la capa de retirada que sustituyó a Bootstrap 5 y debe perder contra
+ * cualquier utilidad de Tailwind. Ver app/vendor/daka-compat.css.
+ */
+@layer bootstrap, theme, base, components, utilities;
+
+@import "./vendor/daka-compat.css";
 @import "tailwindcss";
 
+/* Hallmark · genre: modern-minimal · design-system: design.md · designed-as-app
+ * Daka ERP — marina + oro, claro. La fuente de verdad es design.md en la raíz.
+ * Ningún componente declara color, fuente o espaciado en crudo: token o nada.
+ */
+
+@theme {
+  /* ── Paleta de marca ─────────────────────────────────────────────
+   * Consolida los 6 azules marina y los 3 dorados que convivían sueltos.
+   */
+  --color-paper: oklch(99% 0.002 250);
+  --color-paper-2: oklch(97% 0.004 250);
+  --color-paper-3: oklch(94.5% 0.005 250);
+
+  /* Marina Daka. El croma importa: a 0.02 esto sale gris carbón, no azul. */
+  --color-ink: oklch(23% 0.072 262); /* ≈ #07234B */
+  --color-ink-2: oklch(52% 0.03 258);
+  --color-ink-3: oklch(64% 0.022 258);
+
+  --color-rule: oklch(92% 0.006 255);
+  --color-rule-strong: oklch(85% 0.009 255);
+
+  --color-gold: oklch(56% 0.11 72); /* ≈ #A9780F */
+  --color-gold-strong: oklch(
+    47% 0.098 72
+  ); /* relleno con texto blanco, AA 5.4:1 */
+  --color-gold-soft: oklch(96% 0.028 80);
+  --color-gold-ink: oklch(99% 0 0);
+
+  /* Superficies oscuras — side-rail, kiosco. Más apagadas que `ink`: el rail
+   * es fondo, no texto, y a croma pleno compite con el oro. ≈ #131E29 */
+  --color-shell: oklch(21% 0.018 248);
+  --color-shell-2: oklch(26% 0.02 248);
+  --color-shell-3: oklch(32% 0.02 248);
+
+  /* ── Estado de datos ──────────────────────────────────────────────
+   * Escala propia: el estado de una factura nunca debe confundirse con
+   * el oro de marca.
+   */
+  --color-success: oklch(48% 0.13 155);
+  --color-success-soft: oklch(96% 0.032 155);
+  /* Hue 45, no 70: a 70 el ámbar es indistinguible del oro de marca. */
+  --color-warning: oklch(50% 0.14 45);
+  --color-warning-soft: oklch(96% 0.035 50);
+  --color-danger: oklch(50% 0.19 25);
+  --color-danger-soft: oklch(96% 0.03 25);
+  --color-info: oklch(48% 0.12 245);
+  --color-info-soft: oklch(96% 0.025 245);
+
+  /* ── Alias semánticos (shadcn) ────────────────────────────────────
+   * src/components/ui/* ya consumía estos nombres; hasta ahora ninguno
+   * estaba declarado, así que las utilidades no generaban CSS.
+   * `accent` es la superficie de hover neutra de shadcn — NO el oro.
+   */
+  --color-background: var(--color-paper-2);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-paper);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-paper);
+  --color-popover-foreground: var(--color-ink);
+  --color-primary: var(--color-gold-strong);
+  --color-primary-foreground: var(--color-gold-ink);
+  --color-secondary: var(--color-paper-3);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-paper-3);
+  --color-muted-foreground: var(--color-ink-2);
+  --color-accent: var(--color-paper-3);
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: oklch(99% 0 0);
+  --color-border: var(--color-rule);
+  --color-input: var(--color-rule-strong);
+  --color-ring: var(--color-gold);
+
+  /* Side-rail */
+  --color-sidebar: var(--color-shell);
+  --color-sidebar-foreground: oklch(99% 0 0);
+  --color-sidebar-accent: var(--color-shell-2);
+  --color-sidebar-border: var(--color-shell-3);
+
+  /* ── Tipografía ───────────────────────────────────────────────────
+   * Display grotesca de tracking cerrado + UI neutra + mono para cifras.
+   * Sin serif, sin cursiva en encabezados.
+   */
+  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --text-display: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+
+  /* ── Radio ────────────────────────────────────────────────────────*/
+  --radius-control: 8px;
+  --radius-card: 12px;
+  --radius-pill: 999px;
+
+  /* ── Movimiento ───────────────────────────────────────────────────*/
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-duration-fast: 120ms;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-
-  /* Sidebar Colors */
-  --sidebar: #0f2744;
-  --sidebar-foreground: #ffffff;
-  --sidebar-accent: #1a3a5c;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1a3a5c;
-  --sidebar-ring: #2563eb;
+  /* Consumidos fuera de Tailwind (charts, PDFs, estilos en línea heredados) */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --shadow-card:
+    0 1px 2px oklch(21% 0.021 250 / 0.04), 0 1px 3px oklch(21% 0.021 250 / 0.06);
+  --shadow-raised:
+    0 2px 4px oklch(21% 0.021 250 / 0.05),
+    0 4px 12px oklch(21% 0.021 250 / 0.07);
+  --shadow-overlay:
+    0 8px 16px oklch(21% 0.021 250 / 0.08),
+    0 24px 48px oklch(21% 0.021 250 / 0.12);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  * {
+    border-color: var(--color-rule);
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  html,
+  body {
+    /* `clip`, nunca `hidden`: `hidden` rompe position:sticky en las tablas */
+    overflow-x: clip;
+  }
+
+  body {
+    background-color: var(--color-paper-2);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-style: normal; /* la cursiva en encabezados está prohibida */
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  /* Encabezados de display largos parten dentro de la palabra en móvil */
+  h1,
+  h2 {
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  /* El anillo de foco nunca se anima: aparece instantáneo */
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-3);
+  }
+
+  ::selection {
+    background-color: var(--color-gold-soft);
+    color: var(--color-ink);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Cifras alineadas en columna. Obligatorio en montos, cantidades, NCF y fechas. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Etiqueta de sección / cabecera de tabla, registro institucional Daka */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-2);
+  }
+
+  /* Contenedor de tabla ancha: hace scroll la tabla, nunca el body */
+  .table-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+}
+
+/* ── Overlays ────────────────────────────────────────────────────────
+ * El proyecto no depende de `tailwindcss-animate`, así que las clases
+ * `animate-in` / `fade-in-0` que arrastraba el diálogo nunca hicieron nada.
+ * Estas dos son las únicas animaciones de entrada del sistema.
+ */
+@keyframes daka-overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes daka-overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes daka-panel-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+}
+@keyframes daka-panel-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+}
+
+[data-daka-overlay][data-state="open"] {
+  animation: daka-overlay-in var(--dur-base) cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-daka-overlay][data-state="closed"] {
+  animation: daka-overlay-out var(--dur-fast) cubic-bezier(0.65, 0, 0.35, 1);
+}
+[data-daka-panel][data-state="open"] {
+  animation: daka-panel-in var(--dur-base) cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-daka-panel][data-state="closed"] {
+  animation: daka-panel-out var(--dur-fast) cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Con reduced-motion sólo queda el crossfade; el desplazamiento desaparece */
+@media (prefers-reduced-motion: reduce) {
+  [data-daka-panel][data-state="open"] {
+    animation-name: daka-overlay-in;
+  }
+  [data-daka-panel][data-state="closed"] {
+    animation-name: daka-overlay-out;
+  }
+}
+
+/* Cromo del navegador, discreto y en la paleta */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-rule-strong);
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
 }

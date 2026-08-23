@@ -259,8 +259,8 @@ export default function UserPage() {
 
   if (dataLoading)
     return (
-      <div className="flex h-screen items-center justify-center bg-[#131E29]">
-        <Loader2 size={48} className="animate-spin text-[#A9780F]" />
+      <div className="flex h-screen items-center justify-center bg-shell">
+        <Loader2 size={48} className="animate-spin text-gold" />
       </div>
     );
 
@@ -277,7 +277,7 @@ export default function UserPage() {
 
       {/* Payment Sidebar */}
       <div
-        className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${isPaymentSidebarOpen ? "translate-x-0" : "translate-x-full"} border-l-4 border-[#A9780F]`}
+        className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-50 ${isPaymentSidebarOpen ? "translate-x-0" : "translate-x-full"} border-l-4 border-gold`}
       >
         {isPaymentSidebarOpen && (
           <SidebarPayment
@@ -296,7 +296,7 @@ export default function UserPage() {
       {/* Overlay */}
       {isPaymentSidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+          className="fixed inset-0 bg-[oklch(21%_0.021_250_/_0.45)] backdrop-blur-[2px] z-40 transition-opacity"
           onClick={() => setPaymentSidebarOpen(false)}
         />
       )}

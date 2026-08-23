@@ -16,23 +16,29 @@ No test suite is configured in this project.
 
 ## Architecture Overview
 
-**Next.js 16 App Router** real estate investment management platform for Daka Dominicana (`reservas.dakadominicana.com`). Two external data sources drive the entire app:
+**Next.js 16 App Router** real estate investment management platform for Daka Dominicana (`reservas.dakadominicana.com`).
 
-1. **Supabase** — auth, real-time, and relational data (reservations, locales, profiles, payments)
-2. **Gestiono** — external financial API for invoices/accounting (proxied server-side)
+**Supabase is the single source of truth** — auth, real-time, and all relational data:
+the sales funnel (reservations, locales, profiles, payments) and the ERP
+(divisions/projects, invoices, invoice lines, taxes, beneficiaries, resources).
+
+The app previously read its financial data from Gestiono, an external API. That
+dependency was removed in August 2026: the historical data was migrated into Postgres
+and every endpoint now resolves against Supabase. The one-shot migration tooling lives
+in `scripts/etl/` and is the only place that still talks to the old API.
 
 ### Route Structure
 
-| Route                                                | Purpose                                                                  |
-| ---------------------------------------------------- | ------------------------------------------------------------------------ |
-| `app/page.tsx`                                       | Kiosk display — shows real-time sale notifications via Supabase Realtime |
-| `app/login/`                                         | Auth entry                                                               |
-| `app/admin/`                                         | Full admin dashboard (role-gated)                                        |
-| `app/admin/projects/[id]/`                           | Project detail with financial modules                                    |
-| `app/user/[id]/`                                     | Client investment view                                                   |
-| `app/api/gestiono/`                                  | Server-side proxy for all Gestiono API calls                             |
-| `app/formulario/`                                    | Client intake form                                                       |
-| `app/seleccion-producto/` + `app/confirmacion/[id]/` | Sales funnel                                                             |
+| Route                                                | Purpose                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------- |
+| `app/page.tsx`                                       | Kiosk display — shows real-time sale notifications via Supabase Realtime  |
+| `app/login/`                                         | Auth entry                                                                |
+| `app/admin/`                                         | Full admin dashboard (role-gated)                                         |
+| `app/admin/projects/[id]/`                           | Project detail with financial modules                                     |
+| `app/user/[id]/`                                     | Client investment view                                                    |
+| `app/api/erp/`                                       | Server-side ERP endpoints (invoices, beneficiaries, divisions, resources) |
+| `app/formulario/`                                    | Client intake form                                                        |
+| `app/seleccion-producto/` + `app/confirmacion/[id]/` | Sales funnel                                                              |
 
 ### Auth Flow
 
@@ -43,15 +49,28 @@ No test suite is configured in this project.
 
 Both pages guard themselves with a `roleLoaded` check before rendering — avoid rendering role-gated content until `roleLoaded === true`.
 
-### Gestiono API Layer
+### ERP Data Layer
 
-All Gestiono calls must go through Next.js API routes. **Never call Gestiono directly from client components.**
+All ERP data access is server-side. **Never import `src/lib/supabase/admin.ts` from a
+client component** — it uses the service-role key and bypasses RLS.
 
-- `src/lib/gestiono/client.ts` — HMAC-SHA256 signed request client (`gestionoRequest`, `gestionoFormRequest`)
-- `src/lib/gestiono/endpoints.ts` — typed wrappers around every Gestiono endpoint
-- `app/api/gestiono/` — Next.js route handlers that call the endpoint wrappers
+- `src/lib/erp/endpoints.ts` — the API the route handlers consume
+- `src/lib/data/` — `records.ts` (documents), `entities.ts` (beneficiaries, divisions,
+  resources, taxes, appData), `files.ts` (Supabase Storage), `mappers.ts` (Postgres rows
+  → the shape the UI expects)
+- `app/api/erp/` — Next.js route handlers
 
-Request signing: GET requests sign query params; POST/PATCH/DELETE sign the body. The signature goes in the `Authorization` header.
+Money is `numeric` in Postgres, never float. Totals, the derived invoice `state` and the
+ISR retention all come from the `pending_records_computed` view — that view is the single
+source of truth, so don't recompute them in components.
+
+Filtering, pagination and the `resume` aggregate are resolved by the
+`search_pending_records` Postgres function. Writes that must be atomic
+(`create_pending_record`, `pay_pending_record`, `create_from_pending_record`,
+`next_fiscal_numeral`) are Postgres functions too.
+
+Verification scripts in `scripts/etl/`: `reconcile.mjs` (totals and states against the
+migrated source), `smoke.mjs` (functional writes, creates and cleans up after itself).
 
 ### Component Organization
 
@@ -68,7 +87,7 @@ src/components/
 
 PDF files live in `lib/` (root-level, not `src/lib/`):
 
-- `generateInvoicePDF.ts`, `generateQuotePDF.ts` — for Gestiono invoices/quotes
+- `generateInvoicePDF.ts`, `generateQuotePDF.ts` — for ERP invoices/quotes
 - `generateCuentasPorCobrarPDF.ts`, `generateCuentasPorPagarPDF.ts` — for accounts modules
 
 Tax rate constants are in `lib/taxRates.ts`. Dominican Republic taxes: ITBIS 18%/16%, ISC 10%, CDT 2%. ISR retention (10%) is applied on vendor invoices.
@@ -78,21 +97,25 @@ Tax rate constants are in `lib/taxRates.ts`. Dominican Republic taxes: ITBIS 18%
 - **locales** — commercial units (Supabase table), each has level, area, price, status
 - **persona_fisica / persona_juridica** — individual vs. corporate buyers
 - **product_allocations** — reservations linking a buyer to a product; `status: "approved"` triggers the kiosk celebration animation
-- **PendingRecord** — Gestiono's term for an invoice/quote/order; `isSell: true` = sales invoice, `isSell: false` = purchase
-- **GestionoDivision** — a Gestiono "project" (maps 1:1 to a Supabase project via `divisionId`)
+- **PendingRecord** — an invoice, quote or order; `isSell: true` = sale, `isSell: false` = purchase.
+  Serialized to the UI with `isSell` as `0`/`1`, not boolean — several components compare
+  with `=== 0` / `=== 1`
+- **Division** — a project. The `[id]` in `/admin/projects/[id]` _is_ the division id;
+  project metadata (client, status, budget, budgetCategories…) lives in `divisions.metadata`
 
 ### Environment Variables
 
 ```
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
-NEXT_PUBLIC_GESTIONO_API_URL        # https://api.gestiono.app
-NEXT_PUBLIC_GESTIONO_ORGANIZATION_ID
-GESTIONO_API_PUBLIC_KEY             # server-only
-GESTIONO_API_PRIVATE_KEY            # server-only (used for HMAC signing)
+SUPABASE_SERVICE_ROLE_KEY           # server-only; required, the app refuses to boot without it
 RESEND_API_KEY                      # for email actions in src/actions/
 NEXT_PUBLIC_SITE_URL
+API_AUTH_REQUIRED                   # optional; "true" makes proxy.ts guard /api/erp/*
 ```
+
+The `GESTIONO_*` variables are no longer read by the app. `scripts/etl/` still needs them
+if the migration tooling is ever re-run.
 
 ### Styling
 

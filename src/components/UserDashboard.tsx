@@ -54,15 +54,15 @@ export const UserDashboard = ({
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#131E29]">
-        <Loader2 size={48} className="animate-spin text-[#A9780F]" />
+      <div className="flex h-screen items-center justify-center bg-shell">
+        <Loader2 size={48} className="animate-spin text-gold" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-8 text-white bg-[#131E29] min-h-screen">
+      <div className="p-8 text-white bg-shell min-h-screen">
         <h1 className="text-2xl font-bold text-red-500">Error</h1>
         <p>{error}</p>
         <button
@@ -81,7 +81,7 @@ export const UserDashboard = ({
         <div className="container mx-auto">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-[#131E29]">
+              <h1 className="text-2xl font-bold text-shell">
                 Bienvenido, {data?.userName || "Usuario"}
               </h1>
               <p className="text-gray-500">No hay inversiones activas.</p>
@@ -119,7 +119,7 @@ export const UserDashboard = ({
         {/* Introduction / Title */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#131E29]">
+            <h1 className="text-2xl font-bold text-shell">
               Bienvenido, {data.userName}
             </h1>
             <p className="text-gray-500">Resumen de su inversión</p>
@@ -140,14 +140,14 @@ export const UserDashboard = ({
                   onClick={() => setSelectedInvestmentId(inv.id)}
                   className={`flex items-center gap-2 px-4 py-3 rounded-lg border font-medium transition-all whitespace-nowrap ${
                     selectedInvestmentId === inv.id
-                      ? "bg-[#131E29] text-white border-[#131E29] shadow-md"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-[#A9780F] hover:text-[#A9780F]"
+                      ? "bg-shell text-white border-shell shadow-md"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-gold hover:text-gold"
                   }`}
                 >
                   <Building2
                     size={18}
                     className={
-                      selectedInvestmentId === inv.id ? "text-[#A9780F]" : ""
+                      selectedInvestmentId === inv.id ? "text-gold" : ""
                     }
                   />
                   <span>{inv.localeCode}</span>
@@ -159,8 +159,8 @@ export const UserDashboard = ({
 
         {/* Single Local Title if only one */}
         {data.investments.length === 1 && (
-          <div className="mb-6 flex items-center gap-2 text-[#131E29]">
-            <Building2 size={24} className="text-[#A9780F]" />
+          <div className="mb-6 flex items-center gap-2 text-shell">
+            <Building2 size={24} className="text-gold" />
             <h2 className="text-xl font-bold">
               {selectedInvestment.localeCode}
             </h2>
@@ -170,11 +170,11 @@ export const UserDashboard = ({
         {/* Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Monto Total */}
-          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-[#131E29]">
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-shell">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
               Monto Total
             </p>
-            <h2 className="text-3xl font-bold text-[#131E29]">
+            <h2 className="text-3xl font-bold text-shell">
               {formatUSD(selectedInvestment.totalAmount)}
             </h2>
           </div>
@@ -190,11 +190,11 @@ export const UserDashboard = ({
           </div>
 
           {/* Pagado */}
-          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-[#A9780F]">
+          <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-gold">
             <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
               Pagado
             </p>
-            <h2 className="text-3xl font-bold text-[#A9780F]">
+            <h2 className="text-3xl font-bold text-gold">
               {formatDynamic(
                 selectedInvestment.paidAmount,
                 selectedInvestment.paidCurrency,
@@ -209,13 +209,13 @@ export const UserDashboard = ({
             <span className="text-sm font-bold text-gray-700">
               Progreso del Plan
             </span>
-            <span className="text-sm font-bold text-[#A9780F]">
+            <span className="text-sm font-bold text-gold">
               {selectedInvestment.progress.toFixed(1)}%
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
             <div
-              className="bg-[#A9780F] h-4 rounded-full transition-all duration-1000 ease-out"
+              className="bg-gold h-4 rounded-full transition-all duration-1000 ease-out"
               style={{ width: `${selectedInvestment.progress}%` }}
             ></div>
           </div>
@@ -228,7 +228,7 @@ export const UserDashboard = ({
               href={selectedInvestment.cotizacion_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-[#131E29] text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-all hover:bg-[#2a425a]"
+              className="flex items-center gap-2 bg-shell text-white font-bold py-2 px-6 rounded-lg shadow-sm transition-all hover:bg-shell-3"
             >
               <FileText size={18} />
               <span>Ver Cotización</span>
@@ -236,7 +236,7 @@ export const UserDashboard = ({
           )}
           <button
             onClick={() => onOpenPaymentSidebar(selectedInvestment.id)}
-            className="flex items-center gap-2 bg-white border border-[#A9780F] text-[#A9780F]  font-bold py-2 px-6 rounded-lg shadow-sm transition-all"
+            className="flex items-center gap-2 bg-white border border-gold text-gold  font-bold py-2 px-6 rounded-lg shadow-sm transition-all"
           >
             <CreditCard size={18} />
             <span>Abonar al {selectedInvestment.localeCode}</span>
@@ -246,16 +246,14 @@ export const UserDashboard = ({
         {/* Payments Table */}
         <div className="bg-white rounded-xl shadow-md overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="text-xl font-bold text-[#131E29]">
-              Historial de Pagos
-            </h3>
+            <h3 className="text-xl font-bold text-shell">Historial de Pagos</h3>
             <span className="text-sm text-gray-500 font-medium">
               {selectedInvestment.localeCode}
             </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[#131E29] text-white">
+              <thead className="bg-shell text-white">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">
                     #
@@ -347,7 +345,7 @@ export const UserDashboard = ({
                               href={payment.receiptUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[#A9780F] hover:text-[#8b6609] font-medium"
+                              className="text-gold hover:text-gold-strong font-medium"
                             >
                               Ver Recibo
                             </a>

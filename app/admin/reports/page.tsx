@@ -1,438 +1,401 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { PageHeader, PageBody } from "@/src/components/ui/page-header";
+import { NativeSelect } from "@/src/components/ui/native-select";
+import { Badge } from "@/src/components/ui/badge";
+import { EmptyState } from "@/src/components/ui/empty-state";
+import { KPICard } from "@/src/components/dashboard/KPICard";
 import {
-  CustomCard,
-  CustomButton,
-  CustomBadge,
-} from "@/src/components/project/CustomCard";
-import {
-  TrendingUp,
-  Download,
-  AlertTriangle,
-  DollarSign,
-  Package,
-  Clock,
-} from "lucide-react";
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/src/components/ui/table";
+import { useErp } from "@/src/context/ErpContext";
+import { PendingRecord } from "@/src/types/erp";
+import { money, percent, count as fmtCount } from "@/src/lib/format";
+import { cn } from "@/src/lib/utils";
+
+/* Hallmark · design-system: design.md · familia Workbench
+ *
+ * Esta página mostraba un proyecto inventado («Remodelación Oficinas Tech
+ * Solutions»), seis partidas con importes fijos en el código y tres pestañas
+ * que decían «en desarrollo». Llevaba incluso su propio cartel admitiendo que
+ * los datos eran de demostración.
+ *
+ * El control de presupuesto que prometía sí se puede calcular: las partidas
+ * viven en `divisions.metadata.budgetCategories` y lo consumido se obtiene de
+ * las facturas del proyecto. El criterio de reparto por partida es el mismo que
+ * usa BudgetModule en la ficha del proyecto —`elements[0].comment` guarda el
+ * nombre de la partida—, para que las dos pantallas no se contradigan.
+ */
+
+type BudgetCategory = { id?: string; name: string; amount: number };
+
+type Partida = {
+  name: string;
+  budgeted: number;
+  consumed: number;
+  ratio: number | null;
+};
+
+function estadoDePartida(ratio: number | null) {
+  if (ratio === null)
+    return { label: "Sin importe", variant: "outline" as const };
+  if (ratio >= 100) return { label: "Agotada", variant: "danger" as const };
+  if (ratio >= 85) return { label: "Al límite", variant: "warning" as const };
+  if (ratio > 0) return { label: "En curso", variant: "info" as const };
+  return { label: "Sin consumo", variant: "default" as const };
+}
 
 export default function ReportsPage() {
-  const [selectedTab, setSelectedTab] = useState("control-presupuesto");
+  const { divisions, isLoading: cargandoDivisiones } = useErp();
+  const [divisionId, setDivisionId] = useState<number | null>(null);
+  const [records, setRecords] = useState<PendingRecord[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data para demostración
-  const projectData = {
-    name: "Remodelación Oficinas Tech Solutions",
-    client: "Tech Solutions S.A.",
-    progressPercentage: 75,
-    totalBudget: 45000,
-    executedBudget: 33750,
-    margin: 18,
-  };
+  const proyectos = useMemo(
+    () =>
+      divisions
+        .filter((d) => (d.type as string) === "PROJECT")
+        .sort((a, b) => a.name.localeCompare(b.name, "es")),
+    [divisions],
+  );
 
-  const budgetCategories = [
-    {
-      name: "Demolición y Preparación",
-      budgeted: 5000,
-      consumed: 5000,
-      percentage: 100,
-      status: "critical",
-    },
-    {
-      name: "Divisiones y Drywall",
-      budgeted: 8000,
-      consumed: 8000,
-      percentage: 100,
-      status: "critical",
-    },
-    {
-      name: "Sistema Eléctrico",
-      budgeted: 10000,
-      consumed: 10000,
-      percentage: 100,
-      status: "critical",
-    },
-    {
-      name: "Aire Acondicionado",
-      budgeted: 12000,
-      consumed: 8750,
-      percentage: 73,
-      status: "normal",
-    },
-    {
-      name: "Pintura y Acabados",
-      budgeted: 6000,
-      consumed: 2000,
-      percentage: 33,
-      status: "normal",
-    },
-    {
-      name: "Mobiliario",
-      budgeted: 4000,
-      consumed: 0,
-      percentage: 0,
-      status: "normal",
-    },
-  ];
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-DO", {
-      style: "currency",
-      currency: "DOP",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "critical":
-        return "bg-red-100 text-red-800";
-      case "warning":
-        return "bg-yellow-100 text-yellow-800";
-      default:
-        return "bg-green-100 text-green-800";
+  // Primer proyecto disponible como selección inicial.
+  useEffect(() => {
+    if (divisionId === null && proyectos.length > 0) {
+      setDivisionId(proyectos[0].id);
     }
-  };
+  }, [proyectos, divisionId]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "critical":
-        return "Crítico";
-      case "warning":
-        return "Alerta";
-      default:
-        return "Normal";
+  const proyecto = proyectos.find((p) => p.id === divisionId);
+
+  const metadata = useMemo(() => {
+    const meta = proyecto?.metadata as unknown;
+    if (!meta) return {} as Record<string, unknown>;
+    if (typeof meta === "string") {
+      try {
+        return JSON.parse(meta) as Record<string, unknown>;
+      } catch {
+        return {} as Record<string, unknown>;
+      }
     }
-  };
+    return meta as Record<string, unknown>;
+  }, [proyecto]);
+
+  useEffect(() => {
+    if (!divisionId) return;
+    const controller = new AbortController();
+    setCargando(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          divisionId: String(divisionId),
+          type: "INVOICE",
+          elements: "200",
+          page: "1",
+        });
+        const res = await fetch(`/api/erp/pendingRecord?${params}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error("No se pudieron cargar las facturas");
+        const data = await res.json();
+        setRecords(data.items ?? []);
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+        setError(
+          err instanceof Error ? err.message : "Error al cargar el proyecto",
+        );
+        setRecords([]);
+      } finally {
+        setCargando(false);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [divisionId]);
+
+  const cifras = useMemo(() => {
+    let comprado = 0;
+    let facturado = 0;
+    let cobrado = 0;
+    // Cobrado de ventas que no llevan partida: si no se muestra aparte, la
+    // tabla parece decir que no se ha ejecutado nada.
+    let sinPartida = 0;
+    // Consumo por partida: el nombre de la partida viaja en el comentario de
+    // la primera línea del documento.
+    const porPartida: Record<string, number> = {};
+
+    for (const r of records) {
+      const esVenta = Number(r.isSell) === 1;
+      if (esVenta) {
+        facturado += r.amount || 0;
+        cobrado += r.paid || 0;
+        const partida = r.elements?.[0]?.comment;
+        if (partida) {
+          porPartida[partida] = (porPartida[partida] || 0) + (r.paid || 0);
+        } else {
+          sinPartida += r.paid || 0;
+        }
+      } else {
+        comprado += r.amount || 0;
+      }
+    }
+    return { comprado, facturado, cobrado, porPartida, sinPartida };
+  }, [records]);
+
+  const presupuesto = Number(metadata.budget) || 0;
+
+  const partidas: Partida[] = useMemo(() => {
+    const cats = Array.isArray(metadata.budgetCategories)
+      ? (metadata.budgetCategories as BudgetCategory[])
+      : [];
+    return cats.map((cat) => {
+      const budgeted = Number(cat.amount) || 0;
+      const consumed = cifras.porPartida[cat.name] || 0;
+      return {
+        name: cat.name,
+        budgeted,
+        consumed,
+        ratio: budgeted > 0 ? (consumed / budgeted) * 100 : null,
+      };
+    });
+  }, [metadata, cifras.porPartida]);
+
+  const enRiesgo = partidas.filter((p) => p.ratio !== null && p.ratio >= 85);
+  const consumoGlobal =
+    presupuesto > 0 ? (cifras.comprado / presupuesto) * 100 : null;
 
   return (
-    <div className="min-h-screen bg-white p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Reporte del Proyecto
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">
-            Análisis detallado: {projectData.name}
-          </p>
-        </div>
-        <CustomButton className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 w-full sm:w-auto justify-center">
-          <Download className="w-4 h-4 mr-2" />
-          Exportar PDF
-        </CustomButton>
-      </div>
+    <>
+      <PageHeader
+        eyebrow="Control de presupuesto"
+        title="Reportes"
+        description="Partidas presupuestadas frente a lo realmente ejecutado en cada proyecto."
+      />
 
-      {/* Banner de Planificación */}
-      <div className="bg-amber-50 border-l-4 border-amber-500 p-6 rounded-lg">
-        <div className="flex items-start gap-4">
-          <AlertTriangle className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-amber-900 mb-2">
-              Página en Planificación
-            </h3>
-            <p className="text-amber-800">
-              Esta página está actualmente en desarrollo y planificación. Los
-              datos mostrados son de demostración y no reflejan información real
-              del sistema.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Project Selector */}
-      <CustomCard className="p-4 sm:p-6">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <label className="text-sm font-medium text-gray-700 shrink-0">
-            Proyecto a Analizar:
+      <PageBody className="space-y-5">
+        {/* Selector de proyecto */}
+        <div className="flex flex-col gap-2 rounded-[12px] border border-rule bg-paper p-4 sm:flex-row sm:items-center sm:gap-4">
+          <label htmlFor="proyecto" className="eyebrow shrink-0 sm:w-40">
+            Proyecto a analizar
           </label>
-          <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm">
-            <option>
-              {projectData.name} - {projectData.client}
-            </option>
-          </select>
-        </div>
-      </CustomCard>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <CustomCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Progreso General</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {projectData.progressPercentage}%
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </CustomCard>
-
-        <CustomCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Presupuesto Total</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(projectData.totalBudget)}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </CustomCard>
-
-        <CustomCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Ejecutado</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(projectData.executedBudget)}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Package className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </CustomCard>
-
-        <CustomCard className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Margen</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {projectData.margin}%
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Clock className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </CustomCard>
-      </div>
-
-      {/* Tabs */}
-      <div className="space-y-6">
-        <div className="border-b border-gray-200">
-          <nav className="flex overflow-x-auto -mx-1 px-1 space-x-2 sm:space-x-8">
-            {[
-              "control-presupuesto",
-              "analisis-financiero",
-              "progreso-fisico",
-              "cronograma",
-              "recursos",
-            ].map((tab) => {
-              const labels = {
-                "control-presupuesto": "Control Presupuesto",
-                "analisis-financiero": "Análisis Financiero",
-                "progreso-fisico": "Progreso Físico",
-                cronograma: "Cronograma",
-                recursos: "Recursos",
-              };
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setSelectedTab(tab)}
-                  className={`py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap shrink-0 ${
-                    selectedTab === tab
-                      ? "border-blue-600 text-blue-600"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  {labels[tab as keyof typeof labels]}
-                </button>
-              );
-            })}
-          </nav>
+          <NativeSelect
+            id="proyecto"
+            value={divisionId ?? ""}
+            disabled={cargandoDivisiones || proyectos.length === 0}
+            onChange={(e) => setDivisionId(Number(e.target.value))}
+            className="sm:max-w-md"
+          >
+            {proyectos.length === 0 && <option value="">Sin proyectos</option>}
+            {proyectos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </NativeSelect>
+          {cargando && (
+            <Loader2
+              className="h-4 w-4 animate-spin text-ink-3"
+              aria-label="Cargando facturas del proyecto"
+            />
+          )}
         </div>
 
-        {/* Control Presupuesto Tab */}
-        {selectedTab === "control-presupuesto" && (
-          <div className="space-y-6">
-            {/* Budget Alerts */}
-            <div className="space-y-3">
-              {budgetCategories
-                .filter((cat) => cat.status === "critical")
-                .map((category, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg"
-                  >
-                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm text-red-800">
-                        <strong>{category.name}</strong>: {category.percentage}%
-                        del presupuesto consumido - ¡Límite excedido!
-                      </p>
-                    </div>
-                  </div>
-                ))}
+        {error && (
+          <div className="flex items-start gap-2.5 rounded-[8px] border border-danger/20 bg-danger-soft px-4 py-3">
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 shrink-0 text-danger"
+              strokeWidth={1.75}
+              aria-hidden
+            />
+            <p className="text-[0.8125rem] text-danger">{error}</p>
+          </div>
+        )}
+
+        {!proyecto && !cargandoDivisiones ? (
+          <EmptyState
+            title="No hay proyectos que analizar"
+            description="Crea un proyecto y registra sus facturas para ver el control de presupuesto."
+          />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <KPICard
+                loading={cargando}
+                kpi={{
+                  title: "Presupuesto",
+                  value: presupuesto > 0 ? money(presupuesto) : "—",
+                  icon: "Wallet",
+                  hint:
+                    presupuesto > 0
+                      ? `${fmtCount(partidas.length)} partidas definidas`
+                      : "El proyecto no tiene presupuesto registrado",
+                }}
+              />
+              <KPICard
+                loading={cargando}
+                kpi={{
+                  title: "Ejecutado en compras",
+                  value: money(cifras.comprado),
+                  icon: "Package",
+                  hint:
+                    consumoGlobal === null
+                      ? "Sin presupuesto con el que comparar"
+                      : `${percent(consumoGlobal)} del presupuesto`,
+                }}
+              />
+              <KPICard
+                loading={cargando}
+                kpi={{
+                  title: "Facturado al cliente",
+                  value: money(cifras.facturado),
+                  icon: "Receipt",
+                  hint: `${fmtCount(records.filter((r) => Number(r.isSell) === 1).length)} facturas de venta`,
+                }}
+              />
+              <KPICard
+                loading={cargando}
+                kpi={{
+                  title: "Cobrado",
+                  value: money(cifras.cobrado),
+                  icon: "TrendingUp",
+                  hint:
+                    cifras.facturado > 0
+                      ? `${percent((cifras.cobrado / cifras.facturado) * 100)} de lo facturado`
+                      : "Todavía sin ventas",
+                }}
+              />
             </div>
 
-            {/* Consumption and Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Consumo por Categorías */}
-              <CustomCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                  Consumo por Categorías
-                </h3>
-                <div className="space-y-4">
-                  {budgetCategories.map((category, index) => (
-                    <div key={index} className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-700">
-                            {category.name}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {category.percentage}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-8">
-                          <div
-                            className={`h-8 rounded-full flex items-center justify-end pr-2 ${
-                              category.percentage >= 100
-                                ? "bg-red-500"
-                                : category.percentage >= 75
-                                  ? "bg-yellow-500"
-                                  : "bg-blue-500"
-                            }`}
-                            style={{
-                              width: `${Math.min(category.percentage, 100)}%`,
-                            }}
-                          >
-                            <span className="text-xs font-bold text-white">
-                              {category.percentage}%
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CustomCard>
-
-              {/* Estado de Categorías */}
-              <CustomCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                  Estado de Categorías
-                </h3>
-                <div className="space-y-4">
-                  {budgetCategories.map((category, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <AlertTriangle
-                          className={`w-4 h-4 ${
-                            category.status === "critical"
-                              ? "text-red-600"
-                              : category.status === "warning"
-                                ? "text-yellow-600"
-                                : "text-green-600"
-                          }`}
-                        />
-                        <span className="text-sm font-medium text-gray-700">
-                          {category.name}
-                        </span>
-                        <CustomBadge
-                          className={getStatusColor(category.status)}
-                        >
-                          {getStatusLabel(category.status)}
-                        </CustomBadge>
-                      </div>
-                      <span className="text-sm font-bold text-gray-900">
-                        {category.percentage}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CustomCard>
-            </div>
-
-            {/* Detalle Financiero por Categoría */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Detalle Financiero por Categoría
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {budgetCategories.map((category, index) => (
-                  <CustomCard key={index} className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-gray-900">
-                        {category.name}
-                      </h4>
-                      <CustomBadge
-                        className={`${
-                          category.percentage >= 100
-                            ? "bg-red-600 text-white"
-                            : category.percentage >= 75
-                              ? "bg-yellow-600 text-white"
-                              : "bg-blue-600 text-white"
-                        }`}
-                      >
-                        {category.percentage}%
-                      </CustomBadge>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Presupuestado:</span>
-                        <span className="font-medium text-gray-900">
-                          {formatCurrency(category.budgeted)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Consumido:</span>
-                        <span className="font-medium text-gray-900">
-                          {formatCurrency(category.consumed)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Restante:</span>
-                        <span
-                          className={`font-medium ${
-                            category.percentage > 100
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {formatCurrency(
-                            category.budgeted - category.consumed,
-                          )}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                        <div
-                          className={`h-2 rounded-full ${
-                            category.percentage >= 100
-                              ? "bg-red-600"
-                              : category.percentage >= 75
-                                ? "bg-yellow-600"
-                                : "bg-blue-600"
-                          }`}
-                          style={{
-                            width: `${Math.min(category.percentage, 100)}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </CustomCard>
-                ))}
+            {enRiesgo.length > 0 && (
+              <div className="flex items-start gap-2.5 rounded-[8px] border border-warning/25 bg-warning-soft px-4 py-3">
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-warning"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
+                <p className="text-[0.8125rem] text-warning">
+                  {enRiesgo.length === 1
+                    ? "Una partida ha consumido el 85 % o más de su importe: "
+                    : `${fmtCount(enRiesgo.length)} partidas han consumido el 85 % o más de su importe: `}
+                  <span className="font-semibold">
+                    {enRiesgo.map((p) => p.name).join(", ")}
+                  </span>
+                  .
+                </p>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Otros tabs (placeholder) */}
-        {selectedTab !== "control-presupuesto" && (
-          <CustomCard className="p-12 text-center">
-            <p className="text-gray-500">
-              Contenido de {selectedTab} en desarrollo
-            </p>
-          </CustomCard>
+            <section className="overflow-hidden rounded-[12px] border border-rule bg-paper">
+              <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-rule px-4 py-3">
+                <h2 className="font-display text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">
+                  Partidas del presupuesto
+                </h2>
+                <p className="text-[0.75rem] text-ink-3">
+                  Lo consumido sale de las facturas de venta imputadas a cada
+                  partida
+                </p>
+              </header>
+
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Partida</TableHead>
+                    <TableHead numeric>Presupuestado</TableHead>
+                    <TableHead numeric>Consumido</TableHead>
+                    <TableHead numeric>Disponible</TableHead>
+                    <TableHead className="w-40">Avance</TableHead>
+                    <TableHead>Estado</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {partidas.length === 0 ? (
+                    <TableEmpty colSpan={6}>
+                      Este proyecto no tiene partidas presupuestarias definidas.
+                      Se añaden desde la ficha del proyecto, en Presupuesto.
+                    </TableEmpty>
+                  ) : (
+                    partidas.map((p) => {
+                      const estado = estadoDePartida(p.ratio);
+                      return (
+                        <TableRow key={p.name}>
+                          <TableCell className="text-[0.8125rem] font-medium text-ink">
+                            {p.name}
+                          </TableCell>
+                          <TableCell numeric className="text-[0.8125rem]">
+                            {money(p.budgeted)}
+                          </TableCell>
+                          <TableCell numeric className="text-[0.8125rem]">
+                            {money(p.consumed)}
+                          </TableCell>
+                          <TableCell
+                            numeric
+                            className={cn(
+                              "text-[0.8125rem]",
+                              p.budgeted - p.consumed < 0 && "text-danger",
+                            )}
+                          >
+                            {money(p.budgeted - p.consumed)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-full min-w-16 overflow-hidden rounded-full bg-paper-3">
+                                <div
+                                  className={cn(
+                                    "h-full rounded-full",
+                                    p.ratio !== null && p.ratio >= 100
+                                      ? "bg-danger"
+                                      : p.ratio !== null && p.ratio >= 85
+                                        ? "bg-warning"
+                                        : "bg-ink-2",
+                                  )}
+                                  style={{
+                                    width: `${Math.min(p.ratio ?? 0, 100)}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="tabular w-11 shrink-0 text-right text-[0.75rem] text-ink-2">
+                                {p.ratio === null ? "—" : percent(p.ratio, 0)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={estado.variant} dot>
+                              {estado.label}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+
+              {cifras.sinPartida > 0 && (
+                <p className="border-t border-rule px-4 py-3 text-[0.75rem] text-ink-2">
+                  Además hay{" "}
+                  <span className="tabular font-semibold text-ink">
+                    {money(cifras.sinPartida)}
+                  </span>{" "}
+                  cobrados en facturas sin partida asignada. Sólo se imputan a
+                  una partida las facturas creadas desde el presupuesto del
+                  proyecto.
+                </p>
+              )}
+            </section>
+          </>
         )}
-      </div>
-    </div>
+      </PageBody>
+    </>
   );
 }

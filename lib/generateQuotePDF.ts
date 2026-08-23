@@ -1,14 +1,14 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import type {
-  GestionoInvoiceItem,
+  InvoiceItem,
   PendingRecordElement,
-  GestionoBeneficiary,
-} from "@/src/types/gestiono";
+  Beneficiary,
+} from "@/src/types/erp";
 import { getTaxRateById } from "@/lib/taxRates";
 
 interface QuotePDFData {
-  quote: GestionoInvoiceItem;
-  beneficiary: GestionoBeneficiary | null;
+  quote: InvoiceItem;
+  beneficiary: Beneficiary | null;
   elements: PendingRecordElement[];
   documentType?: "QUOTE" | "ORDER";
   isSell?: boolean;

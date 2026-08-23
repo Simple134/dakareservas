@@ -12,35 +12,39 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableEmpty,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/src/components/ui/table";
-import { Plus, Users, Search } from "lucide-react";
+import { Plus } from "lucide-react";
+import { SearchInput } from "@/src/components/ui/search-input";
+import { KPICard } from "@/src/components/dashboard/KPICard";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
-import type { GestionoBeneficiary } from "@/src/types/gestiono";
+import type { Beneficiary } from "@/src/types/erp";
 
 interface PersonnelModuleProps {
   projectId: string | number;
 }
 
 export function PersonnelModule({ projectId }: PersonnelModuleProps) {
-  const [beneficiaries, setBeneficiaries] = useState<GestionoBeneficiary[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [editBeneficiary, setEditBeneficiary] =
-    useState<GestionoBeneficiary | null>(null);
+  const [editBeneficiary, setEditBeneficiary] = useState<Beneficiary | null>(
+    null,
+  );
 
   const fetchBeneficiaries = async () => {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `/api/gestiono/beneficiaries?withContacts=true&withTaxData=false`,
+        `/api/erp/beneficiaries?withContacts=true&withTaxData=false`,
       );
 
       if (response.ok) {
-        const data: GestionoBeneficiary[] = await response.json();
+        const data: Beneficiary[] = await response.json();
         // Filter beneficiaries that have 2% ISR retention (0.02)
         const workers = data.filter((b) => {
           const isr = b.metadata?.isrTaxRetention;
@@ -68,7 +72,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
     fetchBeneficiaries();
   };
 
-  const handleEditClick = (beneficiary: GestionoBeneficiary) => {
+  const handleEditClick = (beneficiary: Beneficiary) => {
     setEditBeneficiary(beneficiary);
     setIsModalOpen(true);
   };
@@ -83,10 +87,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
     );
   });
 
-  const getContactByType = (
-    beneficiary: GestionoBeneficiary,
-    type: string,
-  ): string => {
+  const getContactByType = (beneficiary: Beneficiary, type: string): string => {
     const contact = beneficiary.contacts?.find((c) => c.type === type);
     return contact?.data || "—";
   };
@@ -105,57 +106,36 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <Users className="w-8 h-8 text-blue-600" />
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Total Trabajadores
-                </p>
-                <p className="text-2xl font-bold">{beneficiaries.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <span className="text-green-700 font-bold text-sm">2%</span>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Retención ISR</p>
-                <p className="text-2xl font-bold">2%</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* La segunda tarjeta decía «Retención ISR: 2 %» con un icono que también
+          ponía «2 %»: era la misma constante escrita tres veces, no un dato. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <KPICard
+          loading={isLoading}
+          kpi={{
+            title: "Trabajadores en planilla",
+            value: beneficiaries.length,
+            icon: "Users",
+            hint: "Con retención de ISR del 2 %",
+          }}
+        />
       </div>
 
       {/* Workers Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Planilla de Personal</CardTitle>
+            <CardTitle>Planilla de personal</CardTitle>
             <Button size="sm" onClick={() => setIsModalOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Nuevo Trabajador
+              Añadir trabajador
             </Button>
           </div>
-          {/* Search */}
-          <div className="relative mt-2">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, cédula o contacto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
+          <SearchInput
+            className="mt-2"
+            value={searchTerm}
+            onValueChange={setSearchTerm}
+            placeholder="Buscar por nombre, cédula o contacto…"
+          />
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -163,7 +143,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-12 bg-gray-100 rounded animate-pulse"
+                  className="h-12 bg-paper-3 rounded animate-pulse"
                 />
               ))}
             </div>
@@ -181,21 +161,16 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
               </TableHeader>
               <TableBody>
                 {filteredBeneficiaries.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center text-muted-foreground py-8"
-                    >
-                      {searchTerm
-                        ? "No se encontraron resultados"
-                        : "No hay trabajadores con retención 2% registrados"}
-                    </TableCell>
-                  </TableRow>
+                  <TableEmpty colSpan={6}>
+                    {searchTerm
+                      ? `Nadie coincide con «${searchTerm}».`
+                      : "No hay trabajadores con retención del 2 % registrados."}
+                  </TableEmpty>
                 ) : (
                   filteredBeneficiaries.map((person) => (
                     <TableRow
                       key={person.id}
-                      className="cursor-pointer hover:bg-gray-50"
+                      className="cursor-pointer hover:bg-paper-2"
                       onClick={() => handleEditClick(person)}
                     >
                       <TableCell className="font-medium">
@@ -206,7 +181,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
                           {getTypeLabel(person.type)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-ink-2">
                         {person.taxId || "—"}
                       </TableCell>
                       <TableCell>{getContactByType(person, "phone")}</TableCell>
@@ -237,11 +212,7 @@ export function PersonnelModule({ projectId }: PersonnelModuleProps) {
                   type: c.type,
                   data: c.data,
                   dataType: c.dataType as
-                    | "string"
-                    | "json"
-                    | "image"
-                    | "date"
-                    | undefined,
+                    "string" | "json" | "image" | "date" | undefined,
                   beneficiaryId: c.beneficiaryId,
                 })) || [{ type: "phone", data: "", dataType: "string" }],
                 taxId: editBeneficiary.taxId || undefined,

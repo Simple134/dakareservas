@@ -12,7 +12,7 @@ import {
   Clock,
   Receipt,
 } from "lucide-react";
-import type { AppData } from "@/src/types/gestiono";
+import type { AppData } from "@/src/types/erp";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -63,18 +63,18 @@ const formatDate = (dateStr: string) => {
 const StatusBadge = ({ status }: { status: string }) => {
   if (status === "approved")
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-success-soft text-success">
         <CheckCircle2 className="w-3 h-3" /> Aprobado
       </span>
     );
   if (status === "rejected")
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-danger-soft text-danger">
         <XCircle className="w-3 h-3" /> Rechazado
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning-soft text-warning">
       <Clock className="w-3 h-3" /> Pendiente
     </span>
   );
@@ -134,7 +134,7 @@ export function LocalReservaModal({
     if (reservaStatus === reservaData.status) return;
     setSavingReserva(true);
     try {
-      const res = await fetch("/api/gestiono/appData", {
+      const res = await fetch("/api/erp/appData", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -162,7 +162,7 @@ export function LocalReservaModal({
     if (newStatus === currentStatus) return;
     setSavingPayment(payment.id);
     try {
-      const res = await fetch("/api/gestiono/appData", {
+      const res = await fetch("/api/erp/appData", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -189,7 +189,7 @@ export function LocalReservaModal({
       return;
     setDeletingPayment(payment.id);
     try {
-      const res = await fetch(`/api/gestiono/appData?id=${payment.id}`, {
+      const res = await fetch(`/api/erp/appData?id=${payment.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Error al eliminar");
@@ -203,21 +203,21 @@ export function LocalReservaModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-[oklch(21%_0.021_250_/_0.45)] flex items-center justify-center z-50 p-4">
+      <div className="bg-paper rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-rule shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-ink">
               Reserva — Local #{localId}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-3">
               Nivel {localLevel} • {localArea?.toFixed(2)} m²
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 text-ink-3 hover:text-ink-2 rounded-lg hover:bg-paper-3 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -225,33 +225,33 @@ export function LocalReservaModal({
 
         <div className="overflow-y-auto flex-1 p-6 space-y-6">
           {/* Reserva Details */}
-          <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <div className="bg-paper-2 rounded-lg p-4 space-y-3">
+            <p className="text-xs font-semibold text-ink-3 uppercase tracking-wide">
               Información de la Reserva
             </p>
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
               <div>
-                <span className="text-gray-500">Fecha:</span>{" "}
-                <span className="font-medium text-gray-800">
+                <span className="text-ink-3">Fecha:</span>{" "}
+                <span className="font-medium text-ink">
                   {formatDate(reservaData.created_at)}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">Tipo cliente:</span>{" "}
-                <span className="font-medium text-gray-800 capitalize">
+                <span className="text-ink-3">Tipo cliente:</span>{" "}
+                <span className="font-medium text-ink capitalize">
                   Persona {reservaData.user_type}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">Moneda:</span>{" "}
-                <span className="font-medium text-gray-800">
+                <span className="text-ink-3">Moneda:</span>{" "}
+                <span className="font-medium text-ink">
                   {reservaData.currency}
                 </span>
               </div>
               <div>
-                <span className="text-gray-500">Método de pago:</span>{" "}
-                <span className="font-medium text-gray-800">
+                <span className="text-ink-3">Método de pago:</span>{" "}
+                <span className="font-medium text-ink">
                   {reservaData.payment_method || "—"}
                 </span>
               </div>
@@ -262,7 +262,7 @@ export function LocalReservaModal({
                 href={reservaData.cotizacion_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                className="inline-flex items-center gap-1.5 text-sm text-info hover:text-info font-medium"
               >
                 <FileText className="w-4 h-4" />
                 Ver cotización
@@ -272,11 +272,11 @@ export function LocalReservaModal({
 
             {/* Estado editable */}
             <div className="flex items-center gap-3 pt-1">
-              <label className="text-sm text-gray-500">Estado:</label>
+              <label className="text-sm text-ink-3">Estado:</label>
               <select
                 value={reservaStatus}
                 onChange={(e) => setReservaStatus(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-3 py-1.5 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
               >
                 <option value="approved">Aprobado</option>
                 <option value="pending">Pendiente</option>
@@ -285,7 +285,7 @@ export function LocalReservaModal({
                 <button
                   onClick={handleSaveReserva}
                   disabled={savingReserva}
-                  className="px-3 py-1.5 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-shell rounded-lg hover:bg-shell-3 disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {savingReserva && (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -299,11 +299,11 @@ export function LocalReservaModal({
           {/* Payments */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-ink-3 uppercase tracking-wide">
                 Pagos ({payments.length})
               </p>
               {approvedPayments.length > 0 && (
-                <p className="text-sm font-semibold text-green-700">
+                <p className="text-sm font-semibold text-success">
                   Total aprobado:{" "}
                   {formatCurrency(
                     totalApproved,
@@ -314,7 +314,7 @@ export function LocalReservaModal({
             </div>
 
             {payments.length === 0 ? (
-              <div className="text-center py-8 text-gray-400 text-sm">
+              <div className="text-center py-8 text-ink-3 text-sm">
                 No hay pagos registrados para esta reserva
               </div>
             ) : (
@@ -330,19 +330,19 @@ export function LocalReservaModal({
                   return (
                     <div
                       key={payment.id}
-                      className="border border-gray-200 rounded-lg p-3 flex items-start gap-3"
+                      className="border border-rule rounded-lg p-3 flex items-start gap-3"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="font-semibold text-gray-900">
+                          <span className="font-semibold text-ink">
                             {formatCurrency(pd.amount, pd.currency)}
                           </span>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-ink-3">
                             {pd.currency}
                           </span>
                           <StatusBadge status={pd.status} />
                         </div>
-                        <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                        <div className="flex items-center gap-4 text-xs text-ink-3 flex-wrap">
                           <span>{formatDate(pd.created_at)}</span>
                           {pd.payment_method && pd.payment_method !== "N/A" && (
                             <span className="capitalize">
@@ -354,7 +354,7 @@ export function LocalReservaModal({
                               href={pd.receipt_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                              className="inline-flex items-center gap-1 text-info hover:text-info"
                             >
                               <Receipt className="w-3 h-3" />
                               Comprobante
@@ -374,7 +374,7 @@ export function LocalReservaModal({
                               [payment.id]: e.target.value,
                             }))
                           }
-                          className="px-2 py-1 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          className="px-2 py-1 text-xs border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold"
                         >
                           <option value="approved">Aprobado</option>
                           <option value="rejected">Rechazado</option>
@@ -383,7 +383,7 @@ export function LocalReservaModal({
                           <button
                             onClick={() => handleSavePaymentStatus(payment)}
                             disabled={isSaving}
-                            className="p-1.5 text-xs text-white bg-gray-900 rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                            className="p-1.5 text-xs text-white bg-shell rounded-lg hover:bg-shell-3 disabled:opacity-50"
                           >
                             {isSaving ? (
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -395,7 +395,7 @@ export function LocalReservaModal({
                         <button
                           onClick={() => handleDeletePayment(payment)}
                           disabled={isDeleting}
-                          className="p-1.5 text-gray-300 hover:text-red-500 transition-colors rounded disabled:opacity-50"
+                          className="p-1.5 text-ink-3 hover:text-danger transition-colors rounded disabled:opacity-50"
                           title="Eliminar pago"
                         >
                           {isDeleting ? (
@@ -414,10 +414,10 @@ export function LocalReservaModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end px-6 py-4 border-t border-gray-100 shrink-0">
+        <div className="flex justify-end px-6 py-4 border-t border-rule shrink-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-2 transition-colors"
           >
             Cerrar
           </button>

@@ -68,11 +68,11 @@ const PAYMENT_TYPES = [
 ] as const;
 
 const TYPE_COLORS: Record<string, string> = {
-  separacion: "bg-purple-100 text-purple-700",
-  inicial: "bg-yellow-100 text-yellow-700",
-  cuota: "bg-blue-100 text-blue-700",
-  capital: "bg-green-100 text-green-700",
-  otro: "bg-gray-100 text-gray-700",
+  separacion: "bg-info-soft text-info",
+  inicial: "bg-warning-soft text-warning",
+  cuota: "bg-info-soft text-info",
+  capital: "bg-success-soft text-success",
+  otro: "bg-paper-3 text-ink-2",
 };
 
 const formatCurrency = (n: number) =>
@@ -127,7 +127,7 @@ export function LocalPaymentsModal({
     );
 
   useEffect(() => {
-    fetch("/api/gestiono/beneficiaries?elementsPerPage=200")
+    fetch("/api/erp/beneficiaries?elementsPerPage=200")
       .then((r) => r.json())
       .then((data) => {
         const list = Array.isArray(data) ? data : (data.beneficiaries ?? []);
@@ -179,7 +179,7 @@ export function LocalPaymentsModal({
         );
         const formData = new FormData();
         formData.append("file", prefixedFile);
-        const uploadRes = await fetch("/api/gestiono/uploadFile", {
+        const uploadRes = await fetch("/api/erp/uploadFile", {
           method: "POST",
           body: formData,
         });
@@ -235,7 +235,7 @@ export function LocalPaymentsModal({
     const updated = payments.filter((p) => p.id !== id);
     try {
       const updatedData = { ...local.data, payments: updated };
-      const res = await fetch("/api/gestiono/appData", {
+      const res = await fetch("/api/erp/appData", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -261,7 +261,7 @@ export function LocalPaymentsModal({
     setIsSaving(true);
     try {
       const updatedData = { ...local.data, payments };
-      const res = await fetch("/api/gestiono/appData", {
+      const res = await fetch("/api/erp/appData", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -283,22 +283,22 @@ export function LocalPaymentsModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-[oklch(21%_0.021_250_/_0.45)] flex items-center justify-center z-50 p-4">
+      <div className="bg-paper rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-rule shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-ink">
               Pagos — Local #{local.data.id}
             </h2>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-ink-3">
               Nivel {local.data.level} • {local.data.area_mt2?.toFixed(2)} m²
               {local.data.clientName && ` • ${local.data.clientName}`}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 text-ink-3 hover:text-ink-2 rounded-lg hover:bg-paper-3 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -307,30 +307,30 @@ export function LocalPaymentsModal({
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* KPI cards */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="p-3 bg-paper-2 rounded-lg border border-rule">
               <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-500">Valor Total</span>
+                <DollarSign className="w-4 h-4 text-ink-3" />
+                <span className="text-xs text-ink-3">Valor Total</span>
               </div>
-              <p className="text-base font-bold text-gray-900">
+              <p className="text-base font-bold text-ink">
                 {formatCurrency(local.data.total_value)}
               </p>
             </div>
-            <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+            <div className="p-3 bg-success-soft rounded-lg border border-success/20">
               <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                <span className="text-xs text-gray-500">Pagado</span>
+                <CheckCircle2 className="w-4 h-4 text-success" />
+                <span className="text-xs text-ink-3">Pagado</span>
               </div>
-              <p className="text-base font-bold text-green-700">
+              <p className="text-base font-bold text-success">
                 {formatCurrency(totalPaid)}
               </p>
             </div>
-            <div className="p-3 bg-orange-50 rounded-lg border border-orange-100">
+            <div className="p-3 bg-warning-soft rounded-lg border border-warning/25">
               <div className="flex items-center gap-2 mb-1">
-                <Clock className="w-4 h-4 text-orange-400" />
-                <span className="text-xs text-gray-500">Pendiente</span>
+                <Clock className="w-4 h-4 text-warning" />
+                <span className="text-xs text-ink-3">Pendiente</span>
               </div>
-              <p className="text-base font-bold text-orange-600">
+              <p className="text-base font-bold text-warning">
                 {formatCurrency(totalPending)}
               </p>
             </div>
@@ -338,21 +338,21 @@ export function LocalPaymentsModal({
 
           {/* Progress bar */}
           <div>
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <div className="flex justify-between text-xs text-ink-3 mb-1">
               <span>Pagado {paidPct}%</span>
               <span>Pendiente {100 - paidPct}%</span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-paper-3 rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-500 rounded-full transition-all duration-500"
+                className="h-full bg-success rounded-full transition-all duration-500"
                 style={{ width: `${paidPct}%` }}
               />
             </div>
           </div>
 
           {/* Payment plan breakdown */}
-          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          <div className="bg-paper-2 rounded-lg p-4 space-y-2">
+            <p className="text-xs font-semibold text-ink-3 uppercase tracking-wide mb-2">
               Plan de Pago
             </p>
             {[
@@ -373,17 +373,17 @@ export function LocalPaymentsModal({
                   key={type}
                   className="flex items-center justify-between text-sm"
                 >
-                  <span className="text-gray-600">{label}</span>
+                  <span className="text-ink-2">{label}</span>
                   <div className="flex items-center gap-3 text-right">
-                    <span className="text-green-600 font-medium">
+                    <span className="text-success font-medium">
                       {formatCurrency(paid)}
                     </span>
-                    <span className="text-gray-300">/</span>
-                    <span className="text-gray-700 font-medium">
+                    <span className="text-ink-3">/</span>
+                    <span className="text-ink-2 font-medium">
                       {formatCurrency(amount)}
                     </span>
                     {pending > 0 && (
-                      <span className="text-orange-500 text-xs">
+                      <span className="text-warning text-xs">
                         -{formatCurrency(pending)}
                       </span>
                     )}
@@ -398,19 +398,17 @@ export function LocalPaymentsModal({
             {!showForm ? (
               <button
                 onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-2 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Registrar pago
               </button>
             ) : (
-              <div className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
-                <p className="text-sm font-semibold text-gray-700">
-                  Nuevo pago
-                </p>
+              <div className="border border-rule rounded-lg p-4 space-y-3 bg-paper-2">
+                <p className="text-sm font-semibold text-ink-2">Nuevo pago</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">
+                    <label className="block text-xs text-ink-2 mb-1">
                       Tipo
                     </label>
                     <select
@@ -421,7 +419,7 @@ export function LocalPaymentsModal({
                           type: e.target.value as LocalPayment["type"],
                         }))
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                     >
                       {PAYMENT_TYPES.map((t) => (
                         <option key={t.value} value={t.value}>
@@ -431,7 +429,7 @@ export function LocalPaymentsModal({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">
+                    <label className="block text-xs text-ink-2 mb-1">
                       Fecha
                     </label>
                     <input
@@ -440,11 +438,11 @@ export function LocalPaymentsModal({
                       onChange={(e) =>
                         setNewPayment((p) => ({ ...p, date: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-600 mb-1">
+                    <label className="block text-xs text-ink-2 mb-1">
                       Monto (USD)
                     </label>
                     <input
@@ -455,12 +453,12 @@ export function LocalPaymentsModal({
                       onChange={(e) =>
                         setNewPayment((p) => ({ ...p, amount: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                     />
                   </div>
                   {newPayment.type === "cuota" && (
                     <div>
-                      <label className="block text-xs text-gray-600 mb-1">
+                      <label className="block text-xs text-ink-2 mb-1">
                         # Cuota
                       </label>
                       <input
@@ -473,36 +471,34 @@ export function LocalPaymentsModal({
                             cuotaNumber: e.target.value,
                           }))
                         }
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                       />
                     </div>
                   )}
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">
+                    <label className="block text-xs text-ink-2 mb-1">
                       Cliente
                     </label>
                     <div ref={beneficiarioDropdownRef} className="relative">
                       <button
                         type="button"
                         onClick={() => setIsBeneficiarioOpen((v) => !v)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-left text-sm flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                        className="w-full px-3 py-2 border border-rule-strong rounded-lg text-left text-sm flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-gold bg-paper"
                       >
                         <span
                           className={
-                            selectedBeneficiario
-                              ? "text-gray-900"
-                              : "text-gray-400"
+                            selectedBeneficiario ? "text-ink" : "text-ink-3"
                           }
                         >
                           {selectedBeneficiario
                             ? selectedBeneficiario.name
                             : "Seleccionar cliente..."}
                         </span>
-                        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                        <ChevronDown className="w-4 h-4 text-ink-3 shrink-0" />
                       </button>
                       {isBeneficiarioOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-                          <div className="p-2 border-b border-gray-100">
+                        <div className="absolute z-50 w-full mt-1 bg-paper border border-rule rounded-md shadow-lg">
+                          <div className="p-2 border-b border-rule">
                             <input
                               type="text"
                               value={beneficiarioSearch}
@@ -510,7 +506,7 @@ export function LocalPaymentsModal({
                                 setBeneficiarioSearch(e.target.value)
                               }
                               placeholder="Buscar por nombre..."
-                              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
                               autoFocus
                             />
                           </div>
@@ -523,7 +519,7 @@ export function LocalPaymentsModal({
                                   setIsBeneficiarioOpen(false);
                                   setBeneficiarioSearch("");
                                 }}
-                                className="w-full px-3 py-2 text-left text-sm text-gray-400 hover:bg-gray-50"
+                                className="w-full px-3 py-2 text-left text-sm text-ink-3 hover:bg-paper-2"
                               >
                                 Seleccionar cliente...
                               </button>
@@ -537,14 +533,14 @@ export function LocalPaymentsModal({
                                     setIsBeneficiarioOpen(false);
                                     setBeneficiarioSearch("");
                                   }}
-                                  className="w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-50"
+                                  className="w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper-2"
                                 >
                                   {b.name}
                                 </button>
                               </li>
                             ))}
                             {sortedFilteredBeneficiarios.length === 0 && (
-                              <li className="px-3 py-2 text-sm text-gray-400">
+                              <li className="px-3 py-2 text-sm text-ink-3">
                                 No se encontraron resultados
                               </li>
                             )}
@@ -555,7 +551,7 @@ export function LocalPaymentsModal({
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">
+                    <label className="block text-xs text-ink-2 mb-1">
                       Descripción (opcional)
                     </label>
                     <input
@@ -568,16 +564,16 @@ export function LocalPaymentsModal({
                           description: e.target.value,
                         }))
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
                     />
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-600 mb-1">
+                    <label className="block text-xs text-ink-2 mb-1">
                       Comprobante (opcional)
                     </label>
                     {receiptFile ? (
-                      <div className="flex items-center gap-2 p-2 border border-blue-200 bg-blue-50 rounded-lg">
+                      <div className="flex items-center gap-2 p-2 border border-info/20 bg-info-soft rounded-lg">
                         {receiptFile.type.startsWith("image/") ? (
                           <img
                             src={URL.createObjectURL(receiptFile)}
@@ -585,23 +581,23 @@ export function LocalPaymentsModal({
                             className="w-10 h-10 object-cover rounded"
                           />
                         ) : (
-                          <FileText className="w-5 h-5 text-blue-500 shrink-0" />
+                          <FileText className="w-5 h-5 text-info shrink-0" />
                         )}
-                        <span className="text-xs text-gray-700 truncate flex-1">
+                        <span className="text-xs text-ink-2 truncate flex-1">
                           {receiptFile.name}
                         </span>
                         <button
                           type="button"
                           onClick={() => setReceiptFile(null)}
-                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-1 text-ink-3 hover:text-danger transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     ) : (
-                      <label className="flex items-center gap-2 w-full px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                        <Upload className="w-4 h-4 text-gray-400" />
-                        <span className="text-xs text-gray-500">
+                      <label className="flex items-center gap-2 w-full px-3 py-2 border border-dashed border-rule-strong rounded-lg cursor-pointer bg-paper-2 hover:bg-paper-3 transition-colors">
+                        <Upload className="w-4 h-4 text-ink-3" />
+                        <span className="text-xs text-ink-3">
                           Subir imagen o PDF
                         </span>
                         <input
@@ -621,7 +617,7 @@ export function LocalPaymentsModal({
                   <button
                     onClick={addPayment}
                     disabled={isUploading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-4 py-2 text-sm font-medium text-white bg-shell rounded-lg hover:bg-shell-3 transition-colors disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {isUploading && (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -630,7 +626,7 @@ export function LocalPaymentsModal({
                   </button>
                   <button
                     onClick={() => setShowForm(false)}
-                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="px-4 py-2 text-sm text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-3 transition-colors"
                   >
                     Cancelar
                   </button>
@@ -641,53 +637,53 @@ export function LocalPaymentsModal({
 
           {/* Payments table */}
           {payments.length > 0 ? (
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="border border-rule rounded-lg overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead className="bg-paper-2">
                   <tr>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-left py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
                       Fecha
                     </th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-left py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
                       Tipo
                     </th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-left py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
                       Beneficiario
                     </th>
-                    <th className="text-right py-2 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="text-right py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
                       Monto
                     </th>
-                    <th className="py-2 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    <th className="py-2 px-2 text-xs font-semibold text-ink-3 uppercase tracking-wide">
                       Comp.
                     </th>
                     <th className="py-2 px-2" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-rule">
                   {payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="py-2.5 px-4 text-gray-500 whitespace-nowrap text-xs">
+                    <tr key={p.id} className="hover:bg-paper-2">
+                      <td className="py-2.5 px-4 text-ink-3 whitespace-nowrap text-xs">
                         {formatDate(p.date)}
                       </td>
                       <td className="py-2.5 px-4">
                         <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.type] || "bg-gray-100 text-gray-700"}`}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.type] || "bg-paper-3 text-ink-2"}`}
                         >
                           {PAYMENT_TYPES.find((t) => t.value === p.type)
                             ?.label ?? p.type}
                           {p.cuotaNumber ? ` #${p.cuotaNumber}` : ""}
                         </span>
                       </td>
-                      <td className="py-2.5 px-4 text-gray-700">
+                      <td className="py-2.5 px-4 text-ink-2">
                         {p.beneficiario_nombre ? (
-                          <span className="font-medium text-gray-800">
+                          <span className="font-medium text-ink">
                             {p.beneficiario_nombre}
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-xs">—</span>
+                          <span className="text-ink-3 text-xs">—</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-4 text-right font-semibold text-gray-900 whitespace-nowrap">
+                      <td className="py-2.5 px-4 text-right font-semibold text-ink whitespace-nowrap">
                         {formatCurrency(p.amount)}
                       </td>
                       <td className="py-2.5 px-2 text-center">
@@ -696,20 +692,20 @@ export function LocalPaymentsModal({
                             href={p.receipt_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-blue-500 hover:text-blue-700"
+                            className="inline-flex items-center text-info hover:text-info"
                             title="Ver comprobante"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                           </a>
                         ) : (
-                          <span className="text-gray-200">—</span>
+                          <span className="text-ink-3">—</span>
                         )}
                       </td>
                       <td className="py-2.5 px-2">
                         <button
                           onClick={() => removePayment(p.id)}
                           disabled={deletingId === p.id}
-                          className="p-1 text-gray-300 hover:text-red-500 transition-colors rounded disabled:opacity-50"
+                          className="p-1 text-ink-3 hover:text-danger transition-colors rounded disabled:opacity-50"
                         >
                           {deletingId === p.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -722,14 +718,14 @@ export function LocalPaymentsModal({
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr className="bg-gray-50 border-t-2 border-gray-200">
+                  <tr className="bg-paper-2 border-t-2 border-rule">
                     <td
                       colSpan={3}
-                      className="py-2.5 px-4 text-xs font-bold text-gray-600 uppercase"
+                      className="py-2.5 px-4 text-xs font-bold text-ink-2 uppercase"
                     >
                       Total pagado
                     </td>
-                    <td className="py-2.5 px-4 text-right font-bold text-green-700 whitespace-nowrap">
+                    <td className="py-2.5 px-4 text-right font-bold text-success whitespace-nowrap">
                       {formatCurrency(totalPaid)}
                     </td>
                     <td colSpan={2} />
@@ -738,25 +734,25 @@ export function LocalPaymentsModal({
               </table>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-400 text-sm">
+            <div className="text-center py-8 text-ink-3 text-sm">
               No hay pagos registrados
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 shrink-0">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-rule shrink-0">
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-2 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-shell rounded-lg hover:bg-shell-3 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             {isSaving ? "Guardando..." : "Guardar pagos"}

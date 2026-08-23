@@ -1,8 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Mail, Phone, Briefcase } from "lucide-react";
-import { CustomCard } from "@/src/components/project/CustomCard";
+import { Users, Briefcase, Loader2 } from "lucide-react";
+import { Badge } from "@/src/components/ui/badge";
+import { SearchInput } from "@/src/components/ui/search-input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/src/components/ui/table";
 
 interface ClientesSectionProps {
   uniqueId?: string;
@@ -20,9 +30,7 @@ export function ClientesSection({ uniqueId }: ClientesSectionProps) {
           type: "User",
           appId: uniqueId || "",
         });
-        const res = await fetch(
-          `/api/gestiono/appData?${queryParams.toString()}`,
-        );
+        const res = await fetch(`/api/erp/appData?${queryParams.toString()}`);
         if (res.ok) {
           const data = await res.json();
           // The API returns {appData: Array, organizations: Object}
@@ -82,155 +90,120 @@ export function ClientesSection({ uniqueId }: ClientesSectionProps) {
     return !!client.data?.company_name || !!client.data?.rnc;
   };
 
-  return (
-    <CustomCard className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="w-5 h-5 text-gray-500" />
-          <h3 className="font-semibold text-gray-900">Clientes</h3>
-        </div>
-        <div className="text-sm text-gray-600">
-          Total: {clientsData.length} clientes
-        </div>
-      </div>
+  const clientes = getFilteredClients();
 
-      {/* Search Bar */}
-      <div className="mb-6">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar por nombre, empresa, email o identificación..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+  return (
+    <section className="overflow-hidden rounded-[12px] border border-rule bg-paper">
+      <header className="flex flex-col gap-3 border-b border-rule px-4 py-3 sm:flex-row sm:items-center">
+        <h3 className="shrink-0 font-display text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">
+          Clientes
+        </h3>
+        <SearchInput
+          className="flex-1"
+          value={searchTerm}
+          onValueChange={setSearchTerm}
+          placeholder="Buscar por nombre, empresa, correo o identificación…"
+        />
+        <p className="tabular shrink-0 text-[0.75rem] text-ink-3">
+          {searchTerm
+            ? `${clientes.length} de ${clientsData.length}`
+            : `${clientsData.length} clientes`}
+        </p>
+      </header>
+
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2
+            className="h-5 w-5 animate-spin text-ink-3"
+            aria-label="Cargando clientes"
           />
         </div>
-      </div>
-
-      {/* Filtered Results Counter */}
-      {searchTerm && (
-        <div className="mb-4 text-sm text-gray-600">
-          Mostrando {getFilteredClients().length} de {clientsData.length}{" "}
-          clientes
-        </div>
-      )}
-
-      {/* Loading State */}
-      {isLoading && (
-        <div className="text-center py-12 text-gray-500">
-          <div className="animate-spin w-8 h-8 border-4 border-gray-300 border-t-blue-600 rounded-full mx-auto mb-3" />
-          <p>Cargando clientes...</p>
-        </div>
-      )}
-
-      {/* Clients Table */}
-      {!isLoading && clientsData.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Identificación
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Teléfono
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {getFilteredClients().map((client) => (
-                <tr
-                  key={client.id}
-                  className="hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div
-                        className={`shrink-0 h-10 w-10 rounded-full flex items-center justify-center ${
-                          isCompany(client) ? "bg-purple-100" : "bg-blue-100"
-                        }`}
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cliente</TableHead>
+              <TableHead>Correo</TableHead>
+              <TableHead>Identificación</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead>Estado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {clientsData.length === 0 ? (
+              <TableEmpty colSpan={5}>
+                Este proyecto todavía no tiene clientes registrados.
+              </TableEmpty>
+            ) : clientes.length === 0 ? (
+              <TableEmpty colSpan={5}>
+                Ningún cliente coincide con «{searchTerm}».
+              </TableEmpty>
+            ) : (
+              clientes.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-paper-3"
+                        aria-hidden
                       >
                         {isCompany(client) ? (
-                          <Briefcase className="w-5 h-5 text-purple-600" />
+                          <Briefcase
+                            className="h-4 w-4 text-ink-2"
+                            strokeWidth={1.75}
+                          />
                         ) : (
-                          <Users className="w-5 h-5 text-blue-600" />
+                          <Users
+                            className="h-4 w-4 text-ink-2"
+                            strokeWidth={1.75}
+                          />
                         )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[0.8125rem] font-medium text-ink">
                           {getClientName(client)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {isCompany(client) ? "Empresa" : "Individual"}
-                        </div>
-                      </div>
+                        </span>
+                        <span className="block text-[0.75rem] text-ink-3">
+                          {isCompany(client) ? "Empresa" : "Persona física"}
+                        </span>
+                      </span>
                     </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                      {client.data?.email || "Sin email"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      {isCompany(client)
-                        ? `RNC: ${client.data?.rnc || "N/A"}`
-                        : client.data?.identification || "N/A"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Phone className="w-4 h-4 mr-2 text-gray-400" />
-                      {client.data?.phone || "Sin teléfono"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        client.data?.status === "active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
+                  </TableCell>
+                  <TableCell className="text-[0.8125rem] text-ink-2">
+                    {client.data?.email || (
+                      <span className="text-ink-3">Sin correo</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="tabular text-[0.8125rem] text-ink-2">
+                    {isCompany(client)
+                      ? client.data?.rnc
+                        ? `RNC ${client.data.rnc}`
+                        : "—"
+                      : client.data?.identification || "—"}
+                  </TableCell>
+                  <TableCell className="tabular text-[0.8125rem] text-ink-2">
+                    {client.data?.phone || (
+                      <span className="text-ink-3">Sin teléfono</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        client.data?.status === "active" ? "success" : "warning"
+                      }
+                      dot
                     >
                       {client.data?.status === "active"
                         ? "Activo"
                         : "Pendiente"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       )}
-
-      {/* Empty State */}
-      {!isLoading && clientsData.length === 0 && (
-        <div className="text-center py-12 text-gray-500">
-          <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-          <p>No hay clientes registrados</p>
-        </div>
-      )}
-
-      {/* No Results State */}
-      {!isLoading &&
-        clientsData.length > 0 &&
-        getFilteredClients().length === 0 && (
-          <div className="text-center py-12 text-gray-500">
-            <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p>No se encontraron clientes con ese criterio de búsqueda</p>
-          </div>
-        )}
-    </CustomCard>
+    </section>
   );
 }

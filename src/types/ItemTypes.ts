@@ -20,8 +20,4 @@ export type ItemCategory =
   | "Todos las categorías";
 
 export type ItemSubcategory =
-  | "Cemento"
-  | "Acero"
-  | "Pintura"
-  | "Desagüe"
-  | "Todos las subcategorías";
+  "Cemento" | "Acero" | "Pintura" | "Desagüe" | "Todos las subcategorías";

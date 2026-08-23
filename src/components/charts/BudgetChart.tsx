@@ -10,7 +10,7 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
-import { PendingRecord, GestionoDivision } from "@/src/types/gestiono";
+import { alpha, chart } from "@/src/lib/chartColors";
 
 ChartJS.register(
   CategoryScale,
@@ -21,24 +21,21 @@ ChartJS.register(
   Legend,
 );
 
+export type BudgetSeriesPoint = {
+  name: string;
+  facturado: number;
+  cobrado: number;
+};
+
 interface BudgetChartProps {
-  records: PendingRecord[];
-  divisions: GestionoDivision[];
+  /* Antes el gráfico recibía las facturas en crudo y pintaba una barra por
+   * documento: con el censo completo son 97 barras de 8 caracteres. La
+   * agregación por proyecto la hace ahora quien llama. */
+  series: BudgetSeriesPoint[];
 }
 
-export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
-  const budgetData = records.map((record) => {
-    const division = divisions.find((d) => d.id === record.divisionId);
-    const name = division
-      ? division.name
-      : record.description || `Record #${record.id}`;
-
-    return {
-      name: name.slice(0, 8) + (name.length > 8 ? "..." : ""),
-      facturado: record.amount,
-      cobrado: record.paid,
-    };
-  });
+export const BudgetChart = ({ series }: BudgetChartProps) => {
+  const budgetData = series;
 
   const data = {
     labels: budgetData.map((p) => p.name),
@@ -46,16 +43,16 @@ export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
       {
         label: "Facturado", // Was Presupuesto
         data: budgetData.map((p) => p.facturado),
-        backgroundColor: "rgba(59, 130, 246, 0.8)", // blue-500
-        borderColor: "rgb(59, 130, 246)",
+        backgroundColor: alpha(chart.gold, 0.85),
+        borderColor: chart.gold,
         borderWidth: 1,
         borderRadius: 4,
       },
       {
         label: "Cobrado", // Was Ejecutado
         data: budgetData.map((p) => p.cobrado),
-        backgroundColor: "rgba(16, 185, 129, 0.8)", // green-500
-        borderColor: "rgb(16, 185, 129)",
+        backgroundColor: alpha(chart.info, 0.85),
+        borderColor: chart.info,
         borderWidth: 1,
         borderRadius: 4,
       },
@@ -73,7 +70,7 @@ export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
         callbacks: {
           label: function (context: TooltipItem<"bar">) {
             const value = context.parsed.y || 0;
-            return `${context.dataset.label}: $${value.toLocaleString()}`;
+            return `${context.dataset.label}: RD$${value.toLocaleString("es-DO")}`;
           },
         },
       },
@@ -84,9 +81,9 @@ export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
         ticks: {
           callback: function (value: number | string) {
             if (typeof value === "number" && value >= 1000) {
-              return `$${(value / 1000).toFixed(1)}k`;
+              return `RD$${(value / 1000).toFixed(0)}k`;
             }
-            return `$${value}`;
+            return `RD$${value}`;
           },
         },
       },
@@ -94,7 +91,7 @@ export const BudgetChart = ({ records, divisions }: BudgetChartProps) => {
   };
 
   return (
-    <div style={{ height: "300px" }}>
+    <div className="h-[300px]">
       <Bar data={data} options={options} />
     </div>
   );

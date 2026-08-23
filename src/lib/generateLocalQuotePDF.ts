@@ -1,4 +1,4 @@
-import { GestionoBeneficiary } from "@/src/types/gestiono";
+import { Beneficiary } from "@/src/types/erp";
 
 interface LocalData {
   id: number;
@@ -27,7 +27,7 @@ interface PaymentPlan {
 
 interface GenerateLocalQuotePDFParams {
   localData: LocalData;
-  beneficiary: GestionoBeneficiary | null;
+  beneficiary: Beneficiary | null;
   projectName: string;
   paymentPlan: PaymentPlan;
   quotationDate?: string; // Optional, can default to now if not provided, but usually passed

@@ -117,7 +117,7 @@ export default function ProductSelectionPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#081845]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ink"></div>
       </div>
     );
   }
@@ -136,7 +136,7 @@ export default function ProductSelectionPage() {
           borderBottomRightRadius: "20px",
         }}
         transition={{ duration: 0.8, ease: "easeInOut" }}
-        className="absolute top-0 left-0 w-full bg-[#081845] z-0"
+        className="absolute top-0 left-0 w-full bg-ink z-0"
       />
 
       <div className="w-full max-w-4xl z-10 flex flex-col items-center justify-between h-full py-12 px-4 space-y-8">
@@ -173,7 +173,7 @@ export default function ProductSelectionPage() {
                                 relative w-full h-[600px]
                                 rounded-3xl overflow-hidden cursor-pointer 
                                 shadow-xl hover:shadow-2xl transition-all duration-300
-                                group bg-white border border-[#081845]
+                                group bg-white border border-ink
                                 ${submitting ? "pointer-events-none opacity-50" : ""}
                             `}
             >
@@ -189,7 +189,7 @@ export default function ProductSelectionPage() {
                 </div>
                 <p className="text-sm text-gray-500 mb-6">
                   Disponibles:{" "}
-                  <span className="font-semibold text-[#C8A31D]">
+                  <span className="font-semibold text-gold">
                     {product.limit - product.count}
                   </span>
                 </p>

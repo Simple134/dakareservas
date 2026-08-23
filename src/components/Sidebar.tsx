@@ -145,11 +145,11 @@ export const SidebarReservation = ({
   }, [selectedReservation.product_name, products, selectedProductId]);
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-[#131E29] p-6 flex items-center justify-between">
+      <div className="bg-shell p-6 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Detalles de Reserva</h2>
         <button
           onClick={closeSidebar}
-          className="text-white hover:text-[#A9780F] transition-colors"
+          className="text-white hover:text-gold transition-colors"
         >
           <X size={24} />
         </button>
@@ -157,7 +157,7 @@ export const SidebarReservation = ({
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         <div
-          className={`bg-gray-50 rounded-lg p-4 border-2 border-[#A9780F] ${selectedReservation.status === "approved" ? "hidden" : ""}`}
+          className={`bg-gray-50 rounded-lg p-4 border-2 border-gold ${selectedReservation.status === "approved" ? "hidden" : ""}`}
         >
           <h3 className="text-sm font-bold text-black mb-3 uppercase">
             Confirmar
@@ -196,7 +196,7 @@ export const SidebarReservation = ({
         </div>
 
         <div>
-          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
             {selectedReservation.client_type_label}
           </h3>
           <div className="space-y-2">
@@ -249,7 +249,7 @@ export const SidebarReservation = ({
         </div>
 
         <div>
-          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
             Dirección
           </h3>
           <div className="space-y-2">
@@ -261,7 +261,7 @@ export const SidebarReservation = ({
 
         {selectedReservation.unit_code && (
           <div>
-            <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+            <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
               Información de Unidad
             </h3>
             <div className="space-y-2">
@@ -307,7 +307,7 @@ export const SidebarReservation = ({
         )}
 
         <div>
-          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
             Producto & Pago
           </h3>
           <div className="space-y-2">
@@ -351,7 +351,7 @@ export const SidebarReservation = ({
                   <select
                     value={editCurrency}
                     onChange={(e) => setEditCurrency(e.target.value)}
-                    className="w-20 text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
+                    className="w-20 text-xs border-gray-300 rounded focus:border-gold focus:ring-gold text-black"
                   >
                     <option value="USD">USD</option>
                     <option value="DOP">DOP</option>
@@ -361,7 +361,7 @@ export const SidebarReservation = ({
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
                     placeholder="Monto"
-                    className="flex-1 text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
+                    className="flex-1 text-xs border-gray-300 rounded focus:border-gold focus:ring-gold text-black"
                   />
                 </div>
               </div>
@@ -390,7 +390,7 @@ export const SidebarReservation = ({
                             <span className="text-xs font-medium text-gray-700">
                               Equivalente USD:
                             </span>
-                            <span className="text-sm font-bold text-[#A9780F]">
+                            <span className="text-sm font-bold text-gold">
                               ${usdAmount.toFixed(2)}
                             </span>
                           </div>
@@ -412,7 +412,7 @@ export const SidebarReservation = ({
                 <select
                   value={editPaymentMethod}
                   onChange={(e) => setEditPaymentMethod(e.target.value)}
-                  className="w-full text-xs border-gray-300 rounded focus:border-[#A9780F] focus:ring-[#A9780F] text-black"
+                  className="w-full text-xs border-gray-300 rounded focus:border-gold focus:ring-gold text-black"
                 >
                   <option value="">Seleccione...</option>
                   <option value="transfer">Transferencia</option>
@@ -433,7 +433,7 @@ export const SidebarReservation = ({
                     onChange={(e) =>
                       setEditReceiptFile(e.target.files?.[0] || null)
                     }
-                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-gray-700"
+                    className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-shell file:text-white hover:file:bg-gray-700"
                   />
                 </div>
               </div>
@@ -445,7 +445,7 @@ export const SidebarReservation = ({
                   !editAmount ||
                   (editCurrency === "DOP" && !exchangeRate)
                 }
-                className="w-full flex items-center justify-center gap-2 bg-[#A9780F] hover:bg-[#966b0d] text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 bg-gold hover:bg-gold-strong text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50"
               >
                 <Save size={14} />
                 Agregar Pago{" "}
@@ -576,7 +576,7 @@ export const SidebarReservation = ({
 
         {/* Quotation Section */}
         <div className="mt-6">
-          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+          <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
             Cotización del Cliente
           </h3>
 
@@ -588,10 +588,10 @@ export const SidebarReservation = ({
                 rel="noopener noreferrer"
                 className="block w-full"
               >
-                <div className="relative h-24 w-full bg-gray-100 rounded-lg border-2 border-[#A9780F] hover:border-[#8e650c] transition-colors flex items-center justify-center cursor-pointer">
+                <div className="relative h-24 w-full bg-gray-100 rounded-lg border-2 border-gold hover:border-gold-strong transition-colors flex items-center justify-center cursor-pointer">
                   <div className="text-center">
                     <svg
-                      className="w-8 h-8 mx-auto mb-1 text-[#A9780F]"
+                      className="w-8 h-8 mx-auto mb-1 text-gold"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -603,7 +603,7 @@ export const SidebarReservation = ({
                         d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
                       />
                     </svg>
-                    <p className="text-xs font-bold text-[#A9780F]">
+                    <p className="text-xs font-bold text-gold">
                       PDF Cotización
                     </p>
                     <p className="text-[10px] text-gray-500">Clic para ver</p>
@@ -630,12 +630,12 @@ export const SidebarReservation = ({
                 onChange={(e) =>
                   setEditQuotationFile(e.target.files?.[0] || null)
                 }
-                className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#131E29] file:text-white hover:file:bg-gray-700"
+                className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-shell file:text-white hover:file:bg-gray-700"
               />
               <button
                 onClick={handleUploadQuotation}
                 disabled={!editQuotationFile || updatingStatus}
-                className="w-full bg-[#131E29] hover:bg-[#2a425a] text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-shell hover:bg-shell-3 text-white text-xs font-bold py-2 rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Save size={14} />
                 Subir Cotización
@@ -649,7 +649,7 @@ export const SidebarReservation = ({
         {selectedReservation.payments &&
           selectedReservation.payments.length > 0 && (
             <div className="mt-4">
-              <h4 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+              <h4 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
                 Comprobantes (
                 {
                   selectedReservation.payments.filter((p) => p.receipt_url)
@@ -669,8 +669,8 @@ export const SidebarReservation = ({
                           rel="noopener noreferrer"
                           className="block w-full h-24"
                         >
-                          <div className="h-full w-full bg-gray-100 rounded-lg border-2 border-[#A9780F] flex flex-col items-center justify-center hover:bg-gray-200 transition-colors">
-                            <span className="text-xs font-bold text-[#A9780F]">
+                          <div className="h-full w-full bg-gray-100 rounded-lg border-2 border-gold flex flex-col items-center justify-center hover:bg-gray-200 transition-colors">
+                            <span className="text-xs font-bold text-gold">
                               PDF
                             </span>
                             <span className="text-[10px] text-gray-500">
@@ -808,16 +808,16 @@ export const SidebarLocales = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-[#131E29] p-6 flex items-center justify-between">
+      <div className="bg-shell p-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">
             Local {selectedLocale.id}
           </h2>
-          <p className="text-[#A9780F]">Nivel {selectedLocale.level}</p>
+          <p className="text-gold">Nivel {selectedLocale.level}</p>
         </div>
         <button
           onClick={closeSidebar}
-          className="text-white hover:text-[#A9780F] transition-colors"
+          className="text-white hover:text-gold transition-colors"
         >
           <X size={24} />
         </button>
@@ -840,7 +840,7 @@ export const SidebarLocales = ({
           </div>
           <div className="col-span-2">
             <p className="text-xs text-gray-500">Valor Total</p>
-            <p className="font-bold text-[#A9780F] text-lg">
+            <p className="font-bold text-gold text-lg">
               ${selectedLocale.total_value?.toLocaleString()}
             </p>
           </div>
@@ -864,7 +864,7 @@ export const SidebarLocales = ({
         {/* Owner Info or Assignment */}
         {localeOwner ? (
           <div>
-            <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+            <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
               Asignado a
             </h3>
             <div className="space-y-3 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
@@ -906,7 +906,7 @@ export const SidebarLocales = ({
           </div>
         ) : (
           <div>
-            <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-[#A9780F] pb-2">
+            <h3 className="text-sm font-bold text-black mb-3 uppercase border-b-2 border-gold pb-2">
               Asignar Cliente
             </h3>
             {/* Product Selection for ALL tabs */}
@@ -915,7 +915,7 @@ export const SidebarLocales = ({
                 Seleccionar Producto *
               </label>
               <select
-                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-gold focus:ring-gold sm:text-sm p-2 border"
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(e.target.value)}
               >
@@ -933,7 +933,7 @@ export const SidebarLocales = ({
                   Buscar Cliente
                 </label>
                 <select
-                  className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-[#A9780F] focus:ring-[#A9780F] sm:text-sm p-2 border"
+                  className="block w-full text-black rounded-md border-gray-300 shadow-sm focus:border-gold focus:ring-gold sm:text-sm p-2 border"
                   onChange={(e) => setSelectedUserValue(e.target.value)}
                   value={selectedUserValue}
                 >
@@ -951,7 +951,7 @@ export const SidebarLocales = ({
                   if (id) assignLocaleToUser(id, type as "fisica" | "juridica");
                 }}
                 disabled={!selectedUserValue || updatingStatus}
-                className="w-full bg-[#A9780F] text-white rounded-md py-2 font-bold hover:bg-[#8e650c] transition-colors disabled:opacity-50"
+                className="w-full bg-gold text-white rounded-md py-2 font-bold hover:bg-gold-strong transition-colors disabled:opacity-50"
               >
                 {updatingStatus ? "Asignando..." : "Asignar Usuario"}
               </button>
@@ -1025,11 +1025,11 @@ export const SidebarUser = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-[#131E29] p-6 flex items-center justify-between">
+      <div className="bg-shell p-6 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Detalles de Usuario</h2>
         <button
           onClick={closeSidebar}
-          className="text-white hover:text-[#A9780F] transition-colors"
+          className="text-white hover:text-gold transition-colors"
         >
           <X size={24} />
         </button>
@@ -1039,7 +1039,7 @@ export const SidebarUser = ({
         <div className="flex gap-4 mb-6">
           <button
             onClick={handleSendEmail}
-            className="flex-1 py-2 px-4 rounded-lg bg-[#A9780F] text-white font-bold flex items-center justify-center gap-2 hover:bg-[#8e650c] transition-colors"
+            className="flex-1 py-2 px-4 rounded-lg bg-gold text-white font-bold flex items-center justify-center gap-2 hover:bg-gold-strong transition-colors"
           >
             <Mail size={18} />
             Enviar Correo
@@ -1049,7 +1049,7 @@ export const SidebarUser = ({
             className={`flex-1 py-2 px-4 rounded-lg font-bold flex items-center justify-2 border-2 transition-colors ${
               isEditing
                 ? "bg-white border-red-500 text-red-500"
-                : "bg-white border-[#A9780F] text-[#A9780F]"
+                : "bg-white border-gold text-gold"
             }`}
           >
             {isEditing ? (
@@ -1244,11 +1244,11 @@ export const SidebarPayment = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-[#131E29] p-6 flex items-center justify-between">
+      <div className="bg-shell p-6 flex items-center justify-between">
         <h2 className="text-2xl font-bold text-white">Abonar a Capital</h2>
         <button
           onClick={closeSidebar}
-          className="text-white hover:text-[#A9780F] transition-colors"
+          className="text-white hover:text-gold transition-colors"
         >
           <X size={24} />
         </button>
@@ -1273,8 +1273,8 @@ export const SidebarPayment = ({
                 onClick={() => setSelectedCurrency("USD")}
                 className={`py-3 px-4 rounded-lg font-bold text-sm transition-all border-2 ${
                   selectedCurrency === "USD"
-                    ? "bg-[#A9780F] text-white border-[#A9780F]"
-                    : "bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]"
+                    ? "bg-gold text-white border-gold"
+                    : "bg-white text-gray-700 border-gray-300 hover:border-gold"
                 }`}
               >
                 USD (Dólares)
@@ -1285,8 +1285,8 @@ export const SidebarPayment = ({
                 onClick={() => setSelectedCurrency("DOP")}
                 className={`py-3 px-4 rounded-lg font-bold text-sm transition-all border-2 ${
                   selectedCurrency === "DOP"
-                    ? "bg-[#A9780F] text-white border-[#A9780F]"
-                    : "bg-white text-gray-700 border-gray-300 hover:border-[#A9780F]"
+                    ? "bg-gold text-white border-gold"
+                    : "bg-white text-gray-700 border-gray-300 hover:border-gold"
                 }`}
               >
                 DOP (Pesos)
@@ -1306,7 +1306,7 @@ export const SidebarPayment = ({
               placeholder={
                 selectedCurrency === "USD" ? "USD 5000.00" : "DOP 325000.00"
               }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#A9780F] focus:border-[#A9780F] text-black"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-gold focus:border-gold text-black"
             />
           </div>
 
@@ -1334,7 +1334,7 @@ export const SidebarPayment = ({
                         <span className="text-sm font-medium text-gray-700">
                           Equivalente en USD:
                         </span>
-                        <span className="text-lg font-bold text-[#A9780F]">
+                        <span className="text-lg font-bold text-gold">
                           ${usdAmount.toFixed(2)} USD
                         </span>
                       </div>
@@ -1416,7 +1416,7 @@ export const SidebarPayment = ({
               isSubmitting ||
               (selectedCurrency === "DOP" && !exchangeRate)
             }
-            className="w-full py-3 bg-[#A9780F] hover:bg-[#8e650c] text-white font-bold rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+            className="w-full py-3 bg-gold hover:bg-gold-strong text-white font-bold rounded-lg shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
           >
             {isSubmitting ? (
               <>

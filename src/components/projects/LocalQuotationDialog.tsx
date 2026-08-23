@@ -11,7 +11,7 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
-import { GestionoBeneficiary } from "@/src/types/gestiono";
+import { Beneficiary } from "@/src/types/erp";
 import AddBeneficiaryModal from "@/src/components/AddBeneficiaryModal";
 
 interface LocalQuotationDialogProps {
@@ -50,11 +50,11 @@ export function LocalQuotationDialog({
   projectId,
   projectEndDate,
 }: LocalQuotationDialogProps) {
-  const [beneficiaries, setBeneficiaries] = useState<GestionoBeneficiary[]>([]);
+  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBeneficiaryModalOpen, setIsBeneficiaryModalOpen] = useState(false);
   const [selectedBeneficiary, setSelectedBeneficiary] =
-    useState<GestionoBeneficiary | null>(null);
+    useState<Beneficiary | null>(null);
 
   const {
     register,
@@ -90,7 +90,7 @@ export function LocalQuotationDialog({
           withContacts: "true",
         });
         const response = await fetch(
-          `/api/gestiono/beneficiaries?${params.toString()}`,
+          `/api/erp/beneficiaries?${params.toString()}`,
         );
         if (response.ok) {
           const data = await response.json();
@@ -276,7 +276,7 @@ export function LocalQuotationDialog({
         },
       };
 
-      const response = await fetch("/api/gestiono/pendingRecord", {
+      const response = await fetch("/api/erp/pendingRecord", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -304,24 +304,24 @@ export function LocalQuotationDialog({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-[oklch(21%_0.021_250_/_0.45)] backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+      <div className="bg-paper rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-paper border-b border-rule px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <FileText className="w-6 h-6 text-blue-600" />
+            <FileText className="w-6 h-6 text-info" />
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-ink">
                 Cotización de Local #{localData.id}
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-ink-3">
                 Nivel {localData.level} • {localData.area_mt2.toFixed(2)} m²
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-ink-3 hover:text-ink-2 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -329,47 +329,43 @@ export function LocalQuotationDialog({
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
           {/* Información del Local */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="bg-info-soft border border-info/20 rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Building2 className="w-5 h-5 text-blue-700" />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <Building2 className="w-5 h-5 text-info" />
+              <h3 className="text-lg font-semibold text-ink">
                 Información del Local
               </h3>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Número de Local</p>
-                <p className="text-lg font-bold text-gray-900">
-                  #{localData.id}
-                </p>
+                <p className="text-sm text-ink-2">Número de Local</p>
+                <p className="text-lg font-bold text-ink">#{localData.id}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Nivel</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {localData.level}
-                </p>
+                <p className="text-sm text-ink-2">Nivel</p>
+                <p className="text-lg font-bold text-ink">{localData.level}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Área</p>
-                <p className="text-lg font-bold text-gray-900">
+                <p className="text-sm text-ink-2">Área</p>
+                <p className="text-lg font-bold text-ink">
                   {localData.area_mt2.toFixed(2)} m²
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Precio por m²</p>
-                <p className="text-lg font-bold text-gray-900">
+                <p className="text-sm text-ink-2">Precio por m²</p>
+                <p className="text-lg font-bold text-ink">
                   {formatCurrency(localData.price_per_mt2)}
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-blue-300">
+            <div className="mt-4 pt-4 border-t border-info/30">
               <div className="flex justify-between items-center">
-                <span className="text-base font-medium text-gray-700">
+                <span className="text-base font-medium text-ink-2">
                   Valor Total del Local:
                 </span>
-                <span className="text-2xl font-bold text-blue-700">
+                <span className="text-2xl font-bold text-info">
                   {formatCurrency(localData.total_value)}
                 </span>
               </div>
@@ -377,57 +373,57 @@ export function LocalQuotationDialog({
           </div>
 
           {/* Configuración de Fechas */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-paper border border-rule rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Calendar className="w-5 h-5 text-gray-700" />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <Calendar className="w-5 h-5 text-ink-2" />
+              <h3 className="text-lg font-semibold text-ink">
                 Configuración de Cotización
               </h3>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-ink-2 mb-1.5">
                   Fecha de Cotización
                 </label>
                 <input
                   type="date"
                   {...register("quotationDate", { required: true })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-ink-2 mb-1.5">
                   Válido Hasta
                 </label>
                 <input
                   type="date"
                   {...register("validUntil", { required: true })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
                 />
               </div>
             </div>
           </div>
 
           {/* Información del Cliente */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-paper border border-rule rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Users className="w-5 h-5 text-gray-700" />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <Users className="w-5 h-5 text-ink-2" />
+              <h3 className="text-lg font-semibold text-ink">
                 Información del Cliente
               </h3>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-ink-2">
                   Cliente
                 </label>
                 <button
                   type="button"
                   onClick={() => setIsBeneficiaryModalOpen(true)}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors"
+                  className="text-xs text-info hover:text-info font-medium flex items-center gap-1 transition-colors"
                 >
                   <Plus className="w-3 h-3" />
                   Añadir nuevo cliente
@@ -438,8 +434,8 @@ export function LocalQuotationDialog({
                   required: true,
                   valueAsNumber: true,
                 })}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.beneficiaryId ? "border-red-500" : "border-gray-300"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gold ${
+                  errors.beneficiaryId ? "border-danger" : "border-rule-strong"
                 }`}
               >
                 <option value="">Seleccionar cliente...</option>
@@ -451,19 +447,19 @@ export function LocalQuotationDialog({
                 ))}
               </select>
               {errors.beneficiaryId && (
-                <p className="mt-1 text-sm text-red-600">
+                <p className="mt-1 text-sm text-danger">
                   Debe seleccionar un cliente
                 </p>
               )}
 
               {/* Display selected beneficiary info */}
               {selectedBeneficiary && (
-                <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-sm font-medium text-gray-900">
+                <div className="mt-4 p-4 bg-paper-2 rounded-lg">
+                  <p className="text-sm font-medium text-ink">
                     {selectedBeneficiary.name}
                   </p>
                   {selectedBeneficiary.taxId && (
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-ink-2">
                       RNC/Cédula: {selectedBeneficiary.taxId}
                     </p>
                   )}
@@ -475,7 +471,7 @@ export function LocalQuotationDialog({
                             (c) => c.type === "email" || c.type === "phone",
                           )
                           .map((contact, idx) => (
-                            <p key={idx} className="text-sm text-gray-600">
+                            <p key={idx} className="text-sm text-ink-2">
                               {contact.type === "email" ? "📧" : "📱"}{" "}
                               {contact.data}
                             </p>
@@ -488,31 +484,31 @@ export function LocalQuotationDialog({
           </div>
 
           {/* Método de Pago para Capital */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="bg-paper border border-rule rounded-lg p-6">
             <div className="flex items-center gap-2 mb-4">
-              <Calculator className="w-5 h-5 text-gray-700" />
-              <h3 className="text-lg font-semibold text-gray-900">
+              <Calculator className="w-5 h-5 text-ink-2" />
+              <h3 className="text-lg font-semibold text-ink">
                 Método de Pago para Capital
               </h3>
             </div>
 
             {/* Separaciones */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Separación 10%</p>
-                <p className="text-xl font-bold text-green-700">
+              <div className="p-4 bg-success-soft border border-success/20 rounded-lg">
+                <p className="text-sm text-ink-2 mb-1">Separación 10%</p>
+                <p className="text-xl font-bold text-success">
                   {formatCurrency(separation10)}
                 </p>
               </div>
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Inicial 45%</p>
-                <p className="text-xl font-bold text-yellow-700">
+              <div className="p-4 bg-warning-soft border border-warning/25 rounded-lg">
+                <p className="text-sm text-ink-2 mb-1">Inicial 45%</p>
+                <p className="text-xl font-bold text-warning">
                   {formatCurrency(separation45)}
                 </p>
               </div>
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Capital Restante</p>
-                <p className="text-xl font-bold text-purple-700">
+              <div className="p-4 bg-info-soft border border-info/20 rounded-lg">
+                <p className="text-sm text-ink-2 mb-1">Capital Restante</p>
+                <p className="text-xl font-bold text-info">
                   {formatCurrency(remainingCapital)}
                 </p>
               </div>
@@ -520,7 +516,7 @@ export function LocalQuotationDialog({
 
             {/* Número de Cuotas */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-ink-2 mb-1.5">
                 Número de Cuotas Mensuales
               </label>
               <input
@@ -529,50 +525,50 @@ export function LocalQuotationDialog({
                   valueAsNumber: true,
                   min: 1,
                 })}
-                className="w-full md:w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full md:w-32 px-3 py-2 border border-rule-strong rounded-md focus:outline-none focus:ring-2 focus:ring-gold"
               />
-              <span className="ml-2 text-gray-600">meses</span>
-              <p className="mt-2 text-sm text-gray-600">
+              <span className="ml-2 text-ink-2">meses</span>
+              <p className="mt-2 text-sm text-ink-2">
                 Cuota mensual:{" "}
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-ink">
                   {formatCurrency(installmentAmount)}
                 </span>
               </p>
             </div>
 
             {/* Tabla de Pagos */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                <h4 className="font-semibold text-gray-900">Plan de Pagos</h4>
+            <div className="border border-rule rounded-lg overflow-hidden">
+              <div className="bg-paper-2 px-4 py-2 border-b border-rule">
+                <h4 className="font-semibold text-ink">Plan de Pagos</h4>
               </div>
               <div className="max-h-64 overflow-y-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-100 sticky top-0">
+                  <thead className="bg-paper-3 sticky top-0">
                     <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-ink-2">
                         #
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-600">
+                      <th className="px-4 py-2 text-left text-xs font-medium text-ink-2">
                         Fecha de Pago
                       </th>
-                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-600">
+                      <th className="px-4 py-2 text-right text-xs font-medium text-ink-2">
                         Monto
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-rule">
                     {installments.map((installment) => (
                       <tr
                         key={installment.installmentNumber}
-                        className="hover:bg-gray-50"
+                        className="hover:bg-paper-2"
                       >
-                        <td className="px-4 py-2 text-sm text-gray-900">
+                        <td className="px-4 py-2 text-sm text-ink">
                           {installment.installmentNumber}
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-600">
+                        <td className="px-4 py-2 text-sm text-ink-2">
                           {formatDate(installment.dueDate)}
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-900 text-right font-medium">
+                        <td className="px-4 py-2 text-sm text-ink text-right font-medium">
                           {formatCurrency(installment.amount)}
                         </td>
                       </tr>
@@ -584,45 +580,45 @@ export function LocalQuotationDialog({
           </div>
 
           {/* Términos y Condiciones */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-paper border border-rule rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-ink mb-4">
               Términos y Condiciones
             </h3>
             <textarea
               {...register("terms")}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="min-h-20 py-2 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 resize-none focus:outline-none focus:ring-2 focus:ring-gold"
               placeholder="Términos y condiciones de la cotización..."
             />
           </div>
 
           {/* Notas Adicionales */}
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-paper border border-rule rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-ink mb-4">
               Notas Adicionales
             </h3>
             <textarea
               {...register("notes")}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="min-h-20 py-2 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3 resize-none focus:outline-none focus:ring-2 focus:ring-gold"
               placeholder="Notas adicionales (opcional)..."
             />
           </div>
 
           {/* Botones de Acción */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-rule">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="px-6 py-2 border border-rule-strong text-ink-2 rounded-md hover:bg-paper-2 transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-6 py-2 bg-info text-white rounded-md hover:bg-info transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {isSubmitting ? (
                 <>
@@ -652,7 +648,7 @@ export function LocalQuotationDialog({
               withContacts: "true",
             });
             const response = await fetch(
-              `/api/gestiono/beneficiaries?${params.toString()}`,
+              `/api/erp/beneficiaries?${params.toString()}`,
             );
             if (response.ok) {
               const data = await response.json();

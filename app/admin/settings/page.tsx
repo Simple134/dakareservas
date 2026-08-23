@@ -1,526 +1,345 @@
 "use client";
 
-import { useState } from "react";
-import { CustomCard, CustomButton } from "@/src/components/project/CustomCard";
-import { User, Bell, Palette, Shield, Database } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Database, Shield, User } from "lucide-react";
+import { PageHeader, PageBody } from "@/src/components/ui/page-header";
+import { TabsBar } from "@/src/components/ui/tabs-bar";
+import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
+import { Badge } from "@/src/components/ui/badge";
+import { useAuth } from "@/src/context/AuthContext";
+import { supabase } from "@/src/lib/supabase/client";
+import { shortDate } from "@/src/lib/format";
+
+/* Hallmark · design-system: design.md · familia Workbench
+ *
+ * Esta página era decorativa de principio a fin: el perfil traía «Darlin
+ * Cepeda / darlin.cepeda@daka.com» escrito en el código, el botón «Guardar
+ * cambios» no tenía manejador, y las pestañas de Notificaciones y Apariencia
+ * ofrecían interruptores de idioma, tema y zona horaria que no se guardaban en
+ * ningún sitio ni existían en el esquema.
+ *
+ * Quedan las tres cosas que sí se pueden hacer de verdad contra Supabase:
+ * editar el nombre del propio perfil (`profiles.full_name`, con la política
+ * «Users can update own profile»), cambiar la contraseña
+ * (`supabase.auth.updateUser`) y consultar los datos de la sesión. Las que no
+ * tienen dónde guardarse no se pintan: un interruptor que no persiste es peor
+ * que su ausencia.
+ */
+
+const TABS = [
+  { id: "perfil", label: "Perfil", icon: User },
+  { id: "seguridad", label: "Seguridad", icon: Shield },
+  { id: "sistema", label: "Sistema", icon: Database },
+] as const;
+
+type TabId = (typeof TABS)[number]["id"];
+
+type Aviso = { tipo: "ok" | "error"; texto: string } | null;
+
+function Aviso({ aviso }: { aviso: Aviso }) {
+  if (!aviso) return null;
+  return (
+    <p
+      role="status"
+      className={`flex items-center gap-1.5 text-[0.8125rem] ${
+        aviso.tipo === "ok" ? "text-success" : "text-danger"
+      }`}
+    >
+      {aviso.tipo === "ok" && <Check className="h-3.5 w-3.5" strokeWidth={2} />}
+      {aviso.texto}
+    </p>
+  );
+}
+
+function Panel({
+  title,
+  description,
+  children,
+  footer,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[12px] border border-rule bg-paper">
+      <header className="border-b border-rule px-5 py-4">
+        <h2 className="font-display text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-0.5 max-w-[65ch] text-[0.8125rem] leading-relaxed text-ink-2">
+            {description}
+          </p>
+        )}
+      </header>
+      <div className="space-y-4 px-5 py-5">{children}</div>
+      {footer && (
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t border-rule px-5 py-3.5">
+          {footer}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Fila de dato en sólo lectura. */
+function Dato({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-rule py-2.5 last:border-0">
+      <span className="text-[0.8125rem] text-ink-2">{label}</span>
+      <span className="text-[0.8125rem] font-medium text-ink">{value}</span>
+    </div>
+  );
+}
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("perfil");
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: false,
-    sms: true,
-  });
+  const { user, role } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabId>("perfil");
 
-  const tabs = [
-    { id: "perfil", label: "Perfil", icon: User },
-    { id: "notificaciones", label: "Notificaciones", icon: Bell },
-    { id: "apariencia", label: "Apariencia", icon: Palette },
-    { id: "seguridad", label: "Seguridad", icon: Shield },
-    { id: "sistema", label: "Sistema", icon: Database },
-  ];
+  // Perfil
+  const [fullName, setFullName] = useState("");
+  const [nombreOriginal, setNombreOriginal] = useState("");
+  const [cargandoPerfil, setCargandoPerfil] = useState(true);
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [avisoPerfil, setAvisoPerfil] = useState<Aviso>(null);
+
+  // Contraseña
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+  const [guardandoPass, setGuardandoPass] = useState(false);
+  const [avisoPass, setAvisoPass] = useState<Aviso>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let vivo = true;
+    // El estado se escribe tras el await: hacerlo en el cuerpo del efecto
+    // dispara un render en cascada.
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+      if (!vivo) return;
+      if (!error && data) {
+        setFullName(data.full_name ?? "");
+        setNombreOriginal(data.full_name ?? "");
+      }
+      setCargandoPerfil(false);
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [user]);
+
+  const guardarPerfil = async () => {
+    if (!user) return;
+    setGuardandoPerfil(true);
+    setAvisoPerfil(null);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: fullName.trim(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+    setGuardandoPerfil(false);
+    if (error) {
+      setAvisoPerfil({ tipo: "error", texto: error.message });
+      return;
+    }
+    setNombreOriginal(fullName.trim());
+    setAvisoPerfil({ tipo: "ok", texto: "Nombre actualizado" });
+  };
+
+  const cambiarPassword = async () => {
+    setAvisoPass(null);
+    if (password.length < 8) {
+      setAvisoPass({
+        tipo: "error",
+        texto: "La contraseña debe tener al menos 8 caracteres.",
+      });
+      return;
+    }
+    if (password !== password2) {
+      setAvisoPass({
+        tipo: "error",
+        texto: "Las dos contraseñas no coinciden.",
+      });
+      return;
+    }
+    setGuardandoPass(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setGuardandoPass(false);
+    if (error) {
+      setAvisoPass({ tipo: "error", texto: error.message });
+      return;
+    }
+    setPassword("");
+    setPassword2("");
+    setAvisoPass({ tipo: "ok", texto: "Contraseña actualizada" });
+  };
+
+  const nombreCambiado = fullName.trim() !== nombreOriginal;
 
   return (
-    <div className="min-h-screen bg-white p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-            Configuración
-          </h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">
-            Personaliza tu experiencia en el sistema
-          </p>
-        </div>
-        <CustomButton className="bg-[#07234B] text-white hover:bg-[#0a2d5c] w-full sm:w-auto justify-center">
-          Guardar Cambios
-        </CustomButton>
-      </div>
+    <>
+      <PageHeader
+        title="Configuración"
+        description="Tu perfil, tu acceso y los datos de la sesión."
+      />
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex w-full overflow-x-auto bg-gray-100 rounded-lg px-2 py-1 gap-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                style={{ borderRadius: "10px" }}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-center gap-2 p-2 flex-1 min-w-0 font-medium text-sm transition-colors whitespace-nowrap shrink-0 ${
-                  activeTab === tab.id
-                    ? "bg-white text-black"
-                    : "bg-gray-100 text-gray-900"
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+      <PageBody className="max-w-3xl space-y-5">
+        <TabsBar
+          tabs={TABS}
+          value={activeTab}
+          onChange={setActiveTab}
+          aria-label="Secciones de configuración"
+        />
 
-      {/* Tab Content */}
-      <div className="space-y-6">
-        {/* Perfil Tab */}
         {activeTab === "perfil" && (
-          <>
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Información Personal
-              </h2>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nombre
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue="Darlin"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Apellido
-                    </label>
-                    <input
-                      type="text"
-                      defaultValue="Cepeda"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Correo Electrónico
-                  </label>
-                  <input
-                    type="email"
-                    defaultValue="darlin.cepeda@daka.com"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    defaultValue="(809) 555-0123"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cargo
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="Jefe"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </CustomCard>
-
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Configuración de Cuenta
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre de Usuario
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="darlin.cepeda"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rol en el Sistema
-                  </label>
-                  <select
-                    defaultValue="admin"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  >
-                    <option value="admin">Administrador</option>
-                    <option value="manager">Gerente</option>
-                    <option value="supervisor">Supervisor</option>
-                    <option value="user">Usuario</option>
-                  </select>
-                </div>
-              </div>
-            </CustomCard>
-          </>
-        )}
-
-        {/* Notificaciones Tab */}
-        {activeTab === "notificaciones" && (
-          <>
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Preferencias de Notificaciones
-              </h2>
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Notificaciones por Email
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Recibe actualizaciones importantes por correo electrónico
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.email}
-                      onChange={(e) =>
-                        setNotifications((prev) => ({
-                          ...prev,
-                          email: e.target.checked,
-                        }))
-                      }
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="border-t border-gray-200"></div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Notificaciones Push
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Recibe notificaciones instantáneas en el navegador
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.push}
-                      onChange={(e) =>
-                        setNotifications((prev) => ({
-                          ...prev,
-                          push: e.target.checked,
-                        }))
-                      }
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="border-t border-gray-200"></div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Notificaciones SMS
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Recibe alertas importantes por mensaje de texto
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifications.sms}
-                      onChange={(e) =>
-                        setNotifications((prev) => ({
-                          ...prev,
-                          sms: e.target.checked,
-                        }))
-                      }
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              </div>
-            </CustomCard>
-
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Tipos de Notificaciones
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900">
-                    Actualizaciones de Proyectos
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900">
-                    Alertas de Presupuesto
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900">
-                    Recordatorios de Fechas Límite
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-sm text-gray-900">
-                    Mantenimiento del Sistema
-                  </span>
-                </label>
-              </div>
-            </CustomCard>
-          </>
-        )}
-
-        {/* Apariencia Tab */}
-        {activeTab === "apariencia" && (
-          <CustomCard className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">
-              Tema y Apariencia
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tema
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent">
-                  <option value="light">Claro</option>
-                  <option value="dark">Oscuro</option>
-                  <option value="auto">Automático</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Idioma
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent">
-                  <option value="es">Español</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Formato de Fecha
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent">
-                  <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                  <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                  <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Moneda
-                </label>
-                <select className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent">
-                  <option value="dop">Peso Dominicano (DOP)</option>
-                  <option value="usd">Dólar Americano (USD)</option>
-                  <option value="eur">Euro (EUR)</option>
-                </select>
-              </div>
+          <Panel
+            title="Perfil"
+            description="El nombre es el único campo editable: el correo y el rol los gestiona el administrador del sistema."
+            footer={
+              <>
+                <Aviso aviso={avisoPerfil} />
+                <Button
+                  size="sm"
+                  onClick={guardarPerfil}
+                  disabled={
+                    !nombreCambiado || guardandoPerfil || cargandoPerfil
+                  }
+                  loading={guardandoPerfil}
+                >
+                  Guardar nombre
+                </Button>
+              </>
+            }
+          >
+            <div>
+              <Label htmlFor="fullName">Nombre completo</Label>
+              <Input
+                id="fullName"
+                className="mt-1.5"
+                value={fullName}
+                disabled={cargandoPerfil}
+                placeholder={cargandoPerfil ? "Cargando…" : "Tu nombre"}
+                onChange={(e) => setFullName(e.target.value)}
+              />
             </div>
-          </CustomCard>
+
+            <div className="pt-1">
+              <Dato label="Correo electrónico" value={user?.email ?? "—"} />
+              <Dato
+                label="Rol"
+                value={
+                  <Badge variant={role === "admin" ? "brand" : "default"}>
+                    {role === "admin" ? "Administrador" : "Usuario"}
+                  </Badge>
+                }
+              />
+            </div>
+          </Panel>
         )}
 
-        {/* Seguridad Tab */}
         {activeTab === "seguridad" && (
-          <>
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Cambiar Contraseña
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contraseña Actual
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nueva Contraseña
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirmar Nueva Contraseña
-                  </label>
-                  <input
-                    type="password"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#07234B] focus:border-transparent"
-                  />
-                </div>
-
-                <CustomButton className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
-                  Actualizar Contraseña
-                </CustomButton>
-              </div>
-            </CustomCard>
-
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Configuración de Seguridad
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Autenticación de Dos Factores
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Agrega una capa extra de seguridad a tu cuenta
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="border-t border-gray-200"></div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Cerrar Sesión en Otros Dispositivos
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Cierra todas las sesiones activas en otros dispositivos
-                    </p>
-                  </div>
-                  <CustomButton className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
-                    Cerrar Sesiones
-                  </CustomButton>
-                </div>
-              </div>
-            </CustomCard>
-          </>
+          <Panel
+            title="Cambiar contraseña"
+            description="Se aplica de inmediato a esta cuenta. No hace falta la contraseña actual porque la sesión ya está verificada."
+            footer={
+              <>
+                <Aviso aviso={avisoPass} />
+                <Button
+                  size="sm"
+                  onClick={cambiarPassword}
+                  disabled={!password || !password2 || guardandoPass}
+                  loading={guardandoPass}
+                >
+                  Cambiar contraseña
+                </Button>
+              </>
+            }
+          >
+            <div>
+              <Label htmlFor="password">Nueva contraseña</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                className="mt-1.5"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <p className="mt-1.5 text-[0.75rem] text-ink-3">
+                Mínimo 8 caracteres.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="password2">Repetir contraseña</Label>
+              <Input
+                id="password2"
+                type="password"
+                autoComplete="new-password"
+                className="mt-1.5"
+                state={password2 && password !== password2 ? "error" : "idle"}
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+              />
+              {password2 && password !== password2 && (
+                <p className="mt-1.5 text-[0.75rem] text-danger">
+                  Las dos contraseñas no coinciden.
+                </p>
+              )}
+            </div>
+          </Panel>
         )}
 
-        {/* Sistema Tab */}
         {activeTab === "sistema" && (
-          <>
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Información del Sistema
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">
-                    Versión
-                  </label>
-                  <p className="font-medium text-gray-900">DAKA ERP v1.0.0</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">
-                    Última Actualización
-                  </label>
-                  <p className="font-medium text-gray-900">15 de Enero, 2024</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">
-                    Base de Datos
-                  </label>
-                  <p className="font-medium text-gray-900">PostgreSQL 14.2</p>
-                </div>
-                <div>
-                  <label className="block text-sm text-gray-500 mb-1">
-                    Servidor
-                  </label>
-                  <p className="font-medium text-gray-900">AWS EC2</p>
-                </div>
-              </div>
-            </CustomCard>
-
-            <CustomCard className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">
-                Mantenimiento
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Respaldo Automático
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Programar respaldos automáticos de la base de datos
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      defaultChecked
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="border-t border-gray-200"></div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-900">
-                      Optimización de Base de Datos
-                    </label>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Ejecutar mantenimiento automático de la base de datos
-                    </p>
-                  </div>
-                  <CustomButton className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
-                    Optimizar Ahora
-                  </CustomButton>
-                </div>
-              </div>
-            </CustomCard>
-          </>
+          <Panel
+            title="Sesión y sistema"
+            description="Datos de sólo lectura, útiles al reportar una incidencia."
+          >
+            <div>
+              <Dato
+                label="Identificador de usuario"
+                value={
+                  <span className="tabular font-mono text-[0.75rem]">
+                    {user?.id ?? "—"}
+                  </span>
+                }
+              />
+              <Dato
+                label="Sesión iniciada"
+                value={shortDate(user?.last_sign_in_at ?? null)}
+              />
+              <Dato
+                label="Cuenta creada"
+                value={shortDate(user?.created_at ?? null)}
+              />
+              <Dato
+                label="Correo verificado"
+                value={
+                  user?.email_confirmed_at ? (
+                    <Badge variant="success" dot>
+                      Verificado
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" dot>
+                      Sin verificar
+                    </Badge>
+                  )
+                }
+              />
+              <Dato label="Base de datos" value="Supabase · Postgres" />
+            </div>
+          </Panel>
         )}
-      </div>
-    </div>
+      </PageBody>
+    </>
   );
 }

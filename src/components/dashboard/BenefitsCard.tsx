@@ -1,152 +1,148 @@
-import { AlertTriangle } from "lucide-react";
+import { cn } from "@/src/lib/utils";
+import { money, percent } from "@/src/lib/format";
+
+/* Hallmark · design-system: design.md · familia Workbench
+ *
+ * Antes: cuatro tarjetas con degradado verde / azul / morado / naranja, un
+ * emoji de billete y tres cifras inventadas (crecimiento mensual 8.5 %,
+ * proyección anual = ganancia × 12, objetivo de margen 25 %). El sistema
+ * admite un solo acento y ninguna cifra sin origen en la base de datos.
+ *
+ * Ahora: una sola superficie, regla hairline como separador, cifras tabulares
+ * y el color reservado al signo del resultado.
+ */
 
 interface BenefitsCardProps {
-  title: string;
-  totalProjects: number;
-  totalRevenue: number;
-  totalCosts: number;
-  netProfit: number;
-  profitMargin: number;
-  targetMargin: number;
-  monthlyGrowth: number;
-  projectedAnnualProfit: number;
+  /** Ventas netas de impuestos. */
+  salesNet: number;
+  /** Compras netas de impuestos. */
+  purchasesNet: number;
+  /** salesNet − purchasesNet. */
+  grossMargin: number;
+  grossMarginPct: number;
+  /** ITBIS cobrado en ventas. */
+  taxesCollected: number;
+  /** ITBIS soportado en compras. */
+  taxesPaid: number;
+  invoiceCount: number;
+}
+
+function Linea({
+  label,
+  value,
+  tone = "ink",
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  tone?: "ink" | "success" | "danger";
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2.5">
+      <span
+        className={cn(
+          "text-[0.8125rem]",
+          strong ? "font-semibold text-ink" : "text-ink-2",
+        )}
+      >
+        {label}
+      </span>
+      <span
+        className={cn(
+          "tabular shrink-0 text-[0.875rem] font-semibold",
+          tone === "success" && "text-success",
+          tone === "danger" && "text-danger",
+          tone === "ink" && "text-ink",
+        )}
+      >
+        {value}
+      </span>
+    </div>
+  );
 }
 
 export function BenefitsCard({
-  title,
-  totalRevenue,
-  totalCosts,
-  netProfit,
-  profitMargin,
-  targetMargin,
-  monthlyGrowth,
-  projectedAnnualProfit,
-  totalProjects,
+  salesNet,
+  purchasesNet,
+  grossMargin,
+  grossMarginPct,
+  taxesCollected,
+  taxesPaid,
+  invoiceCount,
 }: BenefitsCardProps) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  const positivo = grossMargin >= 0;
 
   return (
-    <div className="col-span-full space-y-6">
-      <h3 className="text-xl font-bold flex items-center gap-2">
-        <span className="text-green-600">$</span> {title}
-      </h3>
+    <section className="rounded-[12px] border border-rule bg-paper">
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-rule px-5 py-4">
+        <h2 className="font-display text-[1rem] font-semibold tracking-[-0.01em] text-ink">
+          Margen bruto
+        </h2>
+        <p className="text-[0.75rem] text-ink-3">
+          Sobre {invoiceCount} facturas registradas
+        </p>
+      </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-green-50 to-green-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-md lg:text-3xl font-bold text-green-700">
-            {formatCurrency(netProfit)}
-          </span>
-          <span className="text-sm text-green-600 font-semibold mt-2">
-            Ganancia Neta
-          </span>
-        </div>
+      <div className="grid grid-cols-1 divide-y divide-rule lg:grid-cols-[1fr_1px_1fr] lg:divide-x lg:divide-y-0">
+        <div className="px-5 py-5">
+          <p className="eyebrow">Resultado</p>
+          <p
+            className={cn(
+              "tabular mt-2 font-display text-[2rem] font-semibold leading-none tracking-[-0.02em]",
+              positivo ? "text-ink" : "text-danger",
+            )}
+          >
+            {money(grossMargin)}
+          </p>
+          <p className="mt-2 text-[0.8125rem] text-ink-2">
+            <span className="tabular font-semibold text-ink">
+              {percent(grossMarginPct)}
+            </span>{" "}
+            sobre ventas netas
+          </p>
 
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-md lg:text-3xl font-bold text-blue-700">
-            {formatCurrency(totalRevenue)}
-          </span>
-          <span className="text-sm text-blue-600 font-semibold mt-2">
-            Ingresos Totales
-          </span>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-md lg:text-3xl font-bold text-purple-700">
-            {profitMargin.toFixed(1)}%
-          </span>
-          <span className="text-sm text-purple-600 font-semibold mt-2">
-            Margen de Beneficio
-          </span>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border-none rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-sm">
-          <span className="text-md lg:text-3xl font-bold text-orange-700">
-            {totalProjects}
-          </span>
-          <span className="text-sm text-orange-600 font-semibold mt-2">
-            Proyectos Activos
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-white p-6 rounded-2xl border shadow-sm">
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-semibold">Margen vs Objetivo</span>
-            <span className="text-xs bg-gray-100 px-3 py-1 rounded-full font-medium">
-              Cerca
-            </span>
-          </div>
-          <div className="relative h-4 w-full bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-paper-3"
+            role="img"
+            aria-label={`Compras representan el ${percent(
+              salesNet > 0 ? (purchasesNet / salesNet) * 100 : 0,
+            )} de las ventas`}
+          >
             <div
-              className="absolute top-0 left-0 h-full bg-[#1e293b] rounded-full transition-all duration-300"
-              style={{ width: `${(profitMargin / targetMargin) * 100}%` }}
+              className="h-full rounded-full bg-ink-2"
+              style={{
+                width: `${Math.min(
+                  salesNet > 0 ? (purchasesNet / salesNet) * 100 : 0,
+                  100,
+                )}%`,
+              }}
             />
           </div>
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-            <span>Actual: {profitMargin.toFixed(1)}%</span>
-            <span>Objetivo: {targetMargin}%</span>
-          </div>
-        </div>
-
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-semibold">Crecimiento Mensual</span>
-            <span className="text-xs text-green-600 font-bold">
-              +{monthlyGrowth}%
-            </span>
-          </div>
-          <div className="bg-gray-50 rounded-xl p-4 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold text-gray-900">
-              {formatCurrency(projectedAnnualProfit)}
-            </span>
-            <span className="text-xs text-gray-500 mt-1">Proyección Anual</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl border shadow-sm">
-        <h4 className="font-bold text-sm mb-4 flex items-center gap-2">
-          <span className="text-lg">💰</span> Desglose Financiero
-        </h4>
-        <div className="space-y-3 text-sm">
-          <div className="flex justify-between">
-            <span>Ingresos Totales:</span>
-            <span className="font-bold text-green-600">
-              {formatCurrency(totalRevenue)}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span>Costos Totales:</span>
-            <span className="font-bold text-red-500">
-              -{formatCurrency(totalCosts)}
-            </span>
-          </div>
-          <div className="border-t pt-3 mt-3 flex justify-between">
-            <span className="font-bold">Ganancia Neta:</span>
-            <span className="font-bold text-green-600 text-base">
-              {formatCurrency(netProfit)}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex gap-3">
-        <AlertTriangle className="text-yellow-600 w-5 h-5 shrink-0 mt-0.5" />
-        <div>
-          <p className="text-sm font-bold text-yellow-800">Recomendación:</p>
-          <p className="text-sm text-yellow-700">
-            El margen está cerca del objetivo. Considera optimizar costos o
-            renegociar precios.
+          <p className="mt-2 text-[0.75rem] text-ink-3">
+            Proporción de las ventas absorbida por compras
           </p>
         </div>
+
+        <div className="hidden bg-rule lg:block" aria-hidden />
+
+        <div className="divide-y divide-rule px-5 py-2">
+          <Linea label="Ventas netas" value={money(salesNet)} />
+          <Linea
+            label="Compras netas"
+            value={`−${money(purchasesNet)}`}
+            tone="danger"
+          />
+          <Linea
+            label="Margen bruto"
+            value={money(grossMargin)}
+            tone={positivo ? "success" : "danger"}
+            strong
+          />
+          <Linea label="ITBIS cobrado" value={money(taxesCollected)} />
+          <Linea label="ITBIS soportado" value={money(taxesPaid)} />
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -268,7 +268,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
           {steps.map((step, index) => (
             <div
               key={step.id}
-              className={`text - xs md: text - sm font - medium ${index <= currentStep ? "text-[#A9780F]" : "text-gray-400"} `}
+              className={`text - xs md: text - sm font - medium ${index <= currentStep ? "text-gold" : "text-gray-400"} `}
             >
               {index + 1}.{" "}
               <span className="hidden md:inline">{step.title}</span>
@@ -277,7 +277,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
         </div>
         <div className="h-2 bg-gray-200 rounded-full">
           <div
-            className="h-full bg-[#A9780F] rounded-full transition-all duration-300"
+            className="h-full bg-gold rounded-full transition-all duration-300"
             style={{ width: `${((currentStep + 1) / steps.length) * 100}% ` }}
           />
         </div>
@@ -384,7 +384,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
                     type="radio"
                     value="Femenino"
                     {...register("sexo", { required: "Seleccione el sexo" })}
-                    className="accent-[#A9780F]"
+                    className="accent-gold"
                   />{" "}
                   Femenino
                 </label>
@@ -393,7 +393,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
                     type="radio"
                     value="Masculino"
                     {...register("sexo", { required: "Seleccione el sexo" })}
-                    className="accent-[#A9780F]"
+                    className="accent-gold"
                   />{" "}
                   Masculino
                 </label>
@@ -526,7 +526,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
             animate="visible"
             exit="exit"
           >
-            <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">
+            <h3 className="text-xl font-bold text-shell mb-6 border-b pb-2">
               Dirección y Nacionalidad
             </h3>
 
@@ -673,7 +673,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
             animate="visible"
             exit="exit"
           >
-            <h3 className="text-xl font-bold text-[#131E29] mb-6 border-b pb-2">
+            <h3 className="text-xl font-bold text-shell mb-6 border-b pb-2">
               Datos del Inmueble
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -764,7 +764,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
 
             {selectedLocale && (
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 animate-fadeIn">
-                <h4 className="font-bold text-[#A9780F] mb-3">
+                <h4 className="font-bold text-gold mb-3">
                   Detalles del Local {selectedLocale.id}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
@@ -784,7 +784,7 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
                   </div>
                   <div className="col-span-2 md:col-span-2">
                     <p className="text-gray-500">Valor Total</p>
-                    <p className="font-bold text-lg text-[#131E29]">
+                    <p className="font-bold text-lg text-shell">
                       {formatCurrency(selectedLocale.total_value)}
                     </p>
                   </div>
@@ -812,14 +812,14 @@ export default function FisicaForm({ onSuccess }: { onSuccess?: () => void }) {
           <button
             type="button"
             onClick={nextStep}
-            className={`p-2 rounded-lg font-bold text-white bg-[#A9780F] ${currentStep < steps.length - 1 ? "w-full" : ""} `}
+            className={`p-2 rounded-lg font-bold text-white bg-gold ${currentStep < steps.length - 1 ? "w-full" : ""} `}
           >
             Siguiente
           </button>
         ) : (
           <button
             type="submit"
-            className="p-2 rounded-lg font-bold text-white bg-gradient-to-r from-[#A9780F] to-[#131E29] hover:shadow-xl transition-all"
+            className="p-2 rounded-lg font-bold text-white bg-gradient-to-r from-gold to-shell hover:shadow-xl transition-all"
           >
             Registrar y Continuar {uploading && "(Guardando...)"}
           </button>

@@ -10,6 +10,7 @@ import {
   Legend,
   TooltipItem,
 } from "chart.js";
+import { alpha, seriesColor } from "@/src/lib/chartColors";
 
 ChartJS.register(
   CategoryScale,
@@ -31,16 +32,8 @@ export const CategoryChart = ({ categories }: CategoryChartProps) => {
       {
         label: "Items",
         data: categories.map((c) => c.count),
-        backgroundColor: [
-          "rgba(168, 85, 247, 0.8)", // purple-500
-          "rgba(192, 132, 252, 0.8)", // purple-400
-          "rgba(216, 180, 254, 0.8)", // purple-300
-        ],
-        borderColor: [
-          "rgb(168, 85, 247)",
-          "rgb(192, 132, 252)",
-          "rgb(216, 180, 254)",
-        ],
+        backgroundColor: categories.map((_, i) => alpha(seriesColor(i), 0.85)),
+        borderColor: categories.map((_, i) => seriesColor(i)),
         borderWidth: 1,
       },
     ],

@@ -1,7 +1,6 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Search,
   Filter,
   Eye,
   Edit2,
@@ -13,26 +12,62 @@ import {
   Clock,
   ArrowRight,
   History,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  DollarSign,
   Image as ImageIcon,
+  Plus,
 } from "lucide-react";
+import { Button } from "@/src/components/ui/button";
+import { Badge } from "@/src/components/ui/badge";
+import { SearchInput } from "@/src/components/ui/search-input";
+import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
+import { Pagination } from "@/src/components/ui/pagination";
+import { TabsBar } from "@/src/components/ui/tabs-bar";
+import { FilterChip, FilterGroup } from "@/src/components/ui/filter-chip";
+import { MenuButton } from "@/src/components/ui/menu-button";
+import { KPICard } from "@/src/components/dashboard/KPICard";
+import { DocumentDetailModal } from "@/src/components/dashboard/DocumentDetailModal";
+import { FilePreviewModal } from "@/src/components/dashboard/FilePreviewModal";
 import {
-  CustomCard,
-  CustomBadge,
-  CustomButton,
-} from "@/src/components/project/CustomCard";
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/src/components/ui/table";
+import { money, count as fmtCount } from "@/src/lib/format";
+import { cn } from "@/src/lib/utils";
+
+type BadgeVariant =
+  "default" | "outline" | "brand" | "success" | "warning" | "danger" | "info";
+
+const DOC_TABS = [
+  { id: "QUOTE", label: "Cotizaciones" },
+  { id: "ORDER", label: "Órdenes" },
+  { id: "INVOICE", label: "Facturas" },
+  { id: "HISTORY", label: "Historial", icon: History },
+] as const;
+
+const NUEVOS_DOCUMENTOS = [
+  { transaccion: "sale", documento: "quote", label: "Cotización de venta" },
+  {
+    transaccion: "purchase",
+    documento: "quote",
+    label: "Cotización de compra",
+  },
+  { transaccion: "sale", documento: "order", label: "Orden de venta" },
+  { transaccion: "purchase", documento: "order", label: "Orden de compra" },
+  { transaccion: "sale", documento: "invoice", label: "Factura de venta" },
+  { transaccion: "purchase", documento: "invoice", label: "Factura de compra" },
+] as const;
 import type {
-  GestionoInvoiceItem,
-  GestionoInvoicesResponse,
-  GestionoBeneficiary,
+  InvoiceItem,
+  InvoicesResponse,
+  Beneficiary,
   PaymentRecord,
-  // GestionoDivision,
-} from "@/src/types/gestiono";
-// import { useGestiono } from "@/src/context/Gestiono";
+  // Division,
+} from "@/src/types/erp";
+// import { useErp } from "@/src/context/ErpContext";
 import { CreateInvoiceDialog } from "@/src/components/dashboard/CreateInvoice";
 import { EditInvoiceDialog } from "@/src/components/dashboard/EditInvoiceDialog";
 import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
@@ -40,6 +75,38 @@ import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
 import { generateQuotePDF } from "@/lib/generateQuotePDF";
 import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { useAuth } from "@/src/context/AuthContext";
+
+/* La fila de acciones se repetía completa en la tabla y en la tarjeta de
+ * móvil: siete botones duplicados. */
+function AccionDoc({
+  label,
+  onClick,
+  children,
+  tono = "neutro",
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  tono?: "neutro" | "peligro";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "rounded-[6px] p-1.5 transition-colors duration-[120ms]",
+        "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold",
+        tono === "peligro"
+          ? "text-ink-3 hover:bg-danger-soft hover:text-danger"
+          : "text-ink-3 hover:bg-paper-3 hover:text-ink",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 interface FinancesModuleProps {
   projectId: string | number;
@@ -74,32 +141,108 @@ interface InvoiceDisplay {
   payments?: PaymentRecord[];
 }
 
-function mapGestionoToInvoice(
-  gestionoInvoice: GestionoInvoiceItem,
+function AccionesDoc({
+  invoice,
+  activeTab,
+  onVer,
+  onPdf,
+  onEditar,
+  onEliminar,
+  onConvertir,
+  onComprobante,
+}: {
+  invoice: InvoiceDisplay;
+  activeTab: string;
+  onVer: (i: InvoiceDisplay) => void;
+  onPdf: (i: InvoiceDisplay) => void;
+  onEditar: (i: InvoiceDisplay) => void;
+  onEliminar: (id: string, numero: string, tipoDoc: string) => void;
+  onConvertir: (id: string, numero: string) => void;
+  onComprobante: (url: string, nombre?: string) => void;
+}) {
+  const enHistorial = activeTab === "HISTORY";
+  const convertible =
+    !enHistorial && (activeTab === "QUOTE" || activeTab === "ORDER");
+
+  return (
+    <>
+      <AccionDoc label="Ver documento" onClick={() => onVer(invoice)}>
+        <Eye className="h-4 w-4" strokeWidth={1.75} />
+      </AccionDoc>
+      <AccionDoc label="Descargar PDF" onClick={() => onPdf(invoice)}>
+        <Download className="h-4 w-4" strokeWidth={1.75} />
+      </AccionDoc>
+      {!enHistorial && (
+        <>
+          <AccionDoc label="Editar" onClick={() => onEditar(invoice)}>
+            <Edit2 className="h-4 w-4" strokeWidth={1.75} />
+          </AccionDoc>
+          <AccionDoc
+            label="Eliminar"
+            tono="peligro"
+            onClick={() =>
+              onEliminar(
+                invoice.id,
+                invoice.invoiceNumber,
+                invoice.documentType,
+              )
+            }
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+          </AccionDoc>
+        </>
+      )}
+      {invoice.attachedFileUrl && (
+        <AccionDoc
+          label="Ver comprobante"
+          onClick={() =>
+            onComprobante(invoice.attachedFileUrl!, invoice.attachedFileName)
+          }
+        >
+          <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
+        </AccionDoc>
+      )}
+      {convertible && (
+        <AccionDoc
+          label={
+            activeTab === "QUOTE"
+              ? "Convertir a orden o factura"
+              : "Convertir a factura"
+          }
+          onClick={() => onConvertir(invoice.id, invoice.invoiceNumber)}
+        >
+          <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+        </AccionDoc>
+      )}
+    </>
+  );
+}
+
+function mapErpToInvoice(
+  erpInvoice: InvoiceItem,
   beneficiariesMap: Record<number, string> = {},
   beneficiaryIsrMap: Record<number, number> = {},
 ): InvoiceDisplay {
   const beneficiaryName =
-    beneficiariesMap[gestionoInvoice.beneficiaryId] ||
-    `Beneficiario ${gestionoInvoice.beneficiaryId}`;
+    beneficiariesMap[erpInvoice.beneficiaryId] ||
+    `Beneficiario ${erpInvoice.beneficiaryId}`;
 
   let status = "pending";
 
-  if (gestionoInvoice.state === "DRAFT") {
+  if (erpInvoice.state === "DRAFT") {
     status = "draft";
-  } else if (gestionoInvoice.state === "COMPLETED") {
+  } else if (erpInvoice.state === "COMPLETED") {
     status = "paid";
   } else if (
-    gestionoInvoice.amount > 0 &&
-    (gestionoInvoice.dueToPay <= 0 ||
-      gestionoInvoice.paid >= gestionoInvoice.amount)
+    erpInvoice.amount > 0 &&
+    (erpInvoice.dueToPay <= 0 || erpInvoice.paid >= erpInvoice.amount)
   ) {
     status = "paid";
-  } else if (gestionoInvoice.dueDate) {
-    const dueDate = new Date(gestionoInvoice.dueDate);
+  } else if (erpInvoice.dueDate) {
+    const dueDate = new Date(erpInvoice.dueDate);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (dueDate < today && gestionoInvoice.dueToPay > 0) {
+    if (dueDate < today && erpInvoice.dueToPay > 0) {
       status = "overdue";
     }
   }
@@ -107,40 +250,33 @@ function mapGestionoToInvoice(
   // Use dueToPay from API as it handles floating-point accurately;
   // fallback to amount - paid for cases where dueToPay is not available
   let displayAmount =
-    typeof gestionoInvoice.dueToPay === "number"
-      ? gestionoInvoice.dueToPay
-      : gestionoInvoice.amount - gestionoInvoice.paid;
-  const isPurchase = gestionoInvoice.isSell === 0;
-  const isrRate = beneficiaryIsrMap[gestionoInvoice.beneficiaryId] || 0;
+    typeof erpInvoice.dueToPay === "number"
+      ? erpInvoice.dueToPay
+      : erpInvoice.amount - erpInvoice.paid;
+  const isPurchase = erpInvoice.isSell === 0;
+  const isrRate = beneficiaryIsrMap[erpInvoice.beneficiaryId] || 0;
   if (isPurchase && isrRate > 0) {
     if (isrRate >= 0.1 && isrRate < 0.3) {
       // 10%: Full retention — ITBIS retained + ISR on subtotal
-      const isrAmount = gestionoInvoice.subTotal * isrRate;
-      const itbisRetenido = gestionoInvoice.taxes;
+      const isrAmount = erpInvoice.subTotal * isrRate;
+      const itbisRetenido = erpInvoice.taxes;
       displayAmount =
-        gestionoInvoice.subTotal +
-        gestionoInvoice.taxes -
-        itbisRetenido -
-        isrAmount;
+        erpInvoice.subTotal + erpInvoice.taxes - itbisRetenido - isrAmount;
     } else if (isrRate >= 0.3) {
       // 30%: ISR applied to ITBIS
-      const isrAmount = gestionoInvoice.taxes * isrRate;
-      displayAmount =
-        gestionoInvoice.subTotal + gestionoInvoice.taxes - isrAmount;
+      const isrAmount = erpInvoice.taxes * isrRate;
+      displayAmount = erpInvoice.subTotal + erpInvoice.taxes - isrAmount;
     } else {
       // 2%: ISR on subtotal only, no ITBIS
-      const isrAmount = gestionoInvoice.subTotal * isrRate;
-      displayAmount = gestionoInvoice.subTotal - isrAmount;
+      const isrAmount = erpInvoice.subTotal * isrRate;
+      displayAmount = erpInvoice.subTotal - isrAmount;
     }
   }
 
   let attachedFileUrl: string | undefined;
   let attachedFileName: string | undefined;
-  if (
-    gestionoInvoice.metadata &&
-    typeof gestionoInvoice.metadata === "object"
-  ) {
-    const meta = gestionoInvoice.metadata;
+  if (erpInvoice.metadata && typeof erpInvoice.metadata === "object") {
+    const meta = erpInvoice.metadata;
     if (meta.files && Array.isArray(meta.files) && meta.files.length > 0) {
       attachedFileUrl = meta.files[0].s3Key as string;
       attachedFileName = meta.files[0].fileName as string | undefined;
@@ -150,51 +286,38 @@ function mapGestionoToInvoice(
   }
 
   // Si los elementos tienen un título (comment), usarlo como descripción
-  const elementTitle = gestionoInvoice.elements?.[0]?.comment;
+  const elementTitle = erpInvoice.elements?.[0]?.comment;
 
   return {
-    id: String(gestionoInvoice.id),
-    invoiceNumber: gestionoInvoice.taxId || `INV-${gestionoInvoice.id}`,
-    projectName:
-      elementTitle || gestionoInvoice.description || "Sin descripción",
-    clientName: gestionoInvoice.isSell ? beneficiaryName : undefined,
-    supplierName: !gestionoInvoice.isSell ? beneficiaryName : undefined,
-    date: gestionoInvoice.date
-      ? new Date(gestionoInvoice.date).toISOString().split("T")[0]
+    id: String(erpInvoice.id),
+    invoiceNumber: erpInvoice.taxId || `INV-${erpInvoice.id}`,
+    projectName: elementTitle || erpInvoice.description || "Sin descripción",
+    clientName: erpInvoice.isSell ? beneficiaryName : undefined,
+    supplierName: !erpInvoice.isSell ? beneficiaryName : undefined,
+    date: erpInvoice.date
+      ? new Date(erpInvoice.date).toISOString().split("T")[0]
       : new Date().toISOString().split("T")[0],
-    dueDate: gestionoInvoice.dueDate
-      ? new Date(gestionoInvoice.dueDate).toISOString().split("T")[0]
-      : gestionoInvoice.date
-        ? new Date(gestionoInvoice.date).toISOString().split("T")[0]
+    dueDate: erpInvoice.dueDate
+      ? new Date(erpInvoice.dueDate).toISOString().split("T")[0]
+      : erpInvoice.date
+        ? new Date(erpInvoice.date).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
     amount: displayAmount,
-    paid: gestionoInvoice.paid || 0,
-    dueToPay: gestionoInvoice.dueToPay || 0,
+    paid: erpInvoice.paid || 0,
+    dueToPay: erpInvoice.dueToPay || 0,
     status: status,
-    type: gestionoInvoice.isSell === 1 ? "sale" : "purchase",
+    type: erpInvoice.isSell === 1 ? "sale" : "purchase",
     documentType:
-      gestionoInvoice.type === "QUOTE"
+      erpInvoice.type === "QUOTE"
         ? "QUOTE"
-        : gestionoInvoice.type === "ORDER"
+        : erpInvoice.type === "ORDER"
           ? "ORDER"
           : "INVOICE",
     attachedFileUrl,
     attachedFileName,
-    reference: gestionoInvoice.reference || undefined,
-    payments: gestionoInvoice.payments || [],
+    reference: erpInvoice.reference || undefined,
+    payments: erpInvoice.payments || [],
   };
-}
-
-function getFileProxyUrl(gestionoUrl: string): string {
-  try {
-    const url = new URL(gestionoUrl);
-    const key = url.searchParams.get("key");
-    const organizationId = url.searchParams.get("organizationId");
-    if (key && organizationId) {
-      return `/api/gestiono/file?key=${encodeURIComponent(key)}&organizationId=${encodeURIComponent(organizationId)}`;
-    }
-  } catch {}
-  return gestionoUrl;
 }
 
 export function FinancesModule({
@@ -204,9 +327,9 @@ export function FinancesModule({
   refreshTrigger = 0,
   onConvertSaleToInvoice,
 }: FinancesModuleProps) {
-  // const { divisions } = useGestiono();
+  // const { divisions } = useErp();
   const [invoices, setInvoices] = useState<InvoiceDisplay[]>([]);
-  const [rawInvoices, setRawInvoices] = useState<GestionoInvoiceItem[]>([]);
+  const [rawInvoices, setRawInvoices] = useState<InvoiceItem[]>([]);
   const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
   const [resume, setResume] = useState<{
     toCharge: number;
@@ -248,16 +371,55 @@ export function FinancesModule({
   );
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const { user } = useAuth();
 
   // Cache beneficiary data across tab switches — keyed by projectId+refreshKey+refreshTrigger
-  const beneficiaryCacheRef = useRef<{
-    key: string;
+  // Se cachea la PROMESA, no el resultado: los dos useEffect de abajo arrancan
+  // a la vez, y con un cache de resultado ambos leian el cache vacio y pedian
+  // los mismos 68KB. Con la promesa, el segundo se engancha al primero.
+  type MapasBeneficiarios = {
     map: Record<number, string>;
     isrMap: Record<number, number>;
+  };
+  const beneficiaryCacheRef = useRef<{
+    key: string;
+    data: Promise<MapasBeneficiarios>;
   } | null>(null);
+
+  // Sin `signal` a proposito: si el useEffect que la inicio aborta, la promesa
+  // compartida no debe arrastrar al otro consumidor.
+  const pedirBeneficiarios = useCallback(
+    (cacheKey: string): Promise<MapasBeneficiarios> => {
+      if (beneficiaryCacheRef.current?.key === cacheKey)
+        return beneficiaryCacheRef.current.data;
+
+      const data = fetch(
+        `/api/erp/beneficiaries?withContacts=false&withTaxData=false`,
+      )
+        .then(async (r) => {
+          const map: Record<number, string> = {};
+          const isrMap: Record<number, number> = {};
+          const lista: Beneficiary[] = r.ok ? await r.json() : [];
+          (lista || []).forEach((b) => {
+            map[b.id] = b.name;
+            const isr = b.metadata?.isrTaxRetention;
+            if (isr) isrMap[b.id] = Number(isr);
+          });
+          return { map, isrMap };
+        })
+        .catch((e) => {
+          // Un fallo no puede quedar cacheado para siempre.
+          if (beneficiaryCacheRef.current?.key === cacheKey)
+            beneficiaryCacheRef.current = null;
+          throw e;
+        });
+
+      beneficiaryCacheRef.current = { key: cacheKey, data };
+      return data;
+    },
+    [],
+  );
 
   const [createDialogState, setCreateDialogState] = useState<{
     isOpen: boolean;
@@ -299,45 +461,24 @@ export function FinancesModule({
 
         // Use cached beneficiaries if available for the current project/refresh key
         const cacheKey = `${projectId}-${refreshKey}-${refreshTrigger}`;
-        const hasBeneficiaryCache =
-          beneficiaryCacheRef.current?.key === cacheKey;
-
-        const [invoicesRes, maybeBeneficiariesRes] = await Promise.all([
-          fetch(`/api/gestiono/pendingRecord?${invoiceParams.toString()}`, {
+        const [invoicesRes, beneficiarios] = await Promise.all([
+          fetch(`/api/erp/pendingRecord?${invoiceParams.toString()}`, {
             signal,
           }),
-          hasBeneficiaryCache
-            ? Promise.resolve(null)
-            : fetch(
-                `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
-                { signal },
-              ),
+          pedirBeneficiarios(cacheKey),
         ]);
 
-        const invoiceData: GestionoInvoicesResponse = invoicesRes.ok
+        const invoiceData: InvoicesResponse = invoicesRes.ok
           ? await invoicesRes.json()
           : { items: [] };
 
-        // Build beneficiary maps — from cache or from fresh fetch
-        const map: Record<number, string> = {};
-        const isrMap: Record<number, number> = {};
-        if (hasBeneficiaryCache) {
-          Object.assign(map, beneficiaryCacheRef.current!.map);
-          Object.assign(isrMap, beneficiaryCacheRef.current!.isrMap);
-        } else {
-          const beneficiaryData: GestionoBeneficiary[] =
-            maybeBeneficiariesRes?.ok ? await maybeBeneficiariesRes.json() : [];
-          (beneficiaryData || []).forEach((b) => {
-            map[b.id] = b.name;
-            const isr = b.metadata?.isrTaxRetention;
-            if (isr) isrMap[b.id] = Number(isr);
-          });
-          beneficiaryCacheRef.current = { key: cacheKey, map, isrMap };
-        }
+        // Copia: los mapas viven en el cache compartido, no se mutan aqui.
+        const map = { ...beneficiarios.map };
+        const isrMap = { ...beneficiarios.isrMap };
 
         const items = invoiceData.items || [];
 
-        // KPI: uses same formula as mapGestionoToInvoice — no ratio, full subTotal/taxes
+        // KPI: uses same formula as mapErpToInvoice — no ratio, full subTotal/taxes
         const serverToCharge = invoiceData.resume?.toCharge || 0;
         let salesTaxes = 0;
         let kpiToPay = 0;
@@ -379,9 +520,7 @@ export function FinancesModule({
         }
 
         // Map and sort inline — single render
-        const mapped = items.map((item) =>
-          mapGestionoToInvoice(item, map, isrMap),
-        );
+        const mapped = items.map((item) => mapErpToInvoice(item, map, isrMap));
         mapped.sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
@@ -403,6 +542,7 @@ export function FinancesModule({
     activeTab,
     isSellFilter,
     activePage,
+    pedirBeneficiarios,
   ]);
 
   // Fetch history (paid) invoices + beneficiaries in parallel
@@ -426,49 +566,27 @@ export function FinancesModule({
         if (historyToDate) historyParams.set("toDate", historyToDate);
 
         const cacheKey = `${projectId}-${refreshKey}-${refreshTrigger}`;
-        const hasBeneficiaryCache =
-          beneficiaryCacheRef.current?.key === cacheKey;
-
-        const [historyRes, maybeBeneficiariesRes] = await Promise.all([
-          fetch(`/api/gestiono/pendingRecord?${historyParams.toString()}`, {
+        const [historyRes, beneficiarios] = await Promise.all([
+          fetch(`/api/erp/pendingRecord?${historyParams.toString()}`, {
             signal,
           }),
-          hasBeneficiaryCache
-            ? Promise.resolve(null)
-            : fetch(
-                `/api/gestiono/beneficiaries?withContacts=false&withTaxData=false`,
-                { signal },
-              ),
+          pedirBeneficiarios(cacheKey),
         ]);
 
-        const historyData: GestionoInvoicesResponse = historyRes.ok
+        const historyData: InvoicesResponse = historyRes.ok
           ? await historyRes.json()
           : { items: [], totalPages: 1 };
 
-        const map: Record<number, string> = {};
-        const isrMap: Record<number, number> = {};
-        if (hasBeneficiaryCache) {
-          Object.assign(map, beneficiaryCacheRef.current!.map);
-          Object.assign(isrMap, beneficiaryCacheRef.current!.isrMap);
-        } else {
-          const beneficiaryData: GestionoBeneficiary[] =
-            maybeBeneficiariesRes?.ok ? await maybeBeneficiariesRes.json() : [];
-          (beneficiaryData || []).forEach((b) => {
-            map[b.id] = b.name;
-            const isr = b.metadata?.isrTaxRetention;
-            if (isr) isrMap[b.id] = Number(isr);
-          });
-          beneficiaryCacheRef.current = { key: cacheKey, map, isrMap };
-        }
+        // Copia: los mapas viven en el cache compartido, no se mutan aqui.
+        const map = { ...beneficiarios.map };
+        const isrMap = { ...beneficiarios.isrMap };
 
         const items = historyData.items || [];
 
         setHistoryTotalPages(historyData.totalPages || 1);
         setRawInvoices(items);
 
-        const mapped = items.map((item) =>
-          mapGestionoToInvoice(item, map, isrMap),
-        );
+        const mapped = items.map((item) => mapErpToInvoice(item, map, isrMap));
         mapped.sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
         );
@@ -491,6 +609,7 @@ export function FinancesModule({
     historyPage,
     refreshKey,
     refreshTrigger,
+    pedirBeneficiarios,
   ]);
 
   const filteredInvoices = invoices.filter((invoice) => {
@@ -516,19 +635,19 @@ export function FinancesModule({
   const pendingRecordsCount =
     resume.toChargeRecordsCount + resume.toPayRecordsCount;
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      paid: { label: "Pagada", className: "bg-green-100 text-green-800" },
-      pending: {
-        label: "Pendiente",
-        className: "bg-yellow-100 text-yellow-800",
-      },
-      overdue: { label: "Vencida", className: "bg-red-100 text-red-800" },
-      draft: { label: "Borrador", className: "bg-gray-100 text-gray-800" },
+  const getStatusBadge = (
+    status: string,
+  ): { label: string; variant: BadgeVariant } => {
+    const statusConfig: Record<
+      string,
+      { label: string; variant: BadgeVariant }
+    > = {
+      paid: { label: "Pagada", variant: "success" },
+      pending: { label: "Pendiente", variant: "warning" },
+      overdue: { label: "Vencida", variant: "danger" },
+      draft: { label: "Borrador", variant: "default" },
     };
-    return (
-      statusConfig[status as keyof typeof statusConfig] || statusConfig.draft
-    );
+    return statusConfig[status] ?? statusConfig.draft;
   };
 
   const [deleteModalState, setDeleteModalState] = useState<{
@@ -545,7 +664,7 @@ export function FinancesModule({
   const [isDeleting, setIsDeleting] = useState(false);
   const [editModalState, setEditModalState] = useState<{
     isOpen: boolean;
-    record: GestionoInvoiceItem | null;
+    record: InvoiceItem | null;
   }>({
     isOpen: false,
     record: null,
@@ -558,22 +677,6 @@ export function FinancesModule({
     isOpen: false,
     invoice: null,
   });
-
-  const [expandedPayments, setExpandedPayments] = useState<Set<number>>(
-    new Set(),
-  );
-
-  const togglePaymentExpanded = (paymentId: number) => {
-    setExpandedPayments((prev) => {
-      const next = new Set(prev);
-      if (next.has(paymentId)) {
-        next.delete(paymentId);
-      } else {
-        next.add(paymentId);
-      }
-      return next;
-    });
-  };
 
   const [convertModalState, setConvertModalState] = useState<{
     isOpen: boolean;
@@ -622,7 +725,7 @@ export function FinancesModule({
     setIsDeleting(true);
     try {
       const response = await fetch(
-        `/api/gestiono/pendingRecord/${deleteModalState.invoiceId}`,
+        `/api/erp/pendingRecord/${deleteModalState.invoiceId}`,
         {
           method: "PATCH",
         },
@@ -674,7 +777,6 @@ export function FinancesModule({
       isOpen: false,
       invoice: null,
     });
-    setExpandedPayments(new Set());
   };
 
   const handlePayInvoice = (invoice: InvoiceDisplay) => {
@@ -696,7 +798,7 @@ export function FinancesModule({
       fullRecord.elements[0].comment === undefined;
     if (needsFullFetch) {
       const detailsResponse = await fetch(
-        `/api/gestiono/pendingRecord/${fullRecord.id}`,
+        `/api/erp/pendingRecord/${fullRecord.id}`,
       );
       if (detailsResponse.ok) {
         recordWithElements = await detailsResponse.json();
@@ -724,13 +826,13 @@ export function FinancesModule({
       // Fetch full details with elements
       let recordWithElements = originalRecord;
       const detailsResponse = await fetch(
-        `/api/gestiono/pendingRecord/${originalRecord.id}`,
+        `/api/erp/pendingRecord/${originalRecord.id}`,
       );
       if (detailsResponse.ok) {
         recordWithElements = await detailsResponse.json();
       }
 
-      const response = await fetch(`/api/gestiono/pendingRecord`, {
+      const response = await fetch(`/api/erp/pendingRecord`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -819,7 +921,7 @@ export function FinancesModule({
         fullRecord.elements[0].comment === undefined;
       if (needsFullFetch) {
         const detailsResponse = await fetch(
-          `/api/gestiono/pendingRecord/${fullRecord.id}`,
+          `/api/erp/pendingRecord/${fullRecord.id}`,
         );
         if (detailsResponse.ok) {
           recordWithElements = await detailsResponse.json();
@@ -827,14 +929,14 @@ export function FinancesModule({
       }
 
       const beneficiaryResponse = await fetch(
-        `/api/gestiono/beneficiaries?withContacts=true`,
+        `/api/erp/beneficiaries?withContacts=true`,
       );
       let beneficiary = null;
       if (beneficiaryResponse.ok) {
         const beneficiaries = await beneficiaryResponse.json();
         beneficiary =
           beneficiaries.find(
-            (b: GestionoBeneficiary) => b.id === fullRecord.beneficiaryId,
+            (b: Beneficiary) => b.id === fullRecord.beneficiaryId,
           ) || null;
       }
 
@@ -946,7 +1048,6 @@ export function FinancesModule({
       transactionType,
       documentType,
     });
-    setIsCreateMenuOpen(false);
   };
 
   const handleInvoiceCreated = () => {
@@ -974,535 +1075,338 @@ export function FinancesModule({
     setSelectedStatuses([]);
   };
 
+  const vacioTexto =
+    activeTab === "HISTORY"
+      ? "No hay documentos en este rango de fechas."
+      : hasActiveFilters
+        ? "Ningún documento coincide con los filtros aplicados."
+        : "Este proyecto todavía no tiene documentos.";
+
+  const TITULO: Record<string, string> = {
+    QUOTE: "Cotizaciones del proyecto",
+    ORDER: "Órdenes del proyecto",
+    INVOICE: "Facturas del proyecto",
+    HISTORY: "Historial de documentos",
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header with Title and Create Button */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Módulo Financiero</h2>
-          <p className="text-gray-600">Gestión de documentos del proyecto</p>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-display text-[1rem] font-semibold tracking-[-0.01em] text-ink">
+            {TITULO[activeTab] ?? TITULO.INVOICE}
+          </h2>
+          <p className="mt-0.5 text-[0.8125rem] text-ink-2">
+            Cotizaciones, órdenes y facturas imputadas a este proyecto.
+          </p>
         </div>
-        <div className="relative">
-          {/* Dropdown Menu */}
-          {isCreateMenuOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-              <div className="py-1">
-                <button
-                  onClick={() => handleCreateInvoice("sale", "quote")}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                  Nueva Cotización de Venta
-                </button>
-                <button
-                  onClick={() => handleCreateInvoice("purchase", "quote")}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <ShoppingCart className="w-4 h-4 text-red-600" />
-                  Nueva Cotización de Compra
-                </button>
-                {/* Orders */}
-                <button
-                  onClick={() => handleCreateInvoice("sale", "order")}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                  Nueva Orden de Venta
-                </button>
-                <button
-                  onClick={() => handleCreateInvoice("purchase", "order")}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <ShoppingCart className="w-4 h-4 text-red-600" />
-                  Nueva Orden de Compra
-                </button>
-                {/* Invoices */}
-                <button
-                  onClick={() => handleCreateInvoice("sale", "invoice")}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                  Nueva Factura de Venta
-                </button>
-                <button
-                  onClick={() => handleCreateInvoice("purchase", "invoice")}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-                >
-                  <ShoppingCart className="w-4 h-4 text-red-600" />
-                  Nueva Factura de Compra
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* El menú existía pero no tenía botón que lo abriera: `isCreateMenuOpen`
+            sólo se ponía a true desde código que ya no estaba. Se crea desde la
+            cabecera del proyecto y también desde aquí. */}
+        <MenuButton
+          label="Crear documento"
+          icon={Plus}
+          variant="default"
+          size="sm"
+          options={NUEVOS_DOCUMENTOS.map((opcion) => ({
+            label: opcion.label,
+            icon: opcion.transaccion === "sale" ? TrendingUp : ShoppingCart,
+            tone: opcion.transaccion === "sale" ? "success" : "info",
+            onSelect: () =>
+              handleCreateInvoice(opcion.transaccion, opcion.documento),
+          }))}
+        />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 sm:gap-2 border-b border-gray-200 overflow-x-auto">
-        <button
-          onClick={() => {
-            setActiveTab("QUOTE");
-            setActivePage(1);
-          }}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
-            activeTab === "QUOTE"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
-        >
-          Cotizaciones
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("ORDER");
-            setActivePage(1);
-          }}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
-            activeTab === "ORDER"
-              ? "border-purple-600 text-purple-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
-        >
-          Órdenes
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("INVOICE");
-            setActivePage(1);
-          }}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
-            activeTab === "INVOICE"
-              ? "border-indigo-600 text-indigo-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
-        >
-          Facturas
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("HISTORY");
-            setHistoryPage(1);
-          }}
-          className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0 ${
-            activeTab === "HISTORY"
-              ? "border-amber-600 text-amber-600"
-              : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-          }`}
-        >
-          <span className="flex items-center gap-1.5">
-            <History className="w-4 h-4" />
-            Historial
-          </span>
-        </button>
-      </div>
+      <TabsBar
+        tabs={DOC_TABS}
+        value={activeTab}
+        onChange={(id) => {
+          setActiveTab(id);
+          setActivePage(1);
+          if (id === "HISTORY") setHistoryPage(1);
+        }}
+        aria-label="Tipos de documento del proyecto"
+      />
 
-      {/* KPIs - Hide in History mode */}
-      {activeTab !== "HISTORY" && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <CustomCard className="p-6">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="text-sm font-medium">Ventas Pendientes</h3>
-            </div>
-            <div className="text-2xl font-bold text-green-600">
-              {isLoadingInvoices ? (
-                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-              ) : (
-                `RD$ ${totalSalesToCharge.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              )}
-            </div>
-            <p className="text-xs text-gray-600">Por cobrar</p>
-          </CustomCard>
-
-          <CustomCard className="p-6">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="text-sm font-medium">
-                {activeTab === "QUOTE"
-                  ? "Cotizaciones Pendientes"
-                  : activeTab === "ORDER"
-                    ? "Órdenes Pendientes"
-                    : "Facturas Pendientes"}
-              </h3>
-            </div>
-            <div className="text-2xl font-bold text-red-600">
-              {isLoadingInvoices ? (
-                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
-              ) : (
-                `RD$ ${totalPurchasesToPay.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              )}
-            </div>
-            <p className="text-xs text-gray-600">Por pagar</p>
-          </CustomCard>
-
-          <CustomCard className="p-6">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <h3 className="text-sm font-medium">Documentos</h3>
-            </div>
-            <div className="text-2xl font-bold text-blue-600">
-              {isLoadingInvoices ? (
-                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
-              ) : (
-                pendingRecordsCount
-              )}
-            </div>
-            <p className="text-xs text-gray-600">Registros activos</p>
-          </CustomCard>
+      {activeTab !== "HISTORY" ? (
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <KPICard
+            loading={isLoadingInvoices}
+            kpi={{
+              title: "Ventas por cobrar",
+              value: money(totalSalesToCharge),
+              icon: "TrendingUp",
+              hint: "Saldo pendiente del cliente",
+            }}
+          />
+          <KPICard
+            loading={isLoadingInvoices}
+            kpi={{
+              title: "Compras por pagar",
+              value: money(totalPurchasesToPay),
+              icon: "Wallet",
+              hint: "Saldo pendiente a proveedores",
+            }}
+          />
+          <KPICard
+            loading={isLoadingInvoices}
+            kpi={{
+              title: "Documentos activos",
+              value: fmtCount(pendingRecordsCount),
+              icon: "Receipt",
+              hint: "Sin saldar en esta vista",
+            }}
+          />
         </div>
-      )}
-
-      {/* History Date Range Picker */}
-      {activeTab === "HISTORY" && (
-        <CustomCard className="p-4 md:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Desde
-              </label>
-              <input
-                type="date"
-                value={historyFromDate.split("T")[0]}
-                onChange={(e) => {
-                  const d = new Date(e.target.value + "T04:00:00.000Z");
-                  setHistoryFromDate(d.toISOString());
-                  setHistoryPage(1);
-                }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hasta
-              </label>
-              <input
-                type="date"
-                value={historyToDate.split("T")[0]}
-                onChange={(e) => {
-                  const d = new Date(e.target.value + "T23:59:59.999Z");
-                  setHistoryToDate(d.toISOString());
-                  setHistoryPage(1);
-                }}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 rounded-[12px] border border-rule bg-paper p-4 sm:max-w-lg sm:grid-cols-2">
+          <div>
+            <label htmlFor="fin-desde" className="eyebrow mb-1.5 block">
+              Desde
+            </label>
+            <input
+              id="fin-desde"
+              type="date"
+              value={historyFromDate.split("T")[0]}
+              onChange={(e) => {
+                const d = new Date(e.target.value + "T04:00:00.000Z");
+                setHistoryFromDate(d.toISOString());
+                setHistoryPage(1);
+              }}
+              className="tabular h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold"
+            />
           </div>
-        </CustomCard>
+          <div>
+            <label htmlFor="fin-hasta" className="eyebrow mb-1.5 block">
+              Hasta
+            </label>
+            <input
+              id="fin-hasta"
+              type="date"
+              value={historyToDate.split("T")[0]}
+              onChange={(e) => {
+                const d = new Date(e.target.value + "T23:59:59.999Z");
+                setHistoryToDate(d.toISOString());
+                setHistoryPage(1);
+              }}
+              className="tabular h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold"
+            />
+          </div>
+        </div>
       )}
 
-      {/* Filters - Hide in History mode */}
       {activeTab !== "HISTORY" && (
-        <CustomCard className="p-4 md:p-6">
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <CustomButton
+        <section className="space-y-4 rounded-[12px] border border-rule bg-paper p-4">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <SearchInput
+              className="flex-1"
+              value={searchTerm}
+              onValueChange={setSearchTerm}
+              placeholder="Buscar por número, contacto o referencia…"
+            />
+            <Button
+              variant={isFilterOpen ? "secondary" : "outline"}
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
             >
-              <Filter className="w-4 h-4 mr-2" />
+              <Filter className="mr-1.5 h-4 w-4" strokeWidth={1.75} />
               Filtros
               {hasActiveFilters && (
-                <CustomBadge className="ml-2 bg-blue-100 text-blue-800">
+                <span className="tabular ml-1.5 rounded-full bg-gold-soft px-1.5 text-[0.6875rem] font-semibold text-gold-strong">
                   {(selectedType !== "all" ? 1 : 0) +
                     (selectedDocumentType !== "all" ? 1 : 0) +
                     selectedStatuses.length}
-                </CustomBadge>
+                </span>
               )}
-            </CustomButton>
+            </Button>
           </div>
 
-          {/* Active Filters Summary */}
           {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mt-4">
+            <div className="flex flex-wrap gap-1.5">
               {selectedType !== "all" && (
-                <button onClick={() => setSelectedType("all")}>
-                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                    {selectedType === "sale" ? "Ventas" : "Compras"}
-                    <X className="w-3 h-3" />
-                  </CustomBadge>
-                </button>
+                <FilterChip active onClick={() => setSelectedType("all")}>
+                  {selectedType === "sale" ? "Ventas" : "Compras"}
+                  <X className="h-3 w-3" />
+                </FilterChip>
               )}
               {selectedStatuses.map((status) => (
-                <button key={status} onClick={() => toggleStatus(status)}>
-                  <CustomBadge className="bg-gray-100 text-gray-800 gap-1 cursor-pointer">
-                    {getStatusBadge(status).label}
-                    <X className="w-3 h-3" />
-                  </CustomBadge>
-                </button>
+                <FilterChip
+                  key={status}
+                  active
+                  onClick={() => toggleStatus(status)}
+                >
+                  {getStatusBadge(status).label}
+                  <X className="h-3 w-3" />
+                </FilterChip>
               ))}
             </div>
           )}
-        </CustomCard>
-      )}
 
-      {/* Filters Panel */}
-      {isFilterOpen && (
-        <CustomCard className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Filtros</h3>
-            <button
-              onClick={() => setIsFilterOpen(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Transaction Type */}
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <TrendingUp className="w-4 h-4" />
-                Tipo de Transacción
-              </label>
-              <div className="flex gap-2">
-                <button
+          {isFilterOpen && (
+            <div className="grid gap-5 border-t border-rule pt-4 md:grid-cols-2">
+              <FilterGroup label="Transacción" icon={TrendingUp}>
+                <FilterChip
+                  active={isSellFilter === "all"}
                   onClick={() => {
                     setIsSellFilter("all");
                     setActivePage(1);
                   }}
-                  className={`flex-1 px-3 py-2 text-sm rounded-lg border ${isSellFilter === "all" ? "bg-blue-50 border-blue-500 text-blue-700" : "bg-white border-gray-200"}`}
                 >
                   Todas
-                </button>
-                <button
+                </FilterChip>
+                <FilterChip
+                  icon={TrendingUp}
+                  active={isSellFilter === "true"}
                   onClick={() => {
                     setIsSellFilter("true");
                     setActivePage(1);
                   }}
-                  className={`flex-1 px-3 py-2 text-sm rounded-lg border ${isSellFilter === "true" ? "bg-green-50 border-green-500 text-green-700" : "bg-white border-gray-200"}`}
                 >
                   Ventas
-                </button>
-                <button
+                </FilterChip>
+                <FilterChip
+                  icon={ShoppingCart}
+                  active={isSellFilter === "false"}
                   onClick={() => {
                     setIsSellFilter("false");
                     setActivePage(1);
                   }}
-                  className={`flex-1 px-3 py-2 text-sm rounded-lg border ${isSellFilter === "false" ? "bg-red-50 border-red-500 text-red-700" : "bg-white border-gray-200"}`}
                 >
                   Compras
-                </button>
-              </div>
-            </div>
+                </FilterChip>
+              </FilterGroup>
 
-            {/* Status */}
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <Clock className="w-4 h-4" />
-                Estado
-              </label>
-              <div className="space-y-2">
-                {["paid", "pending", "overdue", "draft"].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => toggleStatus(status)}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg border ${selectedStatuses.includes(status) ? "bg-blue-50 border-blue-500 text-blue-700" : "bg-white border-gray-200"}`}
-                  >
-                    {getStatusBadge(status).label}
-                  </button>
-                ))}
+              <FilterGroup label="Estado" icon={Clock}>
+                {(["paid", "pending", "overdue", "draft"] as const).map(
+                  (status) => (
+                    <FilterChip
+                      key={status}
+                      active={selectedStatuses.includes(status)}
+                      onClick={() => toggleStatus(status)}
+                    >
+                      {getStatusBadge(status).label}
+                    </FilterChip>
+                  ),
+                )}
+              </FilterGroup>
+
+              <div className="md:col-span-2">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="mr-1.5 h-3.5 w-3.5" />
+                  Limpiar filtros
+                </Button>
               </div>
             </div>
-          </div>
-          <div className="mt-6">
-            <CustomButton
-              onClick={clearFilters}
-              className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Limpiar filtros
-            </CustomButton>
-          </div>
-        </CustomCard>
+          )}
+        </section>
       )}
 
-      {/* Table */}
-      <CustomCard className="overflow-hidden">
-        {/* Mobile Card Layout */}
-        <div className="block md:hidden p-4 space-y-3">
+      {/* Listado */}
+      <section className="overflow-hidden rounded-[12px] border border-rule bg-paper">
+        {/* Móvil */}
+        <ul className="divide-y divide-rule md:hidden">
           {(activeTab === "HISTORY" ? isLoadingHistory : isLoadingInvoices) ? (
-            <div className="py-8 text-center text-gray-500">
-              Cargando documentos...
-            </div>
+            <li className="px-4 py-10 text-center text-[0.8125rem] text-ink-3">
+              Cargando documentos…
+            </li>
           ) : (activeTab === "HISTORY" ? historyInvoices : filteredInvoices)
               .length === 0 ? (
-            <div className="py-8 text-center text-gray-500">
-              {activeTab === "HISTORY"
-                ? "No hay registros en este rango de fechas"
-                : hasActiveFilters
-                  ? "No se encontraron documentos con los filtros aplicados"
-                  : "No hay documentos registrados para este proyecto"}
-            </div>
+            <li className="px-4 py-10 text-center text-[0.8125rem] text-ink-3">
+              {vacioTexto}
+            </li>
           ) : (
             (activeTab === "HISTORY" ? historyInvoices : filteredInvoices).map(
               (invoice) => {
                 const statusBadge = getStatusBadge(invoice.status);
                 return (
-                  <div
-                    key={invoice.id}
-                    className="p-3 border border-gray-100 rounded-lg"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                  <li key={invoice.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="tabular truncate text-[0.8125rem] font-medium text-ink">
                           {invoice.invoiceNumber}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="truncate text-[0.75rem] text-ink-3">
                           {invoice.projectName}
                         </p>
                       </div>
-                      <CustomBadge
-                        className={
-                          invoice.type === "sale"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }
+                      <Badge
+                        variant={invoice.type === "sale" ? "success" : "info"}
                       >
                         {invoice.type === "sale" ? "Venta" : "Compra"}
-                      </CustomBadge>
+                      </Badge>
                     </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900">
-                        RD${" "}
-                        {invoice.amount.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <span className="tabular font-mono text-[0.8125rem] font-semibold text-ink">
+                        {money(invoice.amount)}
                       </span>
-                      <CustomBadge className={statusBadge.className}>
+                      <Badge variant={statusBadge.variant} dot>
                         {statusBadge.label}
-                      </CustomBadge>
+                      </Badge>
                     </div>
-                    <div className="text-xs text-gray-500 mb-2">
+                    <p className="tabular mt-1.5 text-[0.75rem] text-ink-3">
                       {invoice.date}
+                    </p>
+                    <div className="mt-2.5 flex items-center gap-0.5 border-t border-rule pt-2">
+                      <AccionesDoc
+                        invoice={invoice}
+                        activeTab={activeTab}
+                        onVer={handleViewClick}
+                        onPdf={handleDownloadPDF}
+                        onEditar={handleEditClick}
+                        onEliminar={handleDeleteClick}
+                        onConvertir={(id, numero) =>
+                          setConvertModalState({
+                            isOpen: true,
+                            invoiceId: id,
+                            invoiceNumber: numero,
+                          })
+                        }
+                        onComprobante={(url, nombre) =>
+                          setImagePreviewState({
+                            isOpen: true,
+                            imageUrl: url,
+                            fileName: nombre,
+                          })
+                        }
+                      />
                     </div>
-                    <div className="flex items-center gap-1 pt-2 border-t border-gray-100">
-                      <button
-                        onClick={() => handleViewClick(invoice)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600"
-                        title="Ver"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDownloadPDF(invoice)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600"
-                        title="PDF"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                      {activeTab !== "HISTORY" && (
-                        <>
-                          <button
-                            onClick={() => handleEditClick(invoice)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteClick(
-                                invoice.id,
-                                invoice.invoiceNumber,
-                                invoice.documentType,
-                              )
-                            }
-                            className="p-1.5 text-gray-400 hover:text-red-600"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                      {invoice.attachedFileUrl && (
-                        <button
-                          onClick={() =>
-                            setImagePreviewState({
-                              isOpen: true,
-                              imageUrl: invoice.attachedFileUrl!,
-                              fileName: invoice.attachedFileName,
-                            })
-                          }
-                          className="p-1.5 text-gray-400 hover:text-blue-600"
-                          title="Ver Comprobante"
-                        >
-                          <ImageIcon className="w-4 h-4" />
-                        </button>
-                      )}
-                      {activeTab !== "HISTORY" &&
-                        (activeTab === "QUOTE" || activeTab === "ORDER") && (
-                          <button
-                            onClick={() =>
-                              setConvertModalState({
-                                isOpen: true,
-                                invoiceId: invoice.id,
-                                invoiceNumber: invoice.invoiceNumber,
-                              })
-                            }
-                            className="ml-auto p-1.5 text-blue-600 hover:text-blue-800"
-                            title={
-                              activeTab === "QUOTE"
-                                ? "Convertir a Orden/Factura"
-                                : "Convertir a Factura"
-                            }
-                          >
-                            <ArrowRight className="w-4 h-4" />
-                          </button>
-                        )}
-                    </div>
-                  </div>
+                  </li>
                 );
               },
             )
           )}
-        </div>
+        </ul>
 
-        {/* Desktop Table Layout */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-              <tr>
-                <th className="px-6 py-3">Número</th>
-                <th className="px-6 py-3">Descripción</th>
-                <th className="px-6 py-3 text-center">Tipo</th>
-                <th className="px-6 py-3 text-center">Fecha</th>
-                <th className="px-6 py-3 text-center">Monto</th>
-                <th className="px-6 py-3 text-center">Estado</th>
-                <th className="px-6 py-3 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
+        {/* Escritorio */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Descripción</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead numeric>Monto</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {(
                 activeTab === "HISTORY" ? isLoadingHistory : isLoadingInvoices
               ) ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    Cargando documentos...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i} aria-busy>
+                    {Array.from({ length: 7 }).map((__, j) => (
+                      <TableCell key={j}>
+                        <div className="h-3 w-full animate-pulse rounded bg-paper-3" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
               ) : (activeTab === "HISTORY" ? historyInvoices : filteredInvoices)
                   .length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    {activeTab === "HISTORY"
-                      ? "No hay registros en este rango de fechas"
-                      : hasActiveFilters
-                        ? "No se encontraron documentos con los filtros aplicados"
-                        : "No hay documentos registrados para este proyecto"}
-                  </td>
-                </tr>
+                <TableEmpty colSpan={7}>{vacioTexto}</TableEmpty>
               ) : (
                 (activeTab === "HISTORY"
                   ? historyInvoices
@@ -1510,230 +1414,158 @@ export function FinancesModule({
                 ).map((invoice) => {
                   const statusBadge = getStatusBadge(invoice.status);
                   return (
-                    <tr
-                      key={invoice.id}
-                      className="bg-white border-b hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4 font-medium text-gray-900">
+                    <TableRow key={invoice.id}>
+                      <TableCell className="tabular text-[0.8125rem] font-medium text-ink">
                         {invoice.invoiceNumber}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600 max-w-xs truncate">
+                      </TableCell>
+                      <TableCell className="max-w-56 truncate text-[0.8125rem] text-ink-2">
                         {invoice.projectName}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <CustomBadge
-                          className={
-                            invoice.type === "sale"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={invoice.type === "sale" ? "success" : "info"}
                         >
                           {invoice.type === "sale" ? "Venta" : "Compra"}
-                        </CustomBadge>
-                      </td>
-                      <td className="px-6 py-4 text-center text-gray-600">
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular text-[0.8125rem] text-ink-2">
                         {invoice.date}
-                      </td>
-                      <td className="px-6 py-4 text-center font-medium text-gray-900">
-                        RD${" "}
-                        {invoice.amount.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <CustomBadge className={statusBadge.className}>
+                      </TableCell>
+                      <TableCell
+                        numeric
+                        className={cn(
+                          "text-[0.8125rem] font-semibold",
+                          invoice.type === "sale" ? "text-success" : "text-ink",
+                        )}
+                      >
+                        {money(invoice.amount)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusBadge.variant} dot>
                           {statusBadge.label}
-                        </CustomBadge>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => handleViewClick(invoice)}
-                            className="p-1 text-gray-400 hover:text-blue-600"
-                            title="Ver detalles"
-                          >
-                            <Eye className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDownloadPDF(invoice)}
-                            className="p-1 text-gray-400 hover:text-blue-600"
-                            title="Descargar PDF"
-                          >
-                            <Download className="w-5 h-5" />
-                          </button>
-                          {activeTab !== "HISTORY" && (
-                            <>
-                              <button
-                                onClick={() => handleEditClick(invoice)}
-                                className="p-1 text-gray-400 hover:text-blue-600"
-                                title="Editar"
-                              >
-                                <Edit2 className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDeleteClick(
-                                    invoice.id,
-                                    invoice.invoiceNumber,
-                                    invoice.documentType,
-                                  )
-                                }
-                                className="p-1 text-gray-400 hover:text-red-600"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </>
-                          )}
-                          {invoice.attachedFileUrl && (
-                            <button
-                              onClick={() =>
-                                setImagePreviewState({
-                                  isOpen: true,
-                                  imageUrl: invoice.attachedFileUrl!,
-                                  fileName: invoice.attachedFileName,
-                                })
-                              }
-                              className="p-1 text-gray-400 hover:text-blue-600"
-                              title="Ver Comprobante"
-                            >
-                              <ImageIcon className="w-5 h-5" />
-                            </button>
-                          )}
-                          {activeTab !== "HISTORY" &&
-                            (activeTab === "QUOTE" ||
-                              activeTab === "ORDER") && (
-                              <button
-                                onClick={() =>
-                                  setConvertModalState({
-                                    isOpen: true,
-                                    invoiceId: invoice.id,
-                                    invoiceNumber: invoice.invoiceNumber,
-                                  })
-                                }
-                                className="p-1 text-blue-600 hover:text-blue-800"
-                                title={
-                                  activeTab === "QUOTE"
-                                    ? "Convertir a Orden/Factura"
-                                    : "Convertir a Factura"
-                                }
-                              >
-                                <ArrowRight className="w-5 h-5" />
-                              </button>
-                            )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-0.5">
+                          <AccionesDoc
+                            invoice={invoice}
+                            activeTab={activeTab}
+                            onVer={handleViewClick}
+                            onPdf={handleDownloadPDF}
+                            onEditar={handleEditClick}
+                            onEliminar={handleDeleteClick}
+                            onConvertir={(id, numero) =>
+                              setConvertModalState({
+                                isOpen: true,
+                                invoiceId: id,
+                                invoiceNumber: numero,
+                              })
+                            }
+                            onComprobante={(url, nombre) =>
+                              setImagePreviewState({
+                                isOpen: true,
+                                imageUrl: url,
+                                fileName: nombre,
+                              })
+                            }
+                          />
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
-      </CustomCard>
 
-      {/* Active Tab Pagination */}
-      {activeTab !== "HISTORY" && activeTotalPages > 1 && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-gray-200 pt-4">
-          <div className="text-sm text-gray-600">
-            Mostrando{" "}
-            <span className="font-medium">
-              {(activePage - 1) * itemsPerPage + 1}
-            </span>{" "}
-            -{" "}
-            <span className="font-medium">
-              {Math.min(activePage * itemsPerPage, activeTotalItems)}
-            </span>{" "}
-            de <span className="font-medium">{activeTotalItems}</span>{" "}
-            documentos
-          </div>
+        {activeTab !== "HISTORY" && (
+          <Pagination
+            page={activePage}
+            totalPages={activeTotalPages}
+            totalItems={activeTotalItems}
+            perPage={10}
+            noun="documentos"
+            onPageChange={setActivePage}
+          />
+        )}
+        {activeTab === "HISTORY" && (
+          <Pagination
+            page={historyPage}
+            totalPages={historyTotalPages}
+            noun="documentos"
+            onPageChange={setHistoryPage}
+          />
+        )}
+      </section>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActivePage((p) => Math.max(p - 1, 1))}
-              disabled={activePage <= 1 || isLoadingInvoices}
-              className={`px-3 py-2 text-sm rounded border transition-colors ${
-                activePage <= 1 || isLoadingInvoices
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Anterior
-            </button>
+      <ConfirmDialog
+        open={deleteModalState.isOpen}
+        title={
+          deleteModalState.documentType === "QUOTE"
+            ? "Eliminar cotización"
+            : "Archivar documento"
+        }
+        description={
+          deleteModalState.documentType === "QUOTE" ? (
+            <>
+              La cotización{" "}
+              <span className="tabular font-semibold text-ink">
+                {deleteModalState.invoiceNumber}
+              </span>{" "}
+              se borra por completo. No se puede deshacer.
+            </>
+          ) : (
+            <>
+              El documento{" "}
+              <span className="tabular font-semibold text-ink">
+                {deleteModalState.invoiceNumber}
+              </span>{" "}
+              deja de aparecer en el listado del proyecto. Sigue en el
+              historial: es un documento fiscal.
+            </>
+          )
+        }
+        confirmLabel={
+          deleteModalState.documentType === "QUOTE" ? "Eliminar" : "Archivar"
+        }
+        pendingLabel={
+          deleteModalState.documentType === "QUOTE"
+            ? "Eliminando…"
+            : "Archivando…"
+        }
+        pending={isDeleting}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
 
-            <div className="flex items-center gap-1">
-              {Array.from({ length: activeTotalPages }, (_, i) => i + 1)
-                .filter(
-                  (page) =>
-                    page === 1 ||
-                    page === activeTotalPages ||
-                    Math.abs(page - activePage) <= 1,
-                )
-                .map((page, idx, arr) => {
-                  const showEllipsisBefore = idx > 0 && page - arr[idx - 1] > 1;
-                  return (
-                    <div key={page} className="flex items-center gap-1">
-                      {showEllipsisBefore && (
-                        <span className="px-2 text-gray-400">...</span>
-                      )}
-                      <button
-                        onClick={() => setActivePage(page)}
-                        disabled={isLoadingInvoices}
-                        className={`px-3 py-1 text-sm rounded transition-colors ${
-                          page === activePage
-                            ? "bg-blue-600 text-white border border-blue-600"
-                            : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                        } ${isLoadingInvoices ? "cursor-not-allowed opacity-50" : ""}`}
-                      >
-                        {page}
-                      </button>
-                    </div>
-                  );
-                })}
-            </div>
+      <DocumentDetailModal
+        open={viewModalState.isOpen}
+        onClose={handleViewClose}
+        invoice={viewModalState.invoice}
+        onEdit={(invoice) => {
+          handleViewClose();
+          handleEditClick(invoice as InvoiceDisplay);
+        }}
+        onPay={(invoice) => handlePayInvoice(invoice as InvoiceDisplay)}
+        onConvertToOrder={(invoice) => {
+          handleConvertRecord(invoice.id, "ORDER");
+          handleViewClose();
+        }}
+        onConvertToInvoice={(invoice) => {
+          handleViewClose();
+          setConvertModalState({
+            isOpen: true,
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+          });
+        }}
+      />
 
-            <button
-              onClick={() =>
-                setActivePage((p) => Math.min(p + 1, activeTotalPages))
-              }
-              disabled={activePage >= activeTotalPages || isLoadingInvoices}
-              className={`px-3 py-2 text-sm rounded border transition-colors ${
-                activePage >= activeTotalPages || isLoadingInvoices
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                  : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* History Pagination */}
-      {activeTab === "HISTORY" && historyTotalPages > 1 && (
-        <div className="flex items-center justify-center gap-4 py-2">
-          <button
-            onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-            disabled={historyPage <= 1}
-            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm text-gray-600">
-            Página {historyPage} de {historyTotalPages}
-          </span>
-          <button
-            onClick={() =>
-              setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
-            }
-            disabled={historyPage >= historyTotalPages}
-            className="p-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
+      {/* Estos dos diálogos nunca se llegaron a montar: `handleCreateInvoice`
+          y `handleEditClick` guardaban su estado y no había nada que lo
+          consumiera, así que «Crear documento» y «Editar» no hacían nada en
+          la pestaña de Facturación del proyecto. */}
       <CreateInvoiceDialog
         isOpen={createDialogState.isOpen}
         onClose={() =>
@@ -1741,430 +1573,18 @@ export function FinancesModule({
         }
         documentType={createDialogState.documentType}
         transactionType={createDialogState.transactionType}
-        projectId={
-          typeof projectId === "number" ? String(projectId) : projectId
-        } // Ensure string if needed or logic adjustments
+        projectId={String(projectId)}
         budgetCategories={budgetCategories}
         onCreateInvoice={handleInvoiceCreated}
       />
 
-      {editModalState.record && (
+      {editModalState.isOpen && editModalState.record && (
         <EditInvoiceDialog
           isOpen={editModalState.isOpen}
           onClose={handleEditClose}
           record={editModalState.record}
-          budgetCategories={budgetCategories}
           onUpdate={handleInvoiceCreated}
         />
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteModalState.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Confirmar eliminación
-            </h3>
-            <p className="text-gray-600 mb-6">
-              ¿Estás seguro de que quieres eliminar{" "}
-              {deleteModalState.documentType === "QUOTE"
-                ? "la cotización"
-                : "el documento"}{" "}
-              <span className="font-medium text-gray-900">
-                {deleteModalState.invoiceNumber}
-              </span>
-              ? Esta acción no se puede deshacer.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={handleDeleteCancel}
-                disabled={isDeleting}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={isDeleting}
-                className="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-              >
-                {isDeleting ? "Eliminando..." : "Eliminar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* View Details Modal */}
-      {viewModalState.isOpen && viewModalState.invoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">
-                Detalles del Documento
-              </h2>
-              <button
-                onClick={handleViewClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-600">Número</p>
-                  <p className="font-semibold text-gray-900">
-                    {viewModalState.invoice.invoiceNumber}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Tipo</p>
-                  <div className="mt-1">
-                    <CustomBadge
-                      className={
-                        viewModalState.invoice.type === "sale"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }
-                    >
-                      {viewModalState.invoice.type === "sale"
-                        ? "Venta"
-                        : "Compra"}
-                    </CustomBadge>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Descripción</p>
-                  <p className="font-semibold text-gray-900">
-                    {viewModalState.invoice.projectName}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {viewModalState.invoice.type === "sale"
-                      ? "Cliente"
-                      : "Proveedor"}
-                  </p>
-                  <p className="font-semibold text-gray-900">
-                    {viewModalState.invoice.clientName ||
-                      viewModalState.invoice.supplierName ||
-                      "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Fecha</p>
-                  <p className="font-semibold text-gray-900">
-                    {viewModalState.invoice.date}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Vencimiento</p>
-                  <p className="font-semibold text-gray-900">
-                    {viewModalState.invoice.dueDate}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Estado</p>
-                  <div className="mt-1">
-                    <CustomBadge
-                      className={
-                        getStatusBadge(viewModalState.invoice.status).className
-                      }
-                    >
-                      {getStatusBadge(viewModalState.invoice.status).label}
-                    </CustomBadge>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Monto Total</p>
-                  <p
-                    className={`text-lg font-bold ${viewModalState.invoice.type === "sale" ? "text-green-600" : "text-red-600"}`}
-                  >
-                    {viewModalState.invoice.type === "sale" ? "+" : "-"}RD${" "}
-                    {viewModalState.invoice.amount.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
-                </div>
-                {viewModalState.invoice.documentType === "INVOICE" &&
-                  viewModalState.invoice.paid > 0 && (
-                    <div>
-                      <p className="text-sm text-gray-600">Total Pagado</p>
-                      <p className="text-lg font-bold text-green-600">
-                        RD${" "}
-                        {viewModalState.invoice.paid.toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                    </div>
-                  )}
-                {viewModalState.invoice.documentType === "INVOICE" &&
-                  viewModalState.invoice.paid > 0 &&
-                  viewModalState.invoice.dueToPay > 0 && (
-                    <div>
-                      <p className="text-sm text-gray-600">Pendiente</p>
-                      <p className="text-lg font-bold text-orange-500">
-                        RD${" "}
-                        {viewModalState.invoice.dueToPay.toLocaleString(
-                          "en-US",
-                          {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          },
-                        )}
-                      </p>
-                    </div>
-                  )}
-                {viewModalState.invoice.reference && (
-                  <div>
-                    <p className="text-sm text-gray-600">Nº Comprobante</p>
-                    <p className="font-semibold text-gray-900">
-                      {viewModalState.invoice.reference}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Payment History */}
-              {viewModalState.invoice.payments &&
-                viewModalState.invoice.payments.length > 0 && (
-                  <div className="mt-4 border-t border-gray-200 pt-4">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                      <History className="w-4 h-4" />
-                      Historial de Pagos (
-                      {viewModalState.invoice.payments.length})
-                    </h4>
-                    <div className="space-y-2">
-                      {viewModalState.invoice.payments.map((payment) => {
-                        const isExpanded = expandedPayments.has(payment.id);
-                        const methodLabel =
-                          payment.paymentMethod === "CASH"
-                            ? "Efectivo"
-                            : payment.paymentMethod === "TRANSFER"
-                              ? "Transferencia"
-                              : payment.paymentMethod === "CARD"
-                                ? "Tarjeta"
-                                : payment.paymentMethod;
-                        return (
-                          <div
-                            key={payment.id}
-                            className="bg-green-50 border border-green-100 rounded-lg overflow-hidden"
-                          >
-                            {/* Row principal — siempre visible */}
-                            <button
-                              type="button"
-                              onClick={() => togglePaymentExpanded(payment.id)}
-                              className="w-full flex items-center justify-between px-3 py-2 hover:bg-green-100 transition-colors text-left"
-                            >
-                              <div className="flex flex-col gap-0.5">
-                                <span className="text-xs font-medium text-gray-700">
-                                  {new Date(payment.date).toLocaleDateString(
-                                    "es-DO",
-                                    {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                    },
-                                  )}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {methodLabel}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-bold text-green-600">
-                                  RD${" "}
-                                  {payment.amount.toLocaleString("en-US", {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                  })}
-                                </span>
-                                {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
-                                )}
-                              </div>
-                            </button>
-
-                            {/* Detalle expandido */}
-                            {isExpanded && (
-                              <div className="border-t border-green-100 px-3 py-3 grid grid-cols-2 gap-x-4 gap-y-2 bg-white">
-                                <div>
-                                  <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                    Método de Pago
-                                  </p>
-                                  <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                    {methodLabel}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                    Fecha
-                                  </p>
-                                  <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                    {new Date(payment.date).toLocaleDateString(
-                                      "es-DO",
-                                      {
-                                        weekday: "long",
-                                        day: "2-digit",
-                                        month: "long",
-                                        year: "numeric",
-                                      },
-                                    )}
-                                  </p>
-                                </div>
-                                {payment.reference && (
-                                  <div>
-                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                      Referencia
-                                    </p>
-                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                      {payment.reference}
-                                    </p>
-                                  </div>
-                                )}
-                                {payment.currency && (
-                                  <div>
-                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                      Moneda
-                                    </p>
-                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                      {payment.currency}
-                                    </p>
-                                  </div>
-                                )}
-                                {payment.type && (
-                                  <div>
-                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                      Tipo
-                                    </p>
-                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                      {payment.type === "CREDIT_PAYMENT"
-                                        ? "Pago con crédito"
-                                        : "Pago"}
-                                    </p>
-                                  </div>
-                                )}
-                                {payment.state && (
-                                  <div>
-                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                      Estado
-                                    </p>
-                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                      {payment.state}
-                                    </p>
-                                  </div>
-                                )}
-                                {payment.description && (
-                                  <div className="col-span-2">
-                                    <p className="text-xs text-gray-400 uppercase tracking-wide">
-                                      Descripción
-                                    </p>
-                                    <p className="text-xs font-medium text-gray-800 mt-0.5">
-                                      {payment.description}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-              {/* Actions */}
-              <div className="flex gap-3 border-t border-gray-200 pt-4">
-                <CustomButton
-                  onClick={handleViewClose}
-                  className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200"
-                >
-                  Cerrar
-                </CustomButton>
-
-                {/* Conversion Buttons - Only for Quotes and Orders */}
-                {viewModalState.invoice.documentType === "QUOTE" && (
-                  <>
-                    {viewModalState.invoice.type !== "sale" && (
-                      <CustomButton
-                        onClick={() => {
-                          handleConvertRecord(
-                            viewModalState.invoice!.id,
-                            "ORDER",
-                          );
-                          handleViewClose();
-                        }}
-                        className="flex-1 bg-purple-600 text-white hover:bg-purple-700 flex items-center justify-center gap-2"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                        Convertir a Orden
-                      </CustomButton>
-                    )}
-                    <CustomButton
-                      onClick={() => {
-                        handleViewClose();
-                        setConvertModalState({
-                          isOpen: true,
-                          invoiceId: viewModalState.invoice!.id,
-                          invoiceNumber: viewModalState.invoice!.invoiceNumber,
-                        });
-                      }}
-                      className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                      Convertir a Factura
-                    </CustomButton>
-                  </>
-                )}
-
-                {viewModalState.invoice.documentType === "ORDER" && (
-                  <CustomButton
-                    onClick={() => {
-                      handleViewClose();
-                      setConvertModalState({
-                        isOpen: true,
-                        invoiceId: viewModalState.invoice!.id,
-                        invoiceNumber: viewModalState.invoice!.invoiceNumber,
-                      });
-                    }}
-                    className="flex-1 bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                    Convertir a Factura
-                  </CustomButton>
-                )}
-
-                {/* Pay Button - Only for Invoices */}
-                {viewModalState.invoice.documentType === "INVOICE" && (
-                  <CustomButton
-                    onClick={() => handlePayInvoice(viewModalState.invoice!)}
-                    className="flex-1 bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
-                  >
-                    <DollarSign className="w-4 h-4" />
-                    Pagar
-                  </CustomButton>
-                )}
-
-                <CustomButton
-                  onClick={() => {
-                    handleViewClose();
-                    handleEditClick(viewModalState.invoice!);
-                  }}
-                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Editar
-                </CustomButton>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Convert Modal (Quote/Order -> Invoice) */}
@@ -2211,67 +1631,18 @@ export function FinancesModule({
       )}
 
       {/* File Preview Modal */}
-      {imagePreviewState.isOpen &&
-        imagePreviewState.imageUrl &&
-        (() => {
-          const proxyUrl = getFileProxyUrl(imagePreviewState.imageUrl);
-          const isPdf = imagePreviewState.fileName
-            ?.toLowerCase()
-            .endsWith(".pdf");
-          return (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-              <div className="relative bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                <div className="flex items-center justify-between p-3 border-b">
-                  <span className="text-sm font-medium text-gray-700 truncate max-w-xs">
-                    {imagePreviewState.fileName || "Comprobante"}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={proxyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline px-2 py-1 rounded hover:bg-blue-50"
-                    >
-                      Abrir en nueva pestaña
-                    </a>
-                    <button
-                      onClick={() =>
-                        setImagePreviewState({
-                          isOpen: false,
-                          imageUrl: null,
-                          fileName: null,
-                        })
-                      }
-                      className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                    >
-                      <X className="w-5 h-5 text-gray-600" />
-                    </button>
-                  </div>
-                </div>
-                <div
-                  className="flex-1 overflow-auto p-2"
-                  style={{ minHeight: "400px" }}
-                >
-                  {isPdf ? (
-                    <iframe
-                      src={proxyUrl}
-                      className="w-full h-full rounded"
-                      style={{ minHeight: "500px" }}
-                      title="Comprobante"
-                    />
-                  ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={proxyUrl}
-                      alt="Comprobante"
-                      className="max-w-full h-auto rounded"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+      <FilePreviewModal
+        open={imagePreviewState.isOpen}
+        onClose={() =>
+          setImagePreviewState({
+            isOpen: false,
+            imageUrl: null,
+            fileName: null,
+          })
+        }
+        fileUrl={imagePreviewState.imageUrl}
+        fileName={imagePreviewState.fileName}
+      />
     </div>
   );
 }
