@@ -1,4 +1,5 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import "@/lib/pdfText";
 
 export interface CuentaRowPDF {
   fecha: string;
