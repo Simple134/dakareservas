@@ -6,7 +6,10 @@ import { ProjectChart } from "@/src/components/dashboard/ProjectChart";
 import { BenefitsCard } from "@/src/components/dashboard/BenefitsCard";
 import { PageHeader, PageBody } from "@/src/components/ui/page-header";
 import { Button } from "@/src/components/ui/button";
+import { useMemo, useState } from "react";
 import { Plus, LogOut, Loader2, AlertTriangle } from "lucide-react";
+import { SearchInput } from "@/src/components/ui/search-input";
+import { FilterChip } from "@/src/components/ui/filter-chip";
 import { useRouter } from "next/navigation";
 import { useErp } from "@/src/context/ErpContext";
 import { useDashboardMetrics } from "@/src/hooks/useDashboardMetrics";
@@ -20,6 +23,21 @@ import { moneyShort, count } from "@/src/lib/format";
  */
 
 const PROYECTOS_VISIBLES = 9;
+
+const ESTADOS = [
+  { value: "all", label: "Todos" },
+  { value: "planning", label: "Planificación" },
+  { value: "execution", label: "Ejecución" },
+  { value: "completed", label: "Completado" },
+] as const;
+
+type EstadoFiltro = (typeof ESTADOS)[number]["value"];
+
+const normalizar = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 export function DashboardView() {
   const { signOut } = useAuth();
@@ -54,7 +72,33 @@ export function DashboardView() {
     },
   ];
 
-  const proyectos = m.projects.slice(0, PROYECTOS_VISIBLES);
+  const [busqueda, setBusqueda] = useState("");
+  const [estado, setEstado] = useState<EstadoFiltro>("all");
+  const [verTodos, setVerTodos] = useState(false);
+
+  const filtrando = busqueda.trim() !== "" || estado !== "all";
+
+  const coincidencias = useMemo(() => {
+    const q = normalizar(busqueda.trim());
+    return m.projects.filter((p) => {
+      if (estado !== "all" && p.status !== estado) return false;
+      if (!q) return true;
+      return normalizar(
+        [p.name, p.client, p.location].filter(Boolean).join(" "),
+      ).includes(q);
+    });
+  }, [m.projects, busqueda, estado]);
+
+  // Al filtrar se busca en toda la cartera; sin filtro se acota a los más activos.
+  const proyectos =
+    filtrando || verTodos
+      ? coincidencias
+      : coincidencias.slice(0, PROYECTOS_VISIBLES);
+
+  const conteoEstado = (v: EstadoFiltro) =>
+    v === "all"
+      ? m.projects.length
+      : m.projects.filter((p) => p.status === v).length;
 
   return (
     <>
@@ -131,7 +175,47 @@ export function DashboardView() {
                 </p>
               </div>
 
-              {m.projects.length > 0 ? (
+              {m.projects.length > 0 && (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <SearchInput
+                    value={busqueda}
+                    onValueChange={setBusqueda}
+                    placeholder="Buscar por nombre, cliente o ubicación…"
+                    aria-label="Buscar proyectos"
+                    className="sm:w-80"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {ESTADOS.map((e) => (
+                      <FilterChip
+                        key={e.value}
+                        active={estado === e.value}
+                        count={conteoEstado(e.value)}
+                        onClick={() => setEstado(e.value)}
+                      >
+                        {e.label}
+                      </FilterChip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {m.projects.length > 0 && proyectos.length === 0 ? (
+                <div className="rounded-[12px] border border-rule bg-paper px-6 py-12 text-center">
+                  <p className="text-[0.875rem] text-ink-2">
+                    Ningún proyecto coincide con el filtro.
+                  </p>
+                  <Button
+                    variant="ghost"
+                    className="mt-3"
+                    onClick={() => {
+                      setBusqueda("");
+                      setEstado("all");
+                    }}
+                  >
+                    Limpiar filtros
+                  </Button>
+                </div>
+              ) : m.projects.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {proyectos.map((project) => (
                     <ProjectCard
@@ -156,11 +240,21 @@ export function DashboardView() {
                 </div>
               )}
 
-              {m.projects.length > proyectos.length && (
-                <p className="text-[0.75rem] text-ink-3">
-                  Se muestran los {PROYECTOS_VISIBLES} proyectos con más
-                  actividad facturada.
-                </p>
+              {!filtrando && coincidencias.length > PROYECTOS_VISIBLES && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-[0.75rem] text-ink-3">
+                    {verTodos
+                      ? "Se muestran todos los proyectos."
+                      : `Se muestran los ${PROYECTOS_VISIBLES} proyectos con más actividad facturada.`}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVerTodos((v) => !v)}
+                  >
+                    {verTodos ? "Mostrar menos" : "Mostrar todos"}
+                  </Button>
+                </div>
               )}
             </section>
           </>

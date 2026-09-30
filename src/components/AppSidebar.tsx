@@ -109,7 +109,7 @@ export function AppSidebar({
         )}
       </div>
 
-      <div className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
+      <div className="scroll-shell min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-4">
         <nav className="space-y-0.5" aria-label="Menú principal">
           <h2 className="px-2.5 pb-2 text-[0.625rem] font-semibold uppercase tracking-[0.09em] text-white/40">
             Menú
