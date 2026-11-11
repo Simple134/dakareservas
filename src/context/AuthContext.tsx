@@ -192,8 +192,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser(session.user);
             // Skip if initializeAuth already handled this
             if (!initCompleteRef.current) return;
-            await fetchAndSetRole(session.user.id);
-            setLoading(false);
+            // Fuera del callback: supabase-js mantiene el candado de auth
+            // mientras este corre, y una consulta esperada aquí dentro lo
+            // pide otra vez. Desde ese momento toda llamada a supabase cuelga.
+            const userId = session.user.id;
+            setTimeout(async () => {
+              await fetchAndSetRole(userId);
+              if (mounted) setLoading(false);
+            }, 0);
           } else if (event === "SIGNED_OUT") {
             setUser(null);
             setRole(null);

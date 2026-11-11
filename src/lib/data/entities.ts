@@ -3,6 +3,7 @@
  * Las firmas y la forma de respuesta replican las que consumía la UI antes de la migración.
  */
 import { supabaseAdmin } from "@/src/lib/supabase/admin";
+import { formatNcf } from "@/src/lib/ncf";
 import { mapBeneficiary, mapDivision, mapResource, type Row } from "./mappers";
 import type {
   Beneficiary,
@@ -22,6 +23,7 @@ import type {
   UpdateContactDataBody,
   UpdateContactDataResponse,
   TaxRate,
+  FiscalNumeral,
 } from "@/src/types/erp";
 
 const fallar = (contexto: string, error: { message: string }): never => {
@@ -448,15 +450,126 @@ export async function getTaxesList(): Promise<TaxRate[]> {
   }));
 }
 
+// ----------------------------------------------------- comprobantes (NCF)
+
+const mapFiscalNumeral = (r: Row): FiscalNumeral => ({
+  type: r.type,
+  prefix: r.prefix,
+  nextValue: Number(r.next_value),
+  maxValue: r.max_value === null ? null : Number(r.max_value),
+  updatedAt: r.updated_at,
+});
+
+const secuenciaAgotada = (n: FiscalNumeral): never => {
+  throw Object.assign(
+    new Error(
+      `La secuencia ${n.prefix} está agotada: el último número autorizado es ${formatNcf(n.prefix, n.maxValue ?? 0)}. Registra el nuevo rango en Configuración, Comprobantes.`,
+    ),
+    { statusCode: 409, error: "Secuencia fiscal agotada" },
+  );
+};
+
+export async function getFiscalNumerals(): Promise<FiscalNumeral[]> {
+  const { data, error } = await supabaseAdmin
+    .from("fiscal_numerals")
+    .select("*")
+    .order("prefix", { ascending: true });
+  if (error) fallar("listar comprobantes fiscales", error);
+  return (data ?? []).map(mapFiscalNumeral);
+}
+
+async function leerFiscalNumeral(type: string): Promise<FiscalNumeral> {
+  const { data, error } = await supabaseAdmin
+    .from("fiscal_numerals")
+    .select("*")
+    .eq("type", type)
+    .maybeSingle();
+  if (error) fallar("leer comprobante fiscal", error);
+  if (!data) {
+    throw Object.assign(
+      new Error(`No hay secuencia configurada para el tipo ${type}.`),
+      { statusCode: 404, error: "Secuencia fiscal inexistente" },
+    );
+  }
+  return mapFiscalNumeral(data);
+}
+
+export async function updateFiscalNumeral(params: {
+  type: string;
+  nextValue: number;
+  maxValue: number | null;
+}): Promise<FiscalNumeral> {
+  const { type, nextValue, maxValue } = params;
+  const entero = (n: number) => Number.isSafeInteger(n) && n >= 1;
+  if (!entero(nextValue) || (maxValue !== null && !entero(maxValue))) {
+    throw Object.assign(
+      new Error("Los números de la secuencia deben ser enteros desde 1."),
+      { statusCode: 400, error: "Secuencia fiscal inválida" },
+    );
+  }
+  // next_value puede quedar en max + 1: es la secuencia ya consumida entera.
+  if (maxValue !== null && nextValue > maxValue + 1) {
+    throw Object.assign(
+      new Error("El próximo número no puede pasar del último autorizado."),
+      { statusCode: 400, error: "Secuencia fiscal inválida" },
+    );
+  }
+  const { data, error } = await supabaseAdmin
+    .from("fiscal_numerals")
+    .update({
+      next_value: nextValue,
+      max_value: maxValue,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("type", type)
+    .select("*")
+    .maybeSingle();
+  if (error) fallar("guardar comprobante fiscal", error);
+  if (!data) {
+    throw Object.assign(
+      new Error(`No hay secuencia configurada para el tipo ${type}.`),
+      { statusCode: 404, error: "Secuencia fiscal inexistente" },
+    );
+  }
+  return mapFiscalNumeral(data);
+}
+
+/** Falla si la secuencia no tiene números libres. No consume ninguno. */
+export async function assertFiscalNumeralAvailable(
+  type: string,
+): Promise<void> {
+  const n = await leerFiscalNumeral(type);
+  if (n.maxValue !== null && n.nextValue > n.maxValue) secuenciaAgotada(n);
+}
+
+/**
+ * Reserva el siguiente NCF. El update lleva `next_value = N` como condición:
+ * si otra factura tomó N entre la lectura y la escritura, no toca ninguna
+ * fila y se reintenta, así que un número nunca se entrega dos veces.
+ */
 export async function getNextInvoiceNumeral(data: {
   type: string;
 }): Promise<string> {
-  const { data: numeral, error } = await supabaseAdmin.rpc(
-    "next_fiscal_numeral",
-    { p_type: data.type },
+  for (let intento = 0; intento < 5; intento++) {
+    const n = await leerFiscalNumeral(data.type);
+    if (n.maxValue !== null && n.nextValue > n.maxValue) secuenciaAgotada(n);
+
+    const { data: filas, error } = await supabaseAdmin
+      .from("fiscal_numerals")
+      .update({
+        next_value: n.nextValue + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("type", data.type)
+      .eq("next_value", n.nextValue)
+      .select("type");
+    if (error) fallar("asignar comprobante fiscal", error);
+    if (filas && filas.length > 0) return formatNcf(n.prefix, n.nextValue);
+  }
+  throw Object.assign(
+    new Error("No se pudo reservar el comprobante fiscal. Intenta de nuevo."),
+    { statusCode: 503, error: "Secuencia fiscal ocupada" },
   );
-  if (error) fallar("asignar comprobante fiscal", error);
-  return numeral as string;
 }
 
 // ----------------------------------------------------------------- appData

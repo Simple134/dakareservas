@@ -14,6 +14,7 @@ import {
   Image as ImageIcon,
   History,
   Plus,
+  Receipt,
 } from "lucide-react";
 import { PageHeader, PageBody } from "@/src/components/ui/page-header";
 import { Button } from "@/src/components/ui/button";
@@ -76,6 +77,7 @@ import { generateInvoicePDF } from "@/lib/generateInvoicePDF";
 import { PayInvoiceModal } from "@/src/components/dashboard/PayInvoiceModal";
 import { ConvertModal } from "@/src/components/dashboard/ConvertModal";
 import { useAuth } from "@/src/context/AuthContext";
+import { supabase } from "@/src/lib/supabase/client";
 
 interface InvoiceDisplay {
   id: string;
@@ -91,6 +93,8 @@ interface InvoiceDisplay {
   status: string;
   type: string;
   documentType: string;
+  /** Venta con comprobante fiscal ya asignado. */
+  hasNcf: boolean;
   attachedFileUrl?: string;
   attachedFileName?: string;
   reference?: string;
@@ -139,6 +143,7 @@ function AccionesDocumento({
   onEditar,
   onEliminar,
   onComprobante,
+  onAsignarNcf,
 }: {
   invoice: InvoiceDisplay;
   enHistorial: boolean;
@@ -147,7 +152,12 @@ function AccionesDocumento({
   onEditar: (i: InvoiceDisplay) => void;
   onEliminar: (id: string, numero: string, tipoDoc: string) => void;
   onComprobante: (url: string, nombre?: string) => void;
+  onAsignarNcf: (i: InvoiceDisplay) => void;
 }) {
+  const faltaNcf =
+    invoice.type === "sale" &&
+    invoice.documentType.toLowerCase() === "invoice" &&
+    !invoice.hasNcf;
   return (
     <>
       <AccionDoc label="Ver documento" onClick={() => onVer(invoice)}>
@@ -156,6 +166,14 @@ function AccionesDocumento({
       <AccionDoc label="Descargar PDF" onClick={() => onPdf(invoice)}>
         <Download className="h-4 w-4" strokeWidth={1.75} />
       </AccionDoc>
+      {!enHistorial && faltaNcf && (
+        <AccionDoc
+          label="Asignar NCF B01"
+          onClick={() => onAsignarNcf(invoice)}
+        >
+          <Receipt className="h-4 w-4" strokeWidth={1.75} />
+        </AccionDoc>
+      )}
       {!enHistorial && (
         <>
           <AccionDoc label="Editar" onClick={() => onEditar(invoice)}>
@@ -254,6 +272,7 @@ function mapErpToInvoice(
   return {
     id: String(erpInvoice.id),
     invoiceNumber: erpInvoice.taxId || `INV-${erpInvoice.id}`,
+    hasNcf: Boolean(erpInvoice.taxId),
     projectName:
       elementTitle ||
       division?.name ||
@@ -726,6 +745,29 @@ export default function InvoicesPage() {
 
   const handleInvoiceCreated = () => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleAsignarNcf = async (invoice: InvoiceDisplay) => {
+    // Consume un número de la secuencia y no se puede deshacer.
+    const seguro = window.confirm(
+      `Se asignará el siguiente NCF B01 a la factura de ${invoice.clientName ?? "este cliente"}. El número queda usado y no se puede retirar. ¿Asignarlo?`,
+    );
+    if (!seguro) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      const res = await fetch(`/api/erp/pendingRecord/${invoice.id}/ncf`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const cuerpo = await res.json();
+      if (!res.ok) throw new Error(cuerpo.error);
+      setRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      alert(
+        `No se pudo asignar el NCF: ${error instanceof Error ? error.message : "error desconocido"}`,
+      );
+    }
   };
 
   const handleDeleteClick = (
@@ -1402,6 +1444,7 @@ export default function InvoicesPage() {
                         onPdf={handleDownloadPDF}
                         onEditar={handleEditClick}
                         onEliminar={handleDeleteClick}
+                        onAsignarNcf={handleAsignarNcf}
                         onComprobante={(url, nombre) =>
                           setImagePreviewState({
                             isOpen: true,
@@ -1505,6 +1548,7 @@ export default function InvoicesPage() {
                               onPdf={handleDownloadPDF}
                               onEditar={handleEditClick}
                               onEliminar={handleDeleteClick}
+                              onAsignarNcf={handleAsignarNcf}
                               onComprobante={(url, nombre) =>
                                 setImagePreviewState({
                                   isOpen: true,

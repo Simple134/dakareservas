@@ -69,6 +69,12 @@ Filtering, pagination and the `resume` aggregate are resolved by the
 (`create_pending_record`, `pay_pending_record`, `create_from_pending_record`,
 `next_fiscal_numeral`) are Postgres functions too.
 
+Fiscal receipts (NCF): the sequences live in `fiscal_numerals` and are edited in
+Configuración → Comprobantes (`/api/erp/fiscalNumerals`). Every sale invoice takes the
+next B01 number in `createPendingRecord` (`src/lib/data/records.ts`), reserved with a
+compare-and-swap update in `getNextInvoiceNumeral`. The `next_fiscal_numeral` Postgres
+function is not called by the app.
+
 Verification scripts in `scripts/etl/`: `reconcile.mjs` (totals and states against the
 migrated source), `smoke.mjs` (functional writes, creates and cleans up after itself).
 

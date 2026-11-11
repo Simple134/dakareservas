@@ -47,7 +47,12 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   let yPosition = height - margin;
 
   // Prepare invoice data
-  const invoiceNumber = invoice.taxId || `0000000${invoice.id}`.slice(-8);
+  const internalNumber = `0000000${invoice.id}`.slice(-8);
+  // En ventas el taxId es el NCF y se imprime en su propia línea.
+  const ncf = isSell ? invoice.taxId || "" : "";
+  const invoiceNumber = isSell
+    ? internalNumber
+    : invoice.taxId || internalNumber;
   const invoicePrefix = isSell ? "FAVE" : "FACO";
   const fullInvoiceNumber = `${invoicePrefix}-${invoiceNumber}`;
 
@@ -94,6 +99,29 @@ export async function generateInvoicePDF(data: InvoicePDFData) {
   });
 
   yPosition -= 30;
+
+  // Leyenda que exige la DGII en las facturas de crédito fiscal (B01).
+  if (isSell) {
+    page.drawText("FACTURA VÁLIDA PARA CRÉDITO FISCAL", {
+      x: margin,
+      y: yPosition,
+      size: 10,
+      font: fontBold,
+      color: rgb(0, 0, 0),
+    });
+    yPosition -= 15;
+
+    if (ncf) {
+      page.drawText(`NCF: ${ncf}`, {
+        x: margin,
+        y: yPosition,
+        size: 10,
+        font: fontBold,
+        color: rgb(0, 0, 0),
+      });
+      yPosition -= 15;
+    }
+  }
 
   // Invoice Number and Details (left-aligned)
   page.drawText(fullInvoiceNumber, {

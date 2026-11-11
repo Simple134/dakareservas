@@ -42,6 +42,8 @@ export {
 
   // Taxes
   getNextInvoiceNumeral,
+  getFiscalNumerals,
+  updateFiscalNumeral,
   getTaxesList,
   addPendingRecordElementTaxes,
   removePendingRecordElementTaxes,

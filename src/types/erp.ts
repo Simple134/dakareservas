@@ -829,6 +829,25 @@ export interface TaxRate {
   organizationId: number | null;
 }
 
+export type FiscalNumeralType =
+  | "GOVERNMENT"
+  | "CONSUMER"
+  | "TAX_CREDIT"
+  | "CREDIT_NOTE"
+  | "TAX_CREDIT_ELECTRONIC"
+  | "SPECIAL_REGIME";
+
+/** Secuencia de comprobantes fiscales (NCF) autorizada por la DGII. */
+export interface FiscalNumeral {
+  type: FiscalNumeralType;
+  prefix: string;
+  /** Número que recibirá la próxima factura. */
+  nextValue: number;
+  /** Último número autorizado; null si no se registró un tope. */
+  maxValue: number | null;
+  updatedAt: string;
+}
+
 // ========================
 // App Data
 // ========================

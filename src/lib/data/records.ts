@@ -7,6 +7,10 @@
  */
 import { supabaseAdmin } from "@/src/lib/supabase/admin";
 import { mapRecord, type Row } from "./mappers";
+import {
+  assertFiscalNumeralAvailable,
+  getNextInvoiceNumeral,
+} from "./entities";
 import type {
   PendingRecord,
   V2GetPendingRecordsResponse,
@@ -101,20 +105,87 @@ export async function getPendingRecordById(
   return record ?? null;
 }
 
-/** Alta de documento con sus líneas e impuestos, en una sola transacción. */
+/**
+ * Alta de documento con sus líneas e impuestos, en una sola transacción.
+ *
+ * Toda factura de venta sale con un NCF de crédito fiscal (B01), sea al
+ * contado o a crédito. El número se reserva después del alta para no quemar
+ * uno si esta falla: un salto en la secuencia hay que reportarlo a la DGII.
+ */
 export async function createPendingRecord(
   payload: RecordPayload & Record<string, unknown>,
 ): Promise<InvoiceResponse> {
+  const llevaNcf =
+    payload.type === "INVOICE" &&
+    (payload.isSell === true || (payload.isSell as unknown) === 1) &&
+    !payload.taxId;
+  if (llevaNcf) await assertFiscalNumeralAvailable("TAX_CREDIT");
+
   const { data, error } = await supabaseAdmin.rpc("create_pending_record", {
     p: payload,
   });
   if (error) fallar("crear documento", error);
+
+  let taxId: string | undefined = data.taxId ?? undefined;
+  if (llevaNcf && !taxId) {
+    taxId = await getNextInvoiceNumeral({ type: "TAX_CREDIT" });
+    const { error: errorNcf } = await supabaseAdmin
+      .from("pending_records")
+      .update({ tax_id: taxId })
+      .eq("id", data.id);
+    if (errorNcf) fallar(`guardar el NCF ${taxId} en la factura`, errorNcf);
+  }
+
   return {
     id: data.id,
     status: data.state,
-    number: data.taxId ?? undefined,
+    number: taxId,
     createdAt: data.createdAt,
   } as InvoiceResponse;
+}
+
+/**
+ * Da un NCF B01 a una factura de venta emitida sin comprobante. Devuelve el
+ * número asignado.
+ */
+export async function assignFiscalNumeral(id: number): Promise<string> {
+  const rechazar = (statusCode: number, mensaje: string): never => {
+    throw Object.assign(new Error(mensaje), { statusCode });
+  };
+
+  const { data: factura, error } = await supabaseAdmin
+    .from("pending_records")
+    .select("id, type, is_sell, tax_id, archived_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) fallar("leer la factura", error);
+  if (!factura) rechazar(404, "La factura no existe.");
+  if (factura!.type !== "INVOICE" || !factura!.is_sell) {
+    rechazar(400, "Solo las facturas de venta llevan NCF de crédito fiscal.");
+  }
+  if (factura!.archived_at) rechazar(400, "La factura está anulada.");
+  if (factura!.tax_id) {
+    rechazar(409, `La factura ya tiene el NCF ${factura!.tax_id}.`);
+  }
+
+  const ncf = await getNextInvoiceNumeral({ type: "TAX_CREDIT" });
+  // `tax_id is null` evita pisar un NCF asignado por otra petición simultánea.
+  const { data: filas, error: errorNcf } = await supabaseAdmin
+    .from("pending_records")
+    .update({ tax_id: ncf, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("tax_id", null)
+    .select("id");
+  if (errorNcf) fallar(`guardar el NCF ${ncf} en la factura`, errorNcf);
+  if (!filas?.length) {
+    rechazar(
+      409,
+      `El NCF ${ncf} quedó reservado sin usar: la factura recibió otro comprobante al mismo tiempo.`,
+    );
+  }
+
+  await registrarEvento(id, "invoice:updated", { new: { tax_id: ncf } });
+  return ncf;
 }
 
 /** Campos de la API -> columnas. Lo que no esté aquí se ignora. */

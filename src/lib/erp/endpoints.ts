@@ -11,6 +11,7 @@ import * as records from "@/src/lib/data/records";
 import * as entities from "@/src/lib/data/entities";
 import * as files from "@/src/lib/data/files";
 import type {
+  FiscalNumeralType,
   RecordPayload,
   InvoiceResponse,
   EventsQueryParams,
@@ -222,15 +223,16 @@ export const v2GetResources = (
 
 export const getTaxesList = () => entities.getTaxesList();
 
-export const getNextInvoiceNumeral = (data: {
-  type:
-    | "GOVERNMENT"
-    | "CONSUMER"
-    | "TAX_CREDIT"
-    | "CREDIT_NOTE"
-    | "TAX_CREDIT_ELECTRONIC"
-    | "SPECIAL_REGIME";
-}) => entities.getNextInvoiceNumeral(data);
+export const getNextInvoiceNumeral = (data: { type: FiscalNumeralType }) =>
+  entities.getNextInvoiceNumeral(data);
+
+export const getFiscalNumerals = () => entities.getFiscalNumerals();
+
+export const updateFiscalNumeral = (data: {
+  type: FiscalNumeralType;
+  nextValue: number;
+  maxValue: number | null;
+}) => entities.updateFiscalNumeral(data);
 
 // ----------------------------------------------------------------- appData
 

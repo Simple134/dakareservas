@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Database, Shield, User } from "lucide-react";
+import { Check, Database, Receipt, Shield, User } from "lucide-react";
 import { PageHeader, PageBody } from "@/src/components/ui/page-header";
 import { TabsBar } from "@/src/components/ui/tabs-bar";
 import { Button } from "@/src/components/ui/button";
@@ -11,6 +11,8 @@ import { Badge } from "@/src/components/ui/badge";
 import { useAuth } from "@/src/context/AuthContext";
 import { supabase } from "@/src/lib/supabase/client";
 import { shortDate } from "@/src/lib/format";
+import { formatNcf } from "@/src/lib/ncf";
+import type { FiscalNumeral, FiscalNumeralType } from "@/src/types/erp";
 
 /* Hallmark · design-system: design.md · familia Workbench
  *
@@ -31,6 +33,7 @@ import { shortDate } from "@/src/lib/format";
 const TABS = [
   { id: "perfil", label: "Perfil", icon: User },
   { id: "seguridad", label: "Seguridad", icon: Shield },
+  { id: "comprobantes", label: "Comprobantes", icon: Receipt },
   { id: "sistema", label: "Sistema", icon: Database },
 ] as const;
 
@@ -93,6 +96,252 @@ function Dato({ label, value }: { label: string; value: React.ReactNode }) {
       <span className="text-[0.8125rem] text-ink-2">{label}</span>
       <span className="text-[0.8125rem] font-medium text-ink">{value}</span>
     </div>
+  );
+}
+
+const NOMBRE_COMPROBANTE: Record<FiscalNumeralType, string> = {
+  TAX_CREDIT: "Crédito fiscal",
+  CONSUMER: "Consumo",
+  CREDIT_NOTE: "Nota de crédito",
+  SPECIAL_REGIME: "Regímenes especiales",
+  GOVERNMENT: "Gubernamental",
+  TAX_CREDIT_ELECTRONIC: "Crédito fiscal electrónico",
+};
+
+/** La API de comprobantes exige el token de la sesión: no viaja en cookies. */
+async function cabeceraSesion(): Promise<Record<string, string>> {
+  const sesion = await Promise.race([
+    supabase.auth.getSession(),
+    new Promise<never>((_, rechazar) =>
+      setTimeout(
+        () =>
+          rechazar(
+            new Error(
+              "La sesión no respondió. Recarga la página e intenta de nuevo.",
+            ),
+          ),
+        8000,
+      ),
+    ),
+  ]);
+  const token = sesion.data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+const soloDigitos = (texto: string) => texto.replace(/\D/g, "");
+
+function SecuenciaFiscal({
+  numeral,
+  onSaved,
+}: {
+  numeral: FiscalNumeral;
+  onSaved: (n: FiscalNumeral) => void;
+}) {
+  const [proximo, setProximo] = useState(String(numeral.nextValue));
+  const [ultimo, setUltimo] = useState(
+    numeral.maxValue === null ? "" : String(numeral.maxValue),
+  );
+  const [guardando, setGuardando] = useState(false);
+  const [aviso, setAviso] = useState<Aviso>(null);
+
+  const nextValue = Number(proximo);
+  const maxValue = ultimo === "" ? null : Number(ultimo);
+  const proximoValido = proximo !== "" && nextValue >= 1;
+  // Igual que en el servidor: max + 1 es una secuencia consumida entera.
+  const ultimoValido = maxValue === null || nextValue <= maxValue + 1;
+  const agotada = maxValue !== null && nextValue > maxValue;
+  const cambiado =
+    nextValue !== numeral.nextValue || maxValue !== numeral.maxValue;
+  const idProximo = `ncf-proximo-${numeral.type}`;
+  const idUltimo = `ncf-ultimo-${numeral.type}`;
+
+  const guardar = async () => {
+    setGuardando(true);
+    setAviso(null);
+    try {
+      const res = await fetch("/api/erp/fiscalNumerals", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await cabeceraSesion()),
+        },
+        body: JSON.stringify({ type: numeral.type, nextValue, maxValue }),
+      });
+      const cuerpo = await res.json();
+      if (!res.ok) throw new Error(cuerpo.details || cuerpo.error);
+      onSaved(cuerpo as FiscalNumeral);
+      setAviso({ tipo: "ok", texto: "Secuencia guardada" });
+    } catch (error) {
+      setAviso({
+        tipo: "error",
+        texto:
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar la secuencia.",
+      });
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <form
+      className="border-b border-rule py-4 first:pt-0 last:border-0 last:pb-0"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (cambiado && proximoValido && ultimoValido) guardar();
+      }}
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h3 className="text-[0.875rem] font-semibold text-ink">
+          <span className="tabular font-mono">{numeral.prefix}</span>
+          {" · "}
+          {NOMBRE_COMPROBANTE[numeral.type] ?? numeral.type}
+        </h3>
+        <p className="text-[0.8125rem] text-ink-2">
+          {agotada ? (
+            <span className="text-danger">Secuencia agotada</span>
+          ) : proximoValido ? (
+            <>
+              Próximo comprobante:{" "}
+              <span className="tabular font-mono font-medium text-ink">
+                {formatNcf(numeral.prefix, nextValue)}
+              </span>
+            </>
+          ) : null}
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor={idProximo}>Próximo número a emitir</Label>
+          <Input
+            id={idProximo}
+            className="mt-1.5"
+            inputMode="numeric"
+            numeric
+            state={proximo !== "" && !proximoValido ? "error" : "idle"}
+            value={proximo}
+            onChange={(e) => setProximo(soloDigitos(e.target.value))}
+          />
+          {!proximoValido && (
+            <p className="mt-1.5 text-[0.75rem] text-danger">
+              Escribe un número desde 1.
+            </p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor={idUltimo}>Último número autorizado</Label>
+          <Input
+            id={idUltimo}
+            className="mt-1.5"
+            inputMode="numeric"
+            numeric
+            placeholder="Sin tope"
+            state={ultimoValido ? "idle" : "error"}
+            value={ultimo}
+            onChange={(e) => setUltimo(soloDigitos(e.target.value))}
+          />
+          {!ultimoValido && (
+            <p className="mt-1.5 text-[0.75rem] text-danger">
+              El próximo número ya pasa de este tope.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+        <Aviso aviso={aviso} />
+        <Button
+          type="submit"
+          size="sm"
+          variant="outline"
+          disabled={!cambiado || !proximoValido || !ultimoValido || guardando}
+          loading={guardando}
+        >
+          Guardar secuencia {numeral.prefix}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function ComprobantesPanel() {
+  const [numerales, setNumerales] = useState<FiscalNumeral[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/erp/fiscalNumerals", {
+          headers: await cabeceraSesion(),
+        });
+        const cuerpo = await res.json();
+        if (!res.ok) throw new Error(cuerpo.details || cuerpo.error);
+        if (!vivo) return;
+        setNumerales(cuerpo as FiscalNumeral[]);
+        setError(null);
+      } catch (e) {
+        if (!vivo) return;
+        setError(e instanceof Error ? e.message : "Error desconocido");
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [intento]);
+
+  return (
+    <Panel
+      title="Comprobantes fiscales"
+      description="Secuencias de NCF autorizadas por la DGII. Toda factura de venta, al contado o a crédito, toma el siguiente número de la secuencia B01 y se imprime como válida para crédito fiscal."
+    >
+      {error ? (
+        <div className="space-y-3">
+          <p role="alert" className="text-[0.8125rem] text-danger">
+            No se pudieron cargar las secuencias: {error}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              setNumerales(null);
+              setIntento((n) => n + 1);
+            }}
+          >
+            Reintentar la carga
+          </Button>
+        </div>
+      ) : numerales === null ? (
+        <p role="status" className="text-[0.8125rem] text-ink-2">
+          Cargando secuencias…
+        </p>
+      ) : numerales.length === 0 ? (
+        <p className="text-[0.8125rem] text-ink-2">
+          No hay secuencias en la tabla fiscal_numerals. Hay que crearlas en la
+          base de datos antes de poder emitir facturas con NCF.
+        </p>
+      ) : (
+        <div>
+          {numerales.map((n) => (
+            <SecuenciaFiscal
+              key={n.type}
+              numeral={n}
+              onSaved={(guardado) =>
+                setNumerales((lista) =>
+                  (lista ?? []).map((x) =>
+                    x.type === guardado.type ? guardado : x,
+                  ),
+                )
+              }
+            />
+          ))}
+        </div>
+      )}
+    </Panel>
   );
 }
 
@@ -190,7 +439,7 @@ export default function SettingsPage() {
     <>
       <PageHeader
         title="Configuración"
-        description="Tu perfil, tu acceso y los datos de la sesión."
+        description="Tu perfil, tu acceso, los comprobantes fiscales y los datos de la sesión."
       />
 
       <PageBody className="max-w-3xl space-y-5">
@@ -298,6 +547,8 @@ export default function SettingsPage() {
             </div>
           </Panel>
         )}
+
+        {activeTab === "comprobantes" && <ComprobantesPanel />}
 
         {activeTab === "sistema" && (
           <Panel
