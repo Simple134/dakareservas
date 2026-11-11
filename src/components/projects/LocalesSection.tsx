@@ -14,12 +14,15 @@ import { EditLocalModal } from "@/src/components/projects/EditLocalModal";
 import { LocalPaymentsModal } from "@/src/components/projects/LocalPaymentsModal";
 import { LocalReservaModal } from "@/src/components/projects/LocalReservaModal";
 import type { AppData } from "@/src/types/erp";
+import { cuentaDeLocal } from "@/src/lib/locales/receivables";
 
 interface LocalesSectionProps {
   projectName: string;
   projectId: string;
   projectEndDate?: string;
   uniqueId?: string;
+  /** Número de local con el que abrir la búsqueda ya filtrada. */
+  initialSearch?: string;
 }
 
 export function LocalesSection({
@@ -27,13 +30,14 @@ export function LocalesSection({
   projectId,
   projectEndDate,
   uniqueId,
+  initialSearch = "",
 }: LocalesSectionProps) {
   const [localesData, setLocalesData] = useState<AppData[]>([]);
   const [reservasData, setReservasData] = useState<AppData[]>([]);
   const [paymentsData, setPaymentsData] = useState<AppData[]>([]);
 
   // Filters
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedLevel, setSelectedLevel] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [minPrice, setMinPrice] = useState<string>("");
@@ -151,29 +155,15 @@ export function LocalesSection({
   const hasPaymentsView = (status: string) =>
     ["VENDIDO", "RESERVADO", "BLOQUEADO"].includes(status);
 
+  // Mismo cálculo que la pestaña «Por cobrar»: las dos cifras no pueden diferir.
   const getPaidByCurrency = (local: AppData): { USD: number; DOP: number } => {
-    const reserva = reservasData.find(
-      (r) => r.data?.locales_id === local.data?.id,
-    );
-    if (!reserva) {
-      const total = (local.data?.payments ?? []).reduce(
-        (s: number, p: { amount: number }) => s + p.amount,
-        0,
-      );
-      return { USD: 0, DOP: total };
-    }
-    const approved = paymentsData.filter(
-      (p) =>
-        p.data?.allocation_id === reserva.data?.id &&
-        p.data?.status === "approved",
-    );
+    const cuenta = cuentaDeLocal(local, reservasData, paymentsData);
+    const otra = cuenta.moneda === "USD" ? "DOP" : "USD";
     return {
-      USD: approved
-        .filter((p) => p.data?.currency === "USD")
-        .reduce((sum, p) => sum + ((p.data?.amount as number) ?? 0), 0),
-      DOP: approved
-        .filter((p) => p.data?.currency === "DOP")
-        .reduce((sum, p) => sum + ((p.data?.amount as number) ?? 0), 0),
+      USD: 0,
+      DOP: 0,
+      [cuenta.moneda]: cuenta.cobrado,
+      [otra]: cuenta.cobradoOtraMoneda,
     };
   };
 
@@ -387,8 +377,11 @@ export function LocalesSection({
             const totalValue = local.data?.total_value || 0;
             const reserva = getReservaForLocal(local);
             // Use the currency of the actual payments (not the reserva header)
-            const paymentCurrency: "USD" | "DOP" =
-              paidByCurrency.USD > 0 ? "USD" : "DOP";
+            const paymentCurrency = cuentaDeLocal(
+              local,
+              reservasData,
+              paymentsData,
+            ).moneda;
             const totalPaidMain =
               paymentCurrency === "USD"
                 ? paidByCurrency.USD
@@ -460,7 +453,7 @@ export function LocalesSection({
                   <div className="flex justify-between text-sm border-t pt-1.5 mt-1">
                     <span className="text-ink-2 font-medium">Valor Total:</span>
                     <span className="font-bold text-ink">
-                      {fmtAmt(totalValue, "USD")}
+                      {fmtAmt(totalValue, paymentCurrency)}
                     </span>
                   </div>
                   {local.data?.separation_10 && (

@@ -26,7 +26,9 @@ import { Badge } from "@/src/components/ui/badge";
 import { TabsBar } from "@/src/components/ui/tabs-bar";
 import { EmptyState } from "@/src/components/ui/empty-state";
 import { KPICard } from "@/src/components/dashboard/KPICard";
-import { money, percent } from "@/src/lib/format";
+import { money, moneyIn, percent } from "@/src/lib/format";
+import { leerAppDataTipo } from "@/src/lib/locales/fetch";
+import { TASA_USD_DOP, cobradoEnLocales } from "@/src/lib/locales/receivables";
 import { Division, DivisionWithBalance, InvoiceItem } from "@/src/types/erp";
 import { PersonnelModule } from "@/src/components/project/PersonnelModule";
 import { LocalesSection } from "@/src/components/projects/LocalesSection";
@@ -78,6 +80,7 @@ export function ProjectContent({
   );
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [financeRefreshKey, setFinanceRefreshKey] = useState(0);
+  const [localBuscado, setLocalBuscado] = useState("");
 
   // Expenses State
   const [expensesTotal, setExpensesTotal] = useState<number>(0);
@@ -86,10 +89,37 @@ export function ProjectContent({
   // Sales invoices for BudgetModule progress
   const [salesInvoices, setSalesInvoices] = useState<InvoiceItem[]>([]);
 
-  const totalExecuted = useMemo(
+  const cobradoFacturas = useMemo(
     () => salesInvoices.reduce((sum, inv) => sum + (inv.paid || 0), 0),
     [salesInvoices],
   );
+
+  const [cobradoLocales, setCobradoLocales] = useState({ USD: 0, DOP: 0 });
+  const uniqueId = (division?.metadata?.unique_id as string) || "";
+
+  // Se relee al cambiar de pestaña: un pago aprobado en Locales mueve el KPI.
+  useEffect(() => {
+    if (!uniqueId) return;
+    const controller = new AbortController();
+    Promise.all(
+      ["locales", "reservas", "payments"].map((t) =>
+        leerAppDataTipo(uniqueId, t, controller.signal),
+      ),
+    )
+      .then(([locales, reservas, pagos]) =>
+        setCobradoLocales(cobradoEnLocales(locales, reservas, pagos)),
+      )
+      .catch((error) => {
+        if (!controller.signal.aborted)
+          console.error("Error al cargar lo cobrado en locales:", error);
+      });
+    return () => controller.abort();
+  }, [uniqueId, selectedSection]);
+
+  // El presupuesto está en pesos, así que los dólares entran convertidos.
+  const totalExecuted =
+    cobradoFacturas + cobradoLocales.DOP + cobradoLocales.USD * TASA_USD_DOP;
+  const hayCobroEnLocales = cobradoLocales.USD > 0 || cobradoLocales.DOP > 0;
 
   useEffect(() => {
     const fetchExpenses = async () => {
@@ -326,7 +356,16 @@ export function ProjectContent({
               title: "Cobrado al cliente",
               value: money(totalExecuted),
               icon: "TrendingUp",
-              hint: `${salesInvoices.length} facturas de venta`,
+              hint: hayCobroEnLocales
+                ? `Facturas ${money(cobradoFacturas)} · locales ${[
+                    cobradoLocales.USD > 0 &&
+                      moneyIn(cobradoLocales.USD, "USD"),
+                    cobradoLocales.DOP > 0 &&
+                      moneyIn(cobradoLocales.DOP, "DOP"),
+                  ]
+                    .filter(Boolean)
+                    .join(" + ")}`
+                : `${salesInvoices.length} facturas de venta`,
             }}
           />
           <KPICard
@@ -337,7 +376,9 @@ export function ProjectContent({
               hint:
                 avance === null
                   ? "Necesita un presupuesto para calcularse"
-                  : "Cobrado sobre el presupuesto",
+                  : cobradoLocales.USD > 0
+                    ? `Cobrado sobre el presupuesto · US$1 = RD$${TASA_USD_DOP}`
+                    : "Cobrado sobre el presupuesto",
             }}
           />
           <KPICard
@@ -353,7 +394,10 @@ export function ProjectContent({
         <TabsBar
           tabs={SECTIONS}
           value={selectedSection}
-          onChange={setSelectedSection}
+          onChange={(seccion) => {
+            setLocalBuscado("");
+            setSelectedSection(seccion);
+          }}
           aria-label="Secciones del proyecto"
         />
 
@@ -444,6 +488,11 @@ export function ProjectContent({
             <CuentasPorCobrarModule
               projectId={project?.id ?? 0}
               projectName={project?.name ?? ""}
+              uniqueId={project.uniqueId || undefined}
+              onVerLocal={(localId) => {
+                setLocalBuscado(String(localId));
+                setSelectedSection("locales");
+              }}
             />
           )}
 
@@ -497,6 +546,7 @@ export function ProjectContent({
               projectId={projectId}
               projectEndDate={project.endDate}
               uniqueId={project.uniqueId}
+              initialSearch={localBuscado}
             />
           )}
 

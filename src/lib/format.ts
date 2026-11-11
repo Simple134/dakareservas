@@ -43,3 +43,16 @@ export const shortDate = (fecha: string | null | undefined): string => {
     year: "numeric",
   }).format(d);
 };
+
+const porMoneda = {
+  USD: new Intl.NumberFormat("es-DO", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }),
+  DOP: dop,
+} as const;
+
+/** Los locales se venden en USD o en DOP: US$75,178 · RD$4,394,950. */
+export const moneyIn = (valor: number, moneda: "USD" | "DOP"): string =>
+  porMoneda[moneda].format(valor || 0);

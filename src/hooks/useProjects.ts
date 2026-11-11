@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/src/lib/supabase/client";
 
-const DOP_TO_USD_RATE = 62.8;
+import { TASA_USD_DOP as DOP_TO_USD_RATE } from "@/src/lib/locales/receivables";
 
 export type Project = {
   id: string | number;
