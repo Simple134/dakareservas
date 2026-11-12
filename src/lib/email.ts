@@ -139,3 +139,65 @@ export async function sendPaymentNotificationEmail(
     return { success: false, error };
   }
 }
+
+const escaparHtml = (texto: string) =>
+  texto.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ]!,
+  );
+
+export async function sendAccountStatementEmail(params: {
+  email: string;
+  name: string;
+  local: string;
+  recibido: string;
+  pendiente: string;
+  pdf: Uint8Array;
+  filename: string;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY is not set. Email not sent.");
+    return { success: false, error: "Missing API Key" };
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: "Daka <noreply@reservas.dakadominicana.com>",
+      to: [params.email],
+      subject: `Estado de cuenta de tu local ${params.local}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h1 style="color: #131E29;">Hola, ${escaparHtml(params.name)}</h1>
+          <p style="font-size: 16px; line-height: 1.6;">Registramos tu pago. Adjunto va el estado de cuenta actualizado de tu local ${escaparHtml(params.local)}.</p>
+          <div style="background-color: #f8f9fa; border-left: 4px solid #A9780F; padding: 15px; margin: 20px 0;">
+            <p style="margin: 0 0 6px; font-size: 16px;">Total recibido: <strong>${params.recibido}</strong></p>
+            <p style="margin: 0; font-size: 16px;">Balance pendiente: <strong>${params.pendiente}</strong></p>
+          </div>
+          <p style="color: #666; font-size: 14px;">
+            Si algún pago no aparece o un monto no coincide, llámanos al 829-885-2555 o al 829-573-6200.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #999; font-size: 12px;">
+            Daka Dominicana SRL. Este correo se envía desde una dirección que no recibe respuestas.
+          </p>
+        </div>
+      `,
+      attachments: [
+        { filename: params.filename, content: Buffer.from(params.pdf) },
+      ],
+    });
+
+    if (error) {
+      console.error("Error sending account statement:", error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("Exception sending account statement:", error);
+    return { success: false, error };
+  }
+}

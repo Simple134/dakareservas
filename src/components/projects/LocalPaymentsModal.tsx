@@ -1,764 +1,661 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useId, useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
+import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import { NativeSelect } from "@/src/components/ui/native-select";
+import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
+import { FieldError, Modal, ModalSection } from "@/src/components/ui/modal";
+import type { AppData } from "@/src/types/erp";
+import { supabase } from "@/src/lib/supabase/client";
 import {
-  X,
-  Plus,
-  CheckCircle2,
-  Clock,
-  DollarSign,
-  Loader2,
-  Trash2,
-  Upload,
-  FileText,
-  ExternalLink,
-  ChevronDown,
-} from "lucide-react";
-
-export interface LocalPayment {
-  id: string;
-  amount: number;
-  date: string;
-  type: "separacion" | "inicial" | "cuota" | "capital" | "otro";
-  description: string;
-  cuotaNumber?: number;
-  receipt_url?: string;
-  beneficiario_id?: number;
-  beneficiario_nombre?: string;
-}
-
-interface Beneficiario {
-  id: number;
-  name: string;
-}
-
-interface LocalData {
-  id: number;
-  level: number;
-  area_mt2: number;
-  price_per_mt2: number;
-  total_value: number;
-  separation_10?: number;
-  separation_45?: number;
-  status: string;
-  clientName?: string;
-  payments?: LocalPayment[];
-  [key: string]: unknown;
-}
-
-interface AppDataLocal {
-  id: number;
-  appId: number;
-  type: string;
-  data: LocalData;
-}
+  METODOS_PAGO,
+  TIPOS_PAGO,
+  describirPago,
+  estadoDeCuentaDeLocal,
+  fechaCorta,
+  importe,
+  siguienteRecibo,
+  type FilaEstado,
+  type LocalPayment,
+  type MetodoPago,
+  type TipoPago,
+} from "@/src/lib/locales/statement";
+import { descargarEstadoCuentaLocalPDF } from "@/lib/generateEstadoCuentaLocalPDF";
 
 interface LocalPaymentsModalProps {
-  local: AppDataLocal;
+  local: AppData;
+  /** Todos los locales del proyecto: de ahí sale el siguiente número de recibo. */
+  locales: AppData[];
+  reservas: AppData[];
+  pagos: AppData[];
+  clientes: AppData[];
+  projectName: string;
+  appId: string;
   onClose: () => void;
-  onSave: (updatedLocal: AppDataLocal) => void;
+  onSaved: (local: AppData) => void;
 }
 
-const PAYMENT_TYPES = [
-  { value: "separacion", label: "Separación" },
-  { value: "inicial", label: "Inicial" },
-  { value: "cuota", label: "Cuota mensual" },
-  { value: "capital", label: "Capital" },
-  { value: "otro", label: "Otro" },
-] as const;
-
-const TYPE_COLORS: Record<string, string> = {
-  separacion: "bg-info-soft text-info",
-  inicial: "bg-warning-soft text-warning",
-  cuota: "bg-info-soft text-info",
-  capital: "bg-success-soft text-success",
-  otro: "bg-paper-3 text-ink-2",
+const hoy = () => {
+  const d = new Date();
+  const dos = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`;
 };
 
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("es-DO", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-  }).format(n);
+const formularioVacio = () => ({
+  documento: "",
+  type: "cuota" as TipoPago,
+  cuotaNumber: "",
+  date: hoy(),
+  amount: "",
+  metodo: "deposito" as MetodoPago,
+  cuenta: "",
+  tasa: "",
+  description: "",
+});
 
-const formatDate = (d: string) =>
-  new Date(d + "T00:00:00").toLocaleDateString("es-DO", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-
-function generateId() {
-  return `pay_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+function Campo({
+  label,
+  error,
+  className,
+  children,
+}: {
+  label: string;
+  error?: string;
+  className?: string;
+  children: (id: string) => React.ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="eyebrow mb-1.5 block">
+        {label}
+      </label>
+      {children(id)}
+      <FieldError>{error}</FieldError>
+    </div>
+  );
 }
 
 export function LocalPaymentsModal({
   local,
+  locales,
+  reservas,
+  pagos,
+  clientes,
+  projectName,
+  appId,
   onClose,
-  onSave,
+  onSaved,
 }: LocalPaymentsModalProps) {
   const [payments, setPayments] = useState<LocalPayment[]>(
-    local.data.payments ?? [],
+    (local.data?.payments as LocalPayment[] | undefined) ?? [],
   );
-  const [isSaving, setIsSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [newPayment, setNewPayment] = useState({
-    amount: "",
-    date: new Date().toISOString().split("T")[0],
-    type: "cuota" as LocalPayment["type"],
-    description: "",
-    cuotaNumber: "",
-  });
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [beneficiarios, setBeneficiarios] = useState<Beneficiario[]>([]);
-  const [beneficiarioSearch, setBeneficiarioSearch] = useState("");
-  const [selectedBeneficiario, setSelectedBeneficiario] =
-    useState<Beneficiario | null>(null);
-  const [isBeneficiarioOpen, setIsBeneficiarioOpen] = useState(false);
-  const beneficiarioDropdownRef = useRef<HTMLDivElement>(null);
+  const [formAbierto, setFormAbierto] = useState(false);
+  const [form, setForm] = useState(formularioVacio);
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [errores, setErrores] = useState<Record<string, string>>({});
+  const [guardando, setGuardando] = useState(false);
+  const [porEliminar, setPorEliminar] = useState<FilaEstado | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [descargando, setDescargando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState<{
+    tipo: "ok" | "error";
+    texto: string;
+  } | null>(null);
 
-  const sortedFilteredBeneficiarios = [...beneficiarios]
-    .sort((a, b) => a.name.localeCompare(b.name, "es"))
-    .filter((b) =>
-      b.name.toLowerCase().includes(beneficiarioSearch.toLowerCase()),
-    );
+  const localActual = useMemo(
+    () => ({ ...local, data: { ...local.data, payments } }),
+    [local, payments],
+  );
+  const estado = useMemo(
+    () => estadoDeCuentaDeLocal(localActual, reservas, pagos, clientes),
+    [localActual, reservas, pagos, clientes],
+  );
+  const reciboSugerido = useMemo(
+    () =>
+      siguienteRecibo(
+        locales.map((l) => (l.id === local.id ? localActual : l)),
+      ),
+    [locales, local.id, localActual],
+  );
 
-  useEffect(() => {
-    fetch("/api/erp/beneficiaries?elementsPerPage=200")
-      .then((r) => r.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : (data.beneficiaries ?? []);
-        setBeneficiarios(
-          list.map((b: Beneficiario) => ({ id: b.id, name: b.name })),
-        );
-      })
-      .catch(console.error);
-  }, []);
+  const ocupado = guardando || eliminando || enviando;
+  const cambiar = (
+    campo: keyof ReturnType<typeof formularioVacio>,
+    v: string,
+  ) => setForm((f) => ({ ...f, [campo]: v }));
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        beneficiarioDropdownRef.current &&
-        !beneficiarioDropdownRef.current.contains(e.target as Node)
-      ) {
-        setIsBeneficiarioOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const abrirFormulario = () => {
+    setForm({ ...formularioVacio(), documento: reciboSugerido });
+    setArchivo(null);
+    setErrores({});
+    setAviso(null);
+    setFormAbierto(true);
+  };
 
-  const sep10 = local.data.separation_10 ?? local.data.total_value * 0.1;
-  const sep45 = local.data.separation_45 ?? local.data.total_value * 0.45;
-  const capital = local.data.total_value - sep10 - sep45;
-
-  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
-  const totalPending = local.data.total_value - totalPaid;
-  const paidPct =
-    local.data.total_value > 0
-      ? Math.min(100, Math.round((totalPaid / local.data.total_value) * 100))
-      : 0;
-
-  const addPayment = async () => {
-    const amount = parseFloat(newPayment.amount);
-    if (!amount || amount <= 0) return;
-
-    let receipt_url: string | undefined;
-
-    if (receiptFile) {
-      setIsUploading(true);
-      try {
-        const prefix = payments.length + 1;
-        const prefixedFile = new File(
-          [receiptFile],
-          `${prefix}_${receiptFile.name}`,
-          { type: receiptFile.type },
-        );
-        const formData = new FormData();
-        formData.append("file", prefixedFile);
-        const uploadRes = await fetch("/api/erp/uploadFile", {
-          method: "POST",
-          body: formData,
-        });
-        if (!uploadRes.ok) throw new Error("Error al subir el comprobante");
-        const uploadData = await uploadRes.json();
-        receipt_url = uploadData.file?.public || uploadData.file?.url;
-      } catch (err) {
-        console.error(err);
-        alert("Error al subir el comprobante");
-        setIsUploading(false);
-        return;
-      } finally {
-        setIsUploading(false);
-      }
-    }
-
-    const payment: LocalPayment = {
-      id: generateId(),
-      amount,
-      date: newPayment.date,
-      type: newPayment.type,
-      description:
-        newPayment.description ||
-        PAYMENT_TYPES.find((t) => t.value === newPayment.type)?.label ||
-        newPayment.type,
-      ...(newPayment.type === "cuota" && newPayment.cuotaNumber
-        ? { cuotaNumber: parseInt(newPayment.cuotaNumber) }
-        : {}),
-      ...(receipt_url ? { receipt_url } : {}),
-      ...(selectedBeneficiario
-        ? {
-            beneficiario_id: selectedBeneficiario.id,
-            beneficiario_nombre: selectedBeneficiario.name,
-          }
-        : {}),
-    };
-    setPayments((prev) => [payment, ...prev]);
-    setNewPayment({
-      amount: "",
-      date: new Date().toISOString().split("T")[0],
-      type: "cuota",
-      description: "",
-      cuotaNumber: "",
+  const guardarLista = async (lista: LocalPayment[]) => {
+    const res = await fetch("/api/erp/appData", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: local.id,
+        appId: local.appId,
+        type: local.type,
+        data: { payments: lista },
+        strategy: "merge",
+      }),
     });
-    setReceiptFile(null);
-    setSelectedBeneficiario(null);
-    setBeneficiarioSearch("");
-    setShowForm(false);
+    if (!res.ok) throw new Error(`appData ${res.status}`);
+    setPayments(lista);
+    onSaved({ ...local, data: { ...local.data, payments: lista } });
   };
 
-  const removePayment = async (id: string) => {
-    setDeletingId(id);
-    const updated = payments.filter((p) => p.id !== id);
+  const validar = () => {
+    const e: Record<string, string> = {};
+    const monto = Number(form.amount);
+    if (!(monto > 0)) e.amount = "Escribe un monto mayor que cero.";
+    else if (monto > estado.pendiente + 0.005)
+      e.amount = `Supera el balance pendiente (${importe(estado.pendiente, estado.moneda)}).`;
+    if (!form.date) e.date = "Indica la fecha del pago.";
+    if (form.tasa && !(Number(form.tasa) > 0))
+      e.tasa = "La tasa debe ser un número mayor que cero.";
+    const doc = form.documento.trim();
+    const repetido =
+      doc &&
+      locales.some((l) =>
+        (
+          (l.id === local.id ? payments : l.data?.payments) as
+            LocalPayment[] | undefined
+        )?.some((p) => p.documento === doc),
+      );
+    if (repetido) e.documento = `El recibo ${doc} ya está en uso.`;
+    return e;
+  };
+
+  const registrarPago = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    const e = validar();
+    setErrores(e);
+    if (Object.keys(e).length > 0) return;
+
+    setGuardando(true);
+    setAviso(null);
     try {
-      const updatedData = { ...local.data, payments: updated };
-      const res = await fetch("/api/erp/appData", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: local.id,
-          appId: local.appId,
-          type: local.type,
-          data: updatedData,
-          strategy: "merge",
-        }),
+      let receipt_url: string | undefined;
+      if (archivo) {
+        const cuerpo = new FormData();
+        cuerpo.append("file", archivo);
+        const subida = await fetch("/api/erp/uploadFile", {
+          method: "POST",
+          body: cuerpo,
+        });
+        if (!subida.ok) throw new Error("comprobante");
+        const datos = await subida.json();
+        receipt_url = datos.file?.public || datos.file?.url;
+      }
+
+      const cuota = Number(form.cuotaNumber) || undefined;
+      const pago: LocalPayment = {
+        id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        amount: Number(form.amount),
+        date: form.date,
+        type: form.type,
+        description:
+          form.description.trim() ||
+          describirPago({
+            type: form.type,
+            cuotaNumber: cuota,
+            date: form.date,
+            localId: estado.localId,
+            cliente: estado.cliente?.nombre,
+          }),
+        metodo: form.metodo,
+        ...(form.documento.trim() && { documento: form.documento.trim() }),
+        ...(form.type === "cuota" && cuota && { cuotaNumber: cuota }),
+        ...(form.cuenta.trim() && { cuenta: form.cuenta.trim() }),
+        ...(form.tasa && { tasa: Number(form.tasa) }),
+        ...(receipt_url && { receipt_url }),
+      };
+      await guardarLista([...payments, pago]);
+      setFormAbierto(false);
+      setAviso({
+        tipo: "ok",
+        texto: `Pago de ${importe(pago.amount, estado.moneda)} registrado. El estado de cuenta ya lo incluye.`,
       });
-      if (!res.ok) throw new Error("Error al eliminar");
-      setPayments(updated);
-      onSave({ ...local, data: updatedData });
     } catch (error) {
-      console.error("Error deleting payment:", error);
-      alert("Error al eliminar el pago");
+      console.error("Error al registrar el pago:", error);
+      setAviso({
+        tipo: "error",
+        texto:
+          error instanceof Error && error.message === "comprobante"
+            ? "No se pudo subir el comprobante. El pago no se guardó; intenta de nuevo o guárdalo sin archivo."
+            : "No se pudo guardar el pago. Revisa la conexión e intenta de nuevo.",
+      });
     } finally {
-      setDeletingId(null);
+      setGuardando(false);
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  const eliminarPago = async () => {
+    if (!porEliminar?.pagoId) return;
+    setEliminando(true);
     try {
-      const updatedData = { ...local.data, payments };
-      const res = await fetch("/api/erp/appData", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: local.id,
-          appId: local.appId,
-          type: local.type,
-          data: updatedData,
-          strategy: "merge",
-        }),
-      });
-      if (!res.ok) throw new Error("Error al guardar");
-      onSave({ ...local, data: updatedData });
+      await guardarLista(payments.filter((p) => p.id !== porEliminar.pagoId));
+      setAviso({ tipo: "ok", texto: "Pago eliminado." });
     } catch (error) {
-      console.error("Error saving payments:", error);
-      alert("Error al guardar los pagos");
+      console.error("Error al eliminar el pago:", error);
+      setAviso({
+        tipo: "error",
+        texto: "No se pudo eliminar el pago. Intenta de nuevo.",
+      });
     } finally {
-      setIsSaving(false);
+      setEliminando(false);
+      setPorEliminar(null);
     }
   };
+
+  const descargar = async () => {
+    setDescargando(true);
+    try {
+      await descargarEstadoCuentaLocalPDF(estado, projectName);
+    } catch (error) {
+      console.error("Error al generar el PDF:", error);
+      setAviso({ tipo: "error", texto: "No se pudo generar el PDF." });
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  const enviar = async () => {
+    setEnviando(true);
+    setAviso(null);
+    try {
+      const { data: sesion } = await supabase.auth.getSession();
+      const res = await fetch("/api/erp/localStatement", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sesion.session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ appId, localId: estado.localId }),
+      });
+      const datos = await res.json();
+      setAviso(
+        res.ok
+          ? {
+              tipo: "ok",
+              texto: `Estado de cuenta enviado a ${datos.enviadoA}.`,
+            }
+          : {
+              tipo: "error",
+              texto: datos.error ?? "No se pudo enviar el correo.",
+            },
+      );
+    } catch (error) {
+      console.error("Error al enviar el estado de cuenta:", error);
+      setAviso({
+        tipo: "error",
+        texto: "No se pudo enviar el correo. Revisa la conexión.",
+      });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const correo = estado.cliente?.email;
 
   return (
-    <div className="fixed inset-0 bg-[oklch(21%_0.021_250_/_0.45)] flex items-center justify-center z-50 p-4">
-      <div className="bg-paper rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-rule shrink-0">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">
-              Pagos — Local #{local.data.id}
-            </h2>
-            <p className="text-sm text-ink-3">
-              Nivel {local.data.level} • {local.data.area_mt2?.toFixed(2)} m²
-              {local.data.clientName && ` • ${local.data.clientName}`}
+    <>
+      <Modal
+        open
+        onClose={onClose}
+        busy={ocupado}
+        size="xl"
+        title={`Estado de cuenta, local ${estado.localId}`}
+        description={[
+          `Nivel ${estado.nivel}`,
+          `${estado.area.toFixed(2)} m²`,
+          estado.cliente?.nombre,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        footer={
+          <>
+            <p className="text-[0.75rem] text-ink-2 sm:mr-auto">
+              {correo
+                ? `El correo va a ${correo}.`
+                : "Sin correo del cliente: descarga el PDF para enviarlo tú."}
             </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 text-ink-3 hover:text-ink-2 rounded-lg hover:bg-paper-3 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {/* KPI cards */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 bg-paper-2 rounded-lg border border-rule">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-4 h-4 text-ink-3" />
-                <span className="text-xs text-ink-3">Valor Total</span>
-              </div>
-              <p className="text-base font-bold text-ink">
-                {formatCurrency(local.data.total_value)}
-              </p>
-            </div>
-            <div className="p-3 bg-success-soft rounded-lg border border-success/20">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle2 className="w-4 h-4 text-success" />
-                <span className="text-xs text-ink-3">Pagado</span>
-              </div>
-              <p className="text-base font-bold text-success">
-                {formatCurrency(totalPaid)}
-              </p>
-            </div>
-            <div className="p-3 bg-warning-soft rounded-lg border border-warning/25">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="w-4 h-4 text-warning" />
-                <span className="text-xs text-ink-3">Pendiente</span>
-              </div>
-              <p className="text-base font-bold text-warning">
-                {formatCurrency(totalPending)}
-              </p>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div>
-            <div className="flex justify-between text-xs text-ink-3 mb-1">
-              <span>Pagado {paidPct}%</span>
-              <span>Pendiente {100 - paidPct}%</span>
-            </div>
-            <div className="h-2 bg-paper-3 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-success rounded-full transition-all duration-500"
-                style={{ width: `${paidPct}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Payment plan breakdown */}
-          <div className="bg-paper-2 rounded-lg p-4 space-y-2">
-            <p className="text-xs font-semibold text-ink-3 uppercase tracking-wide mb-2">
-              Plan de Pago
-            </p>
-            {[
-              { label: "Separación (10%)", amount: sep10, type: "separacion" },
-              { label: "Inicial (45%)", amount: sep45, type: "inicial" },
-              {
-                label: "Capital restante (45%)",
-                amount: capital,
-                type: "capital",
-              },
-            ].map(({ label, amount, type }) => {
-              const paid = payments
-                .filter((p) => p.type === type)
-                .reduce((s, p) => s + p.amount, 0);
-              const pending = Math.max(0, amount - paid);
-              return (
-                <div
-                  key={type}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="text-ink-2">{label}</span>
-                  <div className="flex items-center gap-3 text-right">
-                    <span className="text-success font-medium">
-                      {formatCurrency(paid)}
-                    </span>
-                    <span className="text-ink-3">/</span>
-                    <span className="text-ink-2 font-medium">
-                      {formatCurrency(amount)}
-                    </span>
-                    {pending > 0 && (
-                      <span className="text-warning text-xs">
-                        -{formatCurrency(pending)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Add payment button */}
-          <div>
-            {!showForm ? (
-              <button
-                onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-2 transition-colors"
+            <Button variant="outline" onClick={descargar} loading={descargando}>
+              Descargar PDF
+            </Button>
+            <Button
+              variant="outline"
+              onClick={enviar}
+              loading={enviando}
+              disabled={!correo || estado.filas.length === 0 || ocupado}
+            >
+              Enviar al cliente
+            </Button>
+            {!formAbierto && (
+              <Button
+                onClick={abrirFormulario}
+                disabled={estado.pendiente <= 0 || ocupado}
               >
-                <Plus className="w-4 h-4" />
                 Registrar pago
-              </button>
-            ) : (
-              <div className="border border-rule rounded-lg p-4 space-y-3 bg-paper-2">
-                <p className="text-sm font-semibold text-ink-2">Nuevo pago</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs text-ink-2 mb-1">
-                      Tipo
-                    </label>
-                    <select
-                      value={newPayment.type}
-                      onChange={(e) =>
-                        setNewPayment((p) => ({
-                          ...p,
-                          type: e.target.value as LocalPayment["type"],
-                        }))
-                      }
-                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                    >
-                      {PAYMENT_TYPES.map((t) => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-ink-2 mb-1">
-                      Fecha
-                    </label>
-                    <input
-                      type="date"
-                      value={newPayment.date}
-                      onChange={(e) =>
-                        setNewPayment((p) => ({ ...p, date: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-ink-2 mb-1">
-                      Monto (USD)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={newPayment.amount}
-                      onChange={(e) =>
-                        setNewPayment((p) => ({ ...p, amount: e.target.value }))
-                      }
-                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                    />
-                  </div>
-                  {newPayment.type === "cuota" && (
-                    <div>
-                      <label className="block text-xs text-ink-2 mb-1">
-                        # Cuota
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="1"
-                        value={newPayment.cuotaNumber}
-                        onChange={(e) =>
-                          setNewPayment((p) => ({
-                            ...p,
-                            cuotaNumber: e.target.value,
-                          }))
-                        }
-                        className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
+              </Button>
+            )}
+          </>
+        }
+      >
+        <div className="space-y-5">
+          <dl className="grid grid-cols-1 divide-y divide-rule rounded-[8px] border border-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            {(
+              [
+                ["Valor del local", estado.valor],
+                ["Total recibido", estado.totalRecibido],
+                ["Balance pendiente", estado.pendiente],
+              ] as const
+            ).map(([etiqueta, valor]) => (
+              <div key={etiqueta} className="px-4 py-3">
+                <dt className="eyebrow">{etiqueta}</dt>
+                <dd className="tabular mt-1 font-display text-[1.125rem] font-semibold text-ink">
+                  {importe(valor, estado.moneda)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+
+          {aviso && (
+            <p
+              role={aviso.tipo === "error" ? "alert" : "status"}
+              className={
+                aviso.tipo === "error"
+                  ? "rounded-[8px] bg-danger-soft px-3 py-2 text-[0.8125rem] text-danger"
+                  : "rounded-[8px] bg-success-soft px-3 py-2 text-[0.8125rem] text-success"
+              }
+            >
+              {aviso.texto}
+            </p>
+          )}
+
+          {formAbierto && (
+            <form
+              onSubmit={registrarPago}
+              noValidate
+              className="rounded-[8px] border border-rule bg-paper-2 p-4"
+            >
+              <ModalSection title="Nuevo pago">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Campo label="Recibo" error={errores.documento}>
+                    {(id) => (
+                      <Input
+                        id={id}
+                        value={form.documento}
+                        onChange={(e) => cambiar("documento", e.target.value)}
+                        state={errores.documento ? "error" : "idle"}
                       />
-                    </div>
-                  )}
-                  <div className="col-span-2">
-                    <label className="block text-xs text-ink-2 mb-1">
-                      Cliente
-                    </label>
-                    <div ref={beneficiarioDropdownRef} className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsBeneficiarioOpen((v) => !v)}
-                        className="w-full px-3 py-2 border border-rule-strong rounded-lg text-left text-sm flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-gold bg-paper"
-                      >
-                        <span
-                          className={
-                            selectedBeneficiario ? "text-ink" : "text-ink-3"
-                          }
-                        >
-                          {selectedBeneficiario
-                            ? selectedBeneficiario.name
-                            : "Seleccionar cliente..."}
-                        </span>
-                        <ChevronDown className="w-4 h-4 text-ink-3 shrink-0" />
-                      </button>
-                      {isBeneficiarioOpen && (
-                        <div className="absolute z-50 w-full mt-1 bg-paper border border-rule rounded-md shadow-lg">
-                          <div className="p-2 border-b border-rule">
-                            <input
-                              type="text"
-                              value={beneficiarioSearch}
-                              onChange={(e) =>
-                                setBeneficiarioSearch(e.target.value)
-                              }
-                              placeholder="Buscar por nombre..."
-                              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold disabled:cursor-not-allowed disabled:bg-paper-3 disabled:text-ink-3"
-                              autoFocus
-                            />
-                          </div>
-                          <ul className="max-h-48 overflow-y-auto">
-                            <li>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedBeneficiario(null);
-                                  setIsBeneficiarioOpen(false);
-                                  setBeneficiarioSearch("");
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm text-ink-3 hover:bg-paper-2"
-                              >
-                                Seleccionar cliente...
-                              </button>
-                            </li>
-                            {sortedFilteredBeneficiarios.map((b) => (
-                              <li key={b.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedBeneficiario(b);
-                                    setIsBeneficiarioOpen(false);
-                                    setBeneficiarioSearch("");
-                                  }}
-                                  className="w-full px-3 py-2 text-left text-sm text-ink hover:bg-paper-2"
-                                >
-                                  {b.name}
-                                </button>
-                              </li>
-                            ))}
-                            {sortedFilteredBeneficiarios.length === 0 && (
-                              <li className="px-3 py-2 text-sm text-ink-3">
-                                No se encontraron resultados
-                              </li>
-                            )}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-xs text-ink-2 mb-1">
-                      Descripción (opcional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Notas del pago..."
-                      value={newPayment.description}
-                      onChange={(e) =>
-                        setNewPayment((p) => ({
-                          ...p,
-                          description: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 text-sm border border-rule-strong rounded-lg focus:ring-2 focus:ring-gold focus:border-transparent"
-                    />
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-xs text-ink-2 mb-1">
-                      Comprobante (opcional)
-                    </label>
-                    {receiptFile ? (
-                      <div className="flex items-center gap-2 p-2 border border-info/20 bg-info-soft rounded-lg">
-                        {receiptFile.type.startsWith("image/") ? (
-                          <img
-                            src={URL.createObjectURL(receiptFile)}
-                            alt="preview"
-                            className="w-10 h-10 object-cover rounded"
-                          />
-                        ) : (
-                          <FileText className="w-5 h-5 text-info shrink-0" />
-                        )}
-                        <span className="text-xs text-ink-2 truncate flex-1">
-                          {receiptFile.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setReceiptFile(null)}
-                          className="p-1 text-ink-3 hover:text-danger transition-colors"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex items-center gap-2 w-full px-3 py-2 border border-dashed border-rule-strong rounded-lg cursor-pointer bg-paper-2 hover:bg-paper-3 transition-colors">
-                        <Upload className="w-4 h-4 text-ink-3" />
-                        <span className="text-xs text-ink-3">
-                          Subir imagen o PDF
-                        </span>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*,application/pdf"
-                          onChange={(e) => {
-                            if (e.target.files?.[0])
-                              setReceiptFile(e.target.files[0]);
-                          }}
-                        />
-                      </label>
                     )}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={addPayment}
-                    disabled={isUploading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-shell rounded-lg hover:bg-shell-3 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  </Campo>
+                  <Campo label="Fecha del pago" error={errores.date}>
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="date"
+                        value={form.date}
+                        onChange={(e) => cambiar("date", e.target.value)}
+                        state={errores.date ? "error" : "idle"}
+                      />
+                    )}
+                  </Campo>
+                  <Campo
+                    label={`Monto (${estado.moneda})`}
+                    error={errores.amount}
                   >
-                    {isUploading && (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        numeric
+                        value={form.amount}
+                        onChange={(e) => cambiar("amount", e.target.value)}
+                        state={errores.amount ? "error" : "idle"}
+                      />
                     )}
-                    {isUploading ? "Subiendo..." : "Agregar"}
-                  </button>
-                  <button
-                    onClick={() => setShowForm(false)}
-                    className="px-4 py-2 text-sm text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-3 transition-colors"
+                  </Campo>
+                  <Campo label="Tasa del día (opcional)" error={errores.tasa}>
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        numeric
+                        value={form.tasa}
+                        onChange={(e) => cambiar("tasa", e.target.value)}
+                        state={errores.tasa ? "error" : "idle"}
+                      />
+                    )}
+                  </Campo>
+                  <Campo label="Concepto">
+                    {(id) => (
+                      <NativeSelect
+                        id={id}
+                        value={form.type}
+                        onChange={(e) => cambiar("type", e.target.value)}
+                      >
+                        {TIPOS_PAGO.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    )}
+                  </Campo>
+                  {form.type === "cuota" && (
+                    <Campo label="Número de cuota">
+                      {(id) => (
+                        <Input
+                          id={id}
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          numeric
+                          value={form.cuotaNumber}
+                          onChange={(e) =>
+                            cambiar("cuotaNumber", e.target.value)
+                          }
+                        />
+                      )}
+                    </Campo>
+                  )}
+                  <Campo label="Método de pago">
+                    {(id) => (
+                      <NativeSelect
+                        id={id}
+                        value={form.metodo}
+                        onChange={(e) => cambiar("metodo", e.target.value)}
+                      >
+                        {METODOS_PAGO.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    )}
+                  </Campo>
+                  <Campo label="Cuenta que recibió (opcional)">
+                    {(id) => (
+                      <Input
+                        id={id}
+                        inputMode="numeric"
+                        value={form.cuenta}
+                        onChange={(e) => cambiar("cuenta", e.target.value)}
+                      />
+                    )}
+                  </Campo>
+                  <Campo
+                    label="Descripción (opcional)"
+                    className="sm:col-span-2"
+                  >
+                    {(id) => (
+                      <Input
+                        id={id}
+                        value={form.description}
+                        placeholder={describirPago({
+                          type: form.type,
+                          cuotaNumber: Number(form.cuotaNumber) || undefined,
+                          date: form.date || hoy(),
+                          localId: estado.localId,
+                          cliente: estado.cliente?.nombre,
+                        })}
+                        onChange={(e) => cambiar("description", e.target.value)}
+                      />
+                    )}
+                  </Campo>
+                  <Campo
+                    label="Comprobante (opcional)"
+                    className="sm:col-span-2"
+                  >
+                    {(id) => (
+                      <Input
+                        id={id}
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) =>
+                          setArchivo(e.target.files?.[0] ?? null)
+                        }
+                      />
+                    )}
+                  </Campo>
+                </div>
+                <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setFormAbierto(false)}
+                    disabled={guardando}
                   >
                     Cancelar
-                  </button>
+                  </Button>
+                  <Button type="submit" loading={guardando}>
+                    Guardar pago
+                  </Button>
                 </div>
-              </div>
-            )}
-          </div>
+              </ModalSection>
+            </form>
+          )}
 
-          {/* Payments table */}
-          {payments.length > 0 ? (
-            <div className="border border-rule rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-paper-2">
+          {estado.filas.length === 0 ? (
+            <p className="rounded-[8px] border border-dashed border-rule-strong px-4 py-8 text-center text-[0.8125rem] text-ink-2">
+              Este local no tiene pagos todavía. Registra el primero y el estado
+              de cuenta se arma solo.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-[8px] border border-rule">
+              <table className="w-full min-w-[720px] text-[0.8125rem]">
+                <thead className="bg-paper-2 text-left">
                   <tr>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
-                      Fecha
+                    {[
+                      "Recibo",
+                      "Fecha",
+                      "Descripción",
+                      "Tasa",
+                      "Aplicado",
+                      "Balance",
+                    ].map((c, i) => (
+                      <th
+                        key={c}
+                        scope="col"
+                        className={`eyebrow px-3 py-2 ${i > 2 ? "text-right" : ""}`}
+                      >
+                        {c}
+                      </th>
+                    ))}
+                    <th scope="col" className="px-3 py-2">
+                      <span className="sr-only">Acciones</span>
                     </th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
-                      Tipo
-                    </th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
-                      Beneficiario
-                    </th>
-                    <th className="text-right py-2 px-4 text-xs font-semibold text-ink-3 uppercase tracking-wide">
-                      Monto
-                    </th>
-                    <th className="py-2 px-2 text-xs font-semibold text-ink-3 uppercase tracking-wide">
-                      Comp.
-                    </th>
-                    <th className="py-2 px-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-rule">
-                  {payments.map((p) => (
-                    <tr key={p.id} className="hover:bg-paper-2">
-                      <td className="py-2.5 px-4 text-ink-3 whitespace-nowrap text-xs">
-                        {formatDate(p.date)}
+                  {estado.filas.map((f, i) => (
+                    <tr key={f.pagoId ?? `reserva-${i}`}>
+                      <td className="tabular whitespace-nowrap px-3 py-2 text-ink">
+                        {f.documento || "Sin recibo"}
                       </td>
-                      <td className="py-2.5 px-4">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${TYPE_COLORS[p.type] || "bg-paper-3 text-ink-2"}`}
-                        >
-                          {PAYMENT_TYPES.find((t) => t.value === p.type)
-                            ?.label ?? p.type}
-                          {p.cuotaNumber ? ` #${p.cuotaNumber}` : ""}
-                        </span>
+                      <td className="tabular whitespace-nowrap px-3 py-2 text-ink-2">
+                        {fechaCorta(f.fecha)}
                       </td>
-                      <td className="py-2.5 px-4 text-ink-2">
-                        {p.beneficiario_nombre ? (
-                          <span className="font-medium text-ink">
-                            {p.beneficiario_nombre}
+                      <td className="px-3 py-2 text-ink">
+                        {f.descripcion}
+                        {f.metodo && (
+                          <span className="block text-[0.75rem] text-ink-2">
+                            {f.metodo}
                           </span>
-                        ) : (
-                          <span className="text-ink-3 text-xs">—</span>
                         )}
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-semibold text-ink whitespace-nowrap">
-                        {formatCurrency(p.amount)}
-                      </td>
-                      <td className="py-2.5 px-2 text-center">
-                        {p.receipt_url ? (
+                        {f.comprobante && (
                           <a
-                            href={p.receipt_url}
+                            href={f.comprobante}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center text-info hover:text-info"
-                            title="Ver comprobante"
+                            className="text-[0.75rem] text-gold underline underline-offset-2 hover:text-gold-strong"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
+                            Ver comprobante
                           </a>
-                        ) : (
-                          <span className="text-ink-3">—</span>
                         )}
                       </td>
-                      <td className="py-2.5 px-2">
-                        <button
-                          onClick={() => removePayment(p.id)}
-                          disabled={deletingId === p.id}
-                          className="p-1 text-ink-3 hover:text-danger transition-colors rounded disabled:opacity-50"
-                        >
-                          {deletingId === p.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                      <td className="tabular px-3 py-2 text-right text-ink-2">
+                        {f.tasa ? f.tasa.toFixed(2) : ""}
+                      </td>
+                      <td className="tabular whitespace-nowrap px-3 py-2 text-right text-ink">
+                        {importe(f.montoAplicado, estado.moneda)}
+                      </td>
+                      <td className="tabular whitespace-nowrap px-3 py-2 text-right font-semibold text-ink">
+                        {importe(f.balance, estado.moneda)}
+                      </td>
+                      <td className="px-1 py-1 text-right">
+                        {f.pagoId && (
+                          <Button
+                            variant="ghost"
+                            size="iconSm"
+                            aria-label={`Eliminar el pago del ${fechaCorta(f.fecha)}`}
+                            onClick={() => setPorEliminar(f)}
+                            disabled={ocupado}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="bg-paper-2 border-t-2 border-rule">
-                    <td
-                      colSpan={3}
-                      className="py-2.5 px-4 text-xs font-bold text-ink-2 uppercase"
-                    >
-                      Total pagado
-                    </td>
-                    <td className="py-2.5 px-4 text-right font-bold text-success whitespace-nowrap">
-                      {formatCurrency(totalPaid)}
-                    </td>
-                    <td colSpan={2} />
-                  </tr>
-                </tfoot>
               </table>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-ink-3 text-sm">
-              No hay pagos registrados
             </div>
           )}
         </div>
+      </Modal>
 
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-rule shrink-0">
-          <button
-            onClick={onClose}
-            disabled={isSaving}
-            className="px-4 py-2 text-sm text-ink-2 border border-rule-strong rounded-lg hover:bg-paper-2 transition-colors disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-shell rounded-lg hover:bg-shell-3 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {isSaving ? "Guardando..." : "Guardar pagos"}
-          </button>
-        </div>
-      </div>
-    </div>
+      <ConfirmDialog
+        open={porEliminar !== null}
+        title="Eliminar pago"
+        description={
+          porEliminar
+            ? `Se quita del estado de cuenta el pago de ${importe(porEliminar.montoAplicado, estado.moneda)} del ${fechaCorta(porEliminar.fecha)}${porEliminar.documento ? ` (${porEliminar.documento})` : ""}. El balance pendiente sube en ese monto.`
+            : ""
+        }
+        confirmLabel="Eliminar pago"
+        pendingLabel="Eliminando…"
+        pending={eliminando}
+        onConfirm={eliminarPago}
+        onCancel={() => setPorEliminar(null)}
+      />
+    </>
   );
 }

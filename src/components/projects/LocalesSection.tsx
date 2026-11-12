@@ -35,6 +35,7 @@ export function LocalesSection({
   const [localesData, setLocalesData] = useState<AppData[]>([]);
   const [reservasData, setReservasData] = useState<AppData[]>([]);
   const [paymentsData, setPaymentsData] = useState<AppData[]>([]);
+  const [clientesData, setClientesData] = useState<AppData[]>([]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState(initialSearch);
@@ -83,11 +84,13 @@ export function LocalesSection({
       fetchByType("locales"),
       fetchByType("reservas"),
       fetchByType("payments"),
+      fetchByType("User"),
     ])
-      .then(([locales, reservas, payments]) => {
+      .then(([locales, reservas, payments, clientes]) => {
         setLocalesData(locales);
         setReservasData(reservas);
         setPaymentsData(payments);
+        setClientesData(clientes);
       })
       .catch((err) => console.error("Error fetching locales data:", err));
   }, [uniqueId]);
@@ -182,11 +185,11 @@ export function LocalesSection({
     setEditModal({ isOpen: false, local: null });
   };
 
+  // El modal sigue abierto tras guardar: lo siguiente suele ser enviar el estado.
   const handlePaymentsSaved = (updatedLocal: AppData) => {
     setLocalesData((prev) =>
       prev.map((l) => (l.id === updatedLocal.id ? updatedLocal : l)),
     );
-    setPaymentsModal({ isOpen: false, local: null });
   };
 
   const handleReservaUpdated = (updated: AppData) => {
@@ -598,11 +601,15 @@ export function LocalesSection({
       {/* Payments Modal */}
       {paymentsModal.isOpen && paymentsModal.local && (
         <LocalPaymentsModal
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          local={paymentsModal.local as any}
+          local={paymentsModal.local}
+          locales={localesData}
+          reservas={reservasData}
+          pagos={paymentsData}
+          clientes={clientesData}
+          projectName={projectName}
+          appId={uniqueId ?? ""}
           onClose={() => setPaymentsModal({ isOpen: false, local: null })}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onSave={(u: any) => handlePaymentsSaved(u as AppData)}
+          onSaved={handlePaymentsSaved}
         />
       )}
 
