@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X, Save, Loader2 } from "lucide-react";
+import type { Moneda } from "@/src/lib/locales/moneda";
 
 export type LocalStatus = "DISPONIBLE" | "RESERVADO" | "VENDIDO" | "BLOQUEADO";
 
@@ -11,6 +12,7 @@ interface LocalData {
   area_mt2: number;
   price_per_mt2: number;
   total_value: number;
+  currency?: Moneda;
   separation_10?: number;
   separation_45?: number;
   status: LocalStatus;
@@ -26,6 +28,8 @@ interface AppDataLocal {
 
 interface EditLocalModalProps {
   local: AppDataLocal;
+  /** Moneda con la que se muestra hoy el local, si todavía no la declara. */
+  monedaActual: Moneda;
   onClose: () => void;
   onSave: (updatedLocal: AppDataLocal) => void;
 }
@@ -39,12 +43,14 @@ const STATUS_OPTIONS: { value: LocalStatus; label: string }[] = [
 
 export function EditLocalModal({
   local,
+  monedaActual,
   onClose,
   onSave,
 }: EditLocalModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     status: local.data.status as LocalStatus,
+    currency: (local.data.currency ?? monedaActual) as Moneda,
     area_mt2: local.data.area_mt2,
     price_per_mt2: local.data.price_per_mt2,
     total_value: local.data.total_value,
@@ -52,19 +58,21 @@ export function EditLocalModal({
     separation_45: local.data.separation_45 ?? local.data.total_value * 0.45,
   });
 
-  // Auto-recalculate total when area or price changes
-  useEffect(() => {
-    const total = form.area_mt2 * form.price_per_mt2;
-    setForm((prev) => ({
-      ...prev,
-      total_value: total,
-      separation_10: total * 0.1,
-      separation_45: total * 0.45,
-    }));
-  }, [form.area_mt2, form.price_per_mt2]);
+  const redondear = (n: number) => Math.round(n * 100) / 100;
 
   const handleChange = (field: string, value: string | number) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      // Solo área y precio recalculan el total y la separación; abrir el
+      // modal no debe pisar los valores ya guardados.
+      if (field === "area_mt2" || field === "price_per_mt2") {
+        const total = redondear(next.area_mt2 * next.price_per_mt2);
+        next.total_value = total;
+        next.separation_10 = redondear(total * 0.1);
+        next.separation_45 = redondear(total * 0.45);
+      }
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -101,7 +109,7 @@ export function EditLocalModal({
   const formatCurrency = (n: number) =>
     new Intl.NumberFormat("es-DO", {
       style: "currency",
-      currency: "DOP",
+      currency: form.currency,
       minimumFractionDigits: 0,
     }).format(n);
 
@@ -143,6 +151,45 @@ export function EditLocalModal({
             </select>
           </div>
 
+          {/* Moneda del precio */}
+          <fieldset>
+            <legend className="block text-sm font-medium text-ink-2 mb-1.5">
+              Moneda del precio
+            </legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["USD", "Dólares (US$)"],
+                  ["DOP", "Pesos (RD$)"],
+                ] as const
+              ).map(([valor, etiqueta]) => (
+                <label
+                  key={valor}
+                  className={`flex h-10 cursor-pointer items-center justify-center rounded-[8px] border text-[0.8125rem] transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-gold ${
+                    form.currency === valor
+                      ? "border-gold bg-paper-2 font-semibold text-ink"
+                      : "border-rule-strong text-ink-2 hover:border-ink-3"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="moneda-local"
+                    value={valor}
+                    checked={form.currency === valor}
+                    onChange={() => handleChange("currency", valor)}
+                    className="sr-only"
+                  />
+                  {etiqueta}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-ink-3 mt-1">
+              Todos los montos de este local se guardan y se muestran en esta
+              moneda. Los pagos en la otra moneda se convierten solo para el
+              progreso.
+            </p>
+          </fieldset>
+
           {/* Area and price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -161,7 +208,7 @@ export function EditLocalModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-ink-2 mb-1.5">
-                Precio / m²
+                Precio / m² ({form.currency === "USD" ? "US$" : "RD$"})
               </label>
               <input
                 type="number"
@@ -178,7 +225,7 @@ export function EditLocalModal({
           {/* Total value */}
           <div>
             <label className="block text-sm font-medium text-ink-2 mb-1.5">
-              Valor Total
+              Valor total ({form.currency === "USD" ? "US$" : "RD$"})
             </label>
             <input
               type="number"

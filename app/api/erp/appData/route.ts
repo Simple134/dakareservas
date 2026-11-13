@@ -47,6 +47,9 @@ export async function PATCH(request: NextRequest) {
     const updated = await updateAppData({ id, appId, type, data, strategy });
     return NextResponse.json(updated);
   } catch (error: unknown) {
+    if (error instanceof Error && error.name === "ValidationError") {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     console.error("❌ Error updating appData:", error);
     return NextResponse.json(
       {

@@ -184,7 +184,7 @@ export async function construirEstadoCuentaLocalPDF(
   const ficha: [string, string][] = [
     [`Monto local ${estado.codigo}`, importe(estado.valor, estado.moneda)],
     ["Cantidad mt2:", estado.area.toFixed(2)],
-    ["Precio mt2:", importe(estado.precioM2, "USD")],
+    ["Precio mt2:", importe(estado.precioM2, estado.moneda)],
   ];
   if (estado.cliente) {
     ficha.push(["Cliente:", estado.cliente.nombre]);
@@ -215,7 +215,17 @@ export async function construirEstadoCuentaLocalPDF(
 
   for (const fila of estado.filas) {
     const metodo = partir(fila.metodo || "-", W_METODO, S, font);
-    const desc = partir(fila.descripcion || "-", W_DESC, S, font);
+    // Un pago en la otra moneda deja constancia de lo recibido y su tasa.
+    const original =
+      fila.moneda !== estado.moneda
+        ? ` (recibido ${importe(fila.monto, fila.moneda)}${fila.tasa ? ` a tasa ${fila.tasa.toFixed(2)}` : ""})`
+        : "";
+    const desc = partir(
+      `${fila.descripcion || "-"}${original}`,
+      W_DESC,
+      S,
+      font,
+    );
     const alto = Math.max(metodo.length, desc.length) * LINE + 5;
 
     if (y - alto < PIE) {

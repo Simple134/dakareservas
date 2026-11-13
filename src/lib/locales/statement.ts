@@ -1,5 +1,11 @@
 import type { AppData } from "@/src/types/erp";
-import { cuentaDeLocal, type Moneda } from "@/src/lib/locales/receivables";
+import { cuentaDeLocal } from "@/src/lib/locales/receivables";
+import {
+  TASA_USD_DOP,
+  aplicadoEn,
+  esMoneda,
+  type Moneda,
+} from "@/src/lib/locales/moneda";
 
 export type TipoPago = "separacion" | "inicial" | "cuota" | "capital" | "otro";
 export type MetodoPago =
@@ -8,7 +14,10 @@ export type MetodoPago =
 /** Pago registrado a mano en el modal «Pagos»; se guarda en `local.data.payments`. */
 export interface LocalPayment {
   id: string;
+  /** En la moneda del pago (`currency`); nunca se mezcla con la del local. */
   amount: number;
+  /** Moneda en la que se recibió el dinero; sin ella, la del local. */
+  currency?: Moneda;
   /** Día del pago, `YYYY-MM-DD`. */
   date: string;
   type: TipoPago;
@@ -22,7 +31,7 @@ export interface LocalPayment {
   metodo?: MetodoPago;
   /** Cuenta bancaria que recibió el dinero. */
   cuenta?: string;
-  /** Pesos por dólar el día del pago. */
+  /** Pesos por dólar el día del pago; convierte el pago si su moneda difiere de la del local. */
   tasa?: number;
 }
 
@@ -49,6 +58,9 @@ export interface FilaEstado {
   metodo: string;
   tasa: number | null;
   descripcion: string;
+  /** Lo recibido, en `moneda`. */
+  monto: number;
+  moneda: Moneda;
   /** `YYYY-MM-DD`. */
   fecha: string;
   /** Saldo antes de este pago. */
@@ -78,6 +90,10 @@ export interface EstadoDeCuenta {
   filas: FilaEstado[];
   totalRecibido: number;
   pendiente: number;
+  /** Progreso del cobro, 0 a 100, en la moneda del local. */
+  progreso: number;
+  /** Efectivo recibido por moneda, sin convertir. */
+  recibido: Record<Moneda, number>;
 }
 
 const PREFIJO_RECIBO = "RIRD-";
@@ -202,14 +218,17 @@ export function estadoDeCuentaDeLocal(
         pagoId: null,
         documento: "",
         metodo: METODO_RESERVA[String(p.data?.payment_method)] ?? "",
-        tasa: null,
-        // Lo cobrado en la otra moneda se informa pero no baja el saldo,
-        // igual que en la pestaña «Por cobrar».
-        descripcion: mismaMoneda
-          ? `${base} local ${localId}`
-          : `${base} local ${localId} (${p.data?.currency} ${monto.toLocaleString("es-DO")}, sin aplicar)`,
+        tasa: mismaMoneda ? null : TASA_USD_DOP,
+        monto,
+        moneda: esMoneda(p.data?.currency) ? p.data.currency : cuenta.moneda,
+        descripcion: `${base} local ${localId}`,
         fecha: String(p.data?.created_at ?? "").slice(0, 10),
-        montoAplicado: mismaMoneda ? monto : 0,
+        montoAplicado: mismaMoneda
+          ? monto
+          : aplicadoEn(
+              { amount: monto, currency: p.data?.currency, tasa: TASA_USD_DOP },
+              cuenta.moneda,
+            ),
         comprobante: p.data?.receipt_url ? String(p.data.receipt_url) : null,
       };
     });
@@ -222,8 +241,10 @@ export function estadoDeCuentaDeLocal(
     metodo: etiquetaMetodo(p),
     tasa: p.tasa ?? null,
     descripcion: p.description,
+    monto: Number(p.amount) || 0,
+    moneda: esMoneda(p.currency) ? p.currency : cuenta.moneda,
     fecha: p.date,
-    montoAplicado: Number(p.amount) || 0,
+    montoAplicado: aplicadoEn(p, cuenta.moneda),
     comprobante: p.receipt_url ?? null,
   }));
 
@@ -247,7 +268,9 @@ export function estadoDeCuentaDeLocal(
     cliente: clienteDe(local, reservas, clientes),
     filas,
     totalRecibido: Math.round((cuenta.valor - saldo) * 100) / 100,
-    pendiente: saldo,
+    pendiente: Math.max(0, saldo),
+    progreso: cuenta.progreso,
+    recibido: cuenta.recibido,
   };
 }
 

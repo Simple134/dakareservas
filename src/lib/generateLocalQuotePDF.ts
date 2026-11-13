@@ -6,6 +6,7 @@ interface LocalData {
   area_mt2: number;
   price_per_mt2: number;
   total_value: number;
+  currency?: "USD" | "DOP";
   separation_10?: number;
   separation_45?: number;
   status: string;
@@ -46,7 +47,7 @@ export const generateLocalQuotePDF = async ({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: "USD",
+      currency: localData.currency ?? "USD",
       minimumFractionDigits: 2,
     }).format(amount);
   };

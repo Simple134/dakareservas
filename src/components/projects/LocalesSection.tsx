@@ -158,18 +158,6 @@ export function LocalesSection({
   const hasPaymentsView = (status: string) =>
     ["VENDIDO", "RESERVADO", "BLOQUEADO"].includes(status);
 
-  // Mismo cálculo que la pestaña «Por cobrar»: las dos cifras no pueden diferir.
-  const getPaidByCurrency = (local: AppData): { USD: number; DOP: number } => {
-    const cuenta = cuentaDeLocal(local, reservasData, paymentsData);
-    const otra = cuenta.moneda === "USD" ? "DOP" : "USD";
-    return {
-      USD: 0,
-      DOP: 0,
-      [cuenta.moneda]: cuenta.cobrado,
-      [otra]: cuenta.cobradoOtraMoneda,
-    };
-  };
-
   const fmtAmt = (amount: number, currency: "USD" | "DOP") =>
     new Intl.NumberFormat("es-DO", {
       style: "currency",
@@ -376,23 +364,13 @@ export function LocalesSection({
         {/* Locales Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((local) => {
-            const paidByCurrency = getPaidByCurrency(local);
+            // Mismo cálculo que la pestaña «Por cobrar»: las cifras no pueden diferir.
+            const cuenta = cuentaDeLocal(local, reservasData, paymentsData);
+            const paidByCurrency = cuenta.recibido;
             const totalValue = local.data?.total_value || 0;
             const reserva = getReservaForLocal(local);
-            // Use the currency of the actual payments (not the reserva header)
-            const paymentCurrency = cuentaDeLocal(
-              local,
-              reservasData,
-              paymentsData,
-            ).moneda;
-            const totalPaidMain =
-              paymentCurrency === "USD"
-                ? paidByCurrency.USD
-                : paidByCurrency.DOP;
-            const paidPct =
-              totalValue > 0
-                ? Math.min(100, Math.round((totalPaidMain / totalValue) * 100))
-                : 0;
+            const paymentCurrency = cuenta.moneda;
+            const paidPct = Math.round(cuenta.progreso);
             const showPayments = hasPaymentsView(local.data?.status);
 
             return (
@@ -450,7 +428,7 @@ export function LocalesSection({
                   <div className="flex justify-between text-sm">
                     <span className="text-ink-2">Precio/m²:</span>
                     <span className="font-semibold text-ink">
-                      {fmtAmt(local.data?.price_per_mt2 || 0, "USD")}
+                      {fmtAmt(local.data?.price_per_mt2 || 0, paymentCurrency)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm border-t pt-1.5 mt-1">
@@ -463,7 +441,7 @@ export function LocalesSection({
                     <div className="flex justify-between text-sm">
                       <span className="text-ink-2">Separación:</span>
                       <span className="font-semibold text-ink-2">
-                        {fmtAmt(local.data.separation_10, "USD")}
+                        {fmtAmt(local.data.separation_10, paymentCurrency)}
                       </span>
                     </div>
                   )}
@@ -471,7 +449,7 @@ export function LocalesSection({
                     <div className="flex justify-between text-sm">
                       <span className="text-ink-2">Inicial:</span>
                       <span className="font-semibold text-ink-2">
-                        {fmtAmt(local.data.separation_45, "USD")}
+                        {fmtAmt(local.data.separation_45, paymentCurrency)}
                       </span>
                     </div>
                   )}
@@ -498,11 +476,7 @@ export function LocalesSection({
                         )}
                       </span>
                       <span>
-                        Pendiente{" "}
-                        {fmtAmt(
-                          Math.max(0, totalValue - totalPaidMain),
-                          paymentCurrency,
-                        )}
+                        Pendiente {fmtAmt(cuenta.pendiente, paymentCurrency)}
                       </span>
                     </div>
                     <div className="h-1.5 bg-paper/50 rounded-full overflow-hidden">
@@ -521,7 +495,10 @@ export function LocalesSection({
                       onClick={() =>
                         setQuotationDialog({
                           isOpen: true,
-                          selectedLocal: local.data as Record<string, unknown>,
+                          selectedLocal: {
+                            ...local.data,
+                            currency: paymentCurrency,
+                          } as Record<string, unknown>,
                         })
                       }
                       className="flex-1 px-3 py-2 bg-info text-white rounded-lg hover:bg-info transition-colors font-medium flex items-center justify-center gap-1.5 text-sm"
@@ -590,8 +567,12 @@ export function LocalesSection({
       {/* Edit Local Modal */}
       {editModal.isOpen && editModal.local && (
         <EditLocalModal
+          key={editModal.local.id}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           local={editModal.local as any}
+          monedaActual={
+            cuentaDeLocal(editModal.local, reservasData, paymentsData).moneda
+          }
           onClose={() => setEditModal({ isOpen: false, local: null })}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onSave={(u: any) => handleLocalSaved(u as AppData)}

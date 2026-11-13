@@ -1,12 +1,17 @@
 import type { AppData } from "@/src/types/erp";
+import {
+  TASA_USD_DOP,
+  aplicadoEn,
+  convertir,
+  esMoneda,
+  type Moneda,
+} from "@/src/lib/locales/moneda";
 
-export type Moneda = "USD" | "DOP";
+export { TASA_USD_DOP };
+export type { Moneda };
 
 // Solo la venta cerrada es deuda del cliente: una reserva todavía puede caerse.
 const ESTADOS_CON_CUENTA = ["VENDIDO"];
-
-// Tasa fija con la que el ERP lleva a pesos lo cobrado en dólares.
-export const TASA_USD_DOP = 62.8;
 
 export interface CuentaLocal {
   localId: number;
@@ -19,8 +24,12 @@ export interface CuentaLocal {
   valor: number;
   cobrado: number;
   pendiente: number;
-  /** Pagos aprobados en la otra moneda: se informan, no se restan. */
-  cobradoOtraMoneda: number;
+  /** Progreso del cobro, 0 a 100, en la moneda del local. */
+  progreso: number;
+  /**
+   * Efectivo recibido en cada moneda, sin convertir.
+   */
+  recibido: Record<Moneda, number>;
 }
 
 export interface TotalMoneda {
@@ -30,8 +39,6 @@ export interface TotalMoneda {
   cobrado: number;
   pendiente: number;
 }
-
-const esMoneda = (v: unknown): v is Moneda => v === "USD" || v === "DOP";
 
 const nombreCliente = (cliente: AppData | undefined): string | null => {
   if (!cliente) return null;
@@ -66,7 +73,7 @@ export function cuentaDeLocal(
   const monedaReserva: Moneda = esMoneda(reserva?.data?.currency)
     ? reserva.data.currency
     : "USD";
-  const moneda: Moneda =
+  const inferida: Moneda =
     cobradoPor.USD > 0 && cobradoPor.DOP > 0
       ? monedaReserva
       : cobradoPor.DOP > 0
@@ -74,14 +81,36 @@ export function cuentaDeLocal(
         : cobradoPor.USD > 0
           ? "USD"
           : monedaReserva;
+  // Si el local declara su moneda, esa manda sobre lo que se deduce de los pagos.
+  const moneda: Moneda = esMoneda(local.data?.currency)
+    ? local.data.currency
+    : inferida;
 
-  // Los pagos manuales del modal «Pagos» se guardan dentro del propio local.
+  // Los pagos manuales del modal «Pagos» se guardan dentro del propio local,
+  // cada uno en su moneda; aquí se llevan a la moneda del local con su tasa.
   const manuales = (
-    (local.data?.payments as { amount: number }[] | undefined) ?? []
-  ).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    (local.data?.payments as
+      { amount: number; currency?: unknown; tasa?: number }[] | undefined) ?? []
+  ).filter((p) => Number(p.amount) > 0);
+  const aplicadoManual = manuales.reduce(
+    (s, p) => s + aplicadoEn(p, moneda),
+    0,
+  );
+  const recibido: Record<Moneda, number> = { ...cobradoPor };
+  for (const p of manuales) {
+    recibido[esMoneda(p.currency) ? p.currency : moneda] += Number(p.amount);
+  }
 
   const valor = Number(local.data?.total_value) || 0;
-  const cobrado = cobradoPor[moneda] + manuales;
+  // Los pagos de la reserva en la otra moneda no traen tasa: van a la fija.
+  const otra: Moneda = moneda === "USD" ? "DOP" : "USD";
+  const cobrado =
+    Math.round(
+      (cobradoPor[moneda] +
+        convertir(cobradoPor[otra], otra, moneda) +
+        aplicadoManual) *
+        100,
+    ) / 100;
   const clienteId =
     reserva?.data?.persona_fisica_id || reserva?.data?.persona_juridica_id;
 
@@ -96,8 +125,9 @@ export function cuentaDeLocal(
     moneda,
     valor,
     cobrado,
-    pendiente: Math.max(0, valor - cobrado),
-    cobradoOtraMoneda: cobradoPor[moneda === "USD" ? "DOP" : "USD"],
+    pendiente: Math.max(0, Math.round((valor - cobrado) * 100) / 100),
+    progreso: valor > 0 ? Math.min(100, (cobrado / valor) * 100) : 0,
+    recibido,
   };
 }
 
@@ -137,8 +167,8 @@ export function cobradoEnLocales(
   const total: Record<Moneda, number> = { USD: 0, DOP: 0 };
   for (const local of locales) {
     const c = cuentaDeLocal(local, reservas, pagos);
-    total[c.moneda] += c.cobrado;
-    total[c.moneda === "USD" ? "DOP" : "USD"] += c.cobradoOtraMoneda;
+    total.USD += c.recibido.USD;
+    total.DOP += c.recibido.DOP;
   }
   return total;
 }

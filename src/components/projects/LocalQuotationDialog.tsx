@@ -23,6 +23,8 @@ interface LocalQuotationDialogProps {
     area_mt2: number;
     price_per_mt2: number;
     total_value: number;
+    /** Moneda del precio del local; sin ella se cotiza en dólares. */
+    currency?: "USD" | "DOP";
     separation_10?: number;
     separation_45?: number;
     status: string;
@@ -182,7 +184,7 @@ export function LocalQuotationDialog({
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: "USD",
+      currency: localData.currency ?? "USD",
       minimumFractionDigits: 2,
     }).format(amount);
   };
@@ -233,7 +235,7 @@ export function LocalQuotationDialog({
         isSell: true,
         divisionId: Number(projectId),
         beneficiaryId: data.beneficiaryId,
-        currency: "DOP",
+        currency: localData.currency ?? "USD",
         isInstantDelivery: false,
         date: new Date(data.quotationDate).toISOString(),
         dueDate: new Date(data.validUntil).toISOString(),

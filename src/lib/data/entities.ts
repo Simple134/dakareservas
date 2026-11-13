@@ -2,6 +2,7 @@
  * Beneficiarios, divisiones, recursos, impuestos y appData sobre Postgres.
  * Las firmas y la forma de respuesta replican las que consumía la UI antes de la migración.
  */
+import { validarMonedasDeLocal } from "@/src/lib/locales/moneda";
 import { supabaseAdmin } from "@/src/lib/supabase/admin";
 import { formatNcf } from "@/src/lib/ncf";
 import { mapBeneficiary, mapDivision, mapResource, type Row } from "./mappers";
@@ -630,6 +631,13 @@ export async function updateAppData(params: {
       .eq("id", params.id)
       .single();
     payload = { ...((actual?.data as object) ?? {}), ...params.data };
+  }
+  const problema =
+    params.type === "locales" ? validarMonedasDeLocal(payload) : null;
+  if (problema) {
+    const e = new Error(problema);
+    e.name = "ValidationError";
+    throw e;
   }
 
   const { data, error } = await supabaseAdmin
