@@ -15,6 +15,7 @@ import { LocalPaymentsModal } from "@/src/components/projects/LocalPaymentsModal
 import { LocalReservaModal } from "@/src/components/projects/LocalReservaModal";
 import type { AppData } from "@/src/types/erp";
 import { cuentaDeLocal } from "@/src/lib/locales/receivables";
+import { esPagoEliminado } from "@/src/lib/locales/pagosReserva";
 
 interface LocalesSectionProps {
   projectName: string;
@@ -89,7 +90,7 @@ export function LocalesSection({
       .then(([locales, reservas, payments, clientes]) => {
         setLocalesData(locales);
         setReservasData(reservas);
-        setPaymentsData(payments);
+        setPaymentsData(payments.filter((p) => !esPagoEliminado(p)));
         setClientesData(clientes);
       })
       .catch((err) => console.error("Error fetching locales data:", err));
@@ -591,6 +592,8 @@ export function LocalesSection({
           appId={uniqueId ?? ""}
           onClose={() => setPaymentsModal({ isOpen: false, local: null })}
           onSaved={handlePaymentsSaved}
+          onPagoActualizado={handlePaymentUpdated}
+          onPagoEliminado={handlePaymentDeleted}
         />
       )}
 

@@ -54,6 +54,8 @@ export const METODOS_PAGO: { value: MetodoPago; label: string }[] = [
 export interface FilaEstado {
   /** Id del pago manual; `null` en los pagos que vienen de la reserva. */
   pagoId: string | null;
+  /** Id de la fila `app_data` del pago de la reserva; `null` en los pagos manuales. */
+  appDataId: number | null;
   documento: string;
   metodo: string;
   tasa: number | null;
@@ -216,6 +218,7 @@ export function estadoDeCuentaDeLocal(
       const base = i === 0 ? "Pago reserva" : "Abono";
       return {
         pagoId: null,
+        appDataId: p.id,
         documento: "",
         metodo: METODO_RESERVA[String(p.data?.payment_method)] ?? "",
         tasa: mismaMoneda ? null : TASA_USD_DOP,
@@ -237,6 +240,7 @@ export function estadoDeCuentaDeLocal(
     (local.data?.payments as LocalPayment[] | undefined) ?? []
   ).map((p) => ({
     pagoId: p.id,
+    appDataId: null,
     documento: p.documento ?? "",
     metodo: etiquetaMetodo(p),
     tasa: p.tasa ?? null,

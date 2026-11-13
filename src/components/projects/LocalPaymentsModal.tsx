@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { NativeSelect } from "@/src/components/ui/native-select";
@@ -28,6 +28,19 @@ import {
   type TipoPago,
 } from "@/src/lib/locales/statement";
 import { descargarEstadoCuentaLocalPDF } from "@/lib/generateEstadoCuentaLocalPDF";
+import {
+  archivarPagoDeReserva,
+  editarPagoDeReserva,
+} from "@/src/lib/locales/pagosReserva";
+
+const METODOS_RESERVA = [
+  { value: "transfer", label: "Transferencia" },
+  { value: "card", label: "Tarjeta" },
+];
+
+/** Qué pago está abierto en el formulario: uno manual o uno que vino de la reserva. */
+type Edicion =
+  { origen: "manual"; id: string } | { origen: "reserva"; id: number };
 
 interface LocalPaymentsModalProps {
   local: AppData;
@@ -40,6 +53,10 @@ interface LocalPaymentsModalProps {
   appId: string;
   onClose: () => void;
   onSaved: (local: AppData) => void;
+  /** Un pago de la reserva se editó: el padre actualiza su lista. */
+  onPagoActualizado: (pago: AppData) => void;
+  /** Un pago de la reserva se archivó: el padre lo saca de su lista. */
+  onPagoEliminado: (id: number) => void;
 }
 
 const hoy = () => {
@@ -55,7 +72,8 @@ const formularioVacio = () => ({
   date: hoy(),
   amount: "",
   currency: "USD" as Moneda,
-  metodo: "deposito" as MetodoPago,
+  // Un valor de METODOS_PAGO en pagos manuales, o de METODOS_RESERVA en los de la reserva.
+  metodo: "deposito" as string,
   cuenta: "",
   tasa: String(TASA_USD_DOP),
   description: "",
@@ -94,11 +112,15 @@ export function LocalPaymentsModal({
   appId,
   onClose,
   onSaved,
+  onPagoActualizado,
+  onPagoEliminado,
 }: LocalPaymentsModalProps) {
   const [payments, setPayments] = useState<LocalPayment[]>(
     (local.data?.payments as LocalPayment[] | undefined) ?? [],
   );
   const [formAbierto, setFormAbierto] = useState(false);
+  const [editando, setEditando] = useState<Edicion | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const [form, setForm] = useState(formularioVacio);
   const [archivo, setArchivo] = useState<File | null>(null);
   const [errores, setErrores] = useState<Record<string, string>>({});
@@ -128,20 +150,49 @@ export function LocalPaymentsModal({
     [locales, local.id, localActual],
   );
 
+  // Al editar, el pago abierto no cuenta: su monto nuevo reemplaza al viejo.
+  const base = useMemo(() => {
+    if (!editando) return estado;
+    return estadoDeCuentaDeLocal(
+      editando.origen === "manual"
+        ? {
+            ...local,
+            data: {
+              ...local.data,
+              payments: payments.filter((p) => p.id !== editando.id),
+            },
+          }
+        : localActual,
+      reservas,
+      editando.origen === "reserva"
+        ? pagos.filter((p) => p.id !== editando.id)
+        : pagos,
+      clientes,
+    );
+  }, [
+    editando,
+    estado,
+    local,
+    localActual,
+    payments,
+    reservas,
+    pagos,
+    clientes,
+  ]);
+
+  const esReserva = editando?.origen === "reserva";
   const otraMonedaPago = form.currency !== estado.moneda;
   const montoForm = Number(form.amount) || 0;
-  const tasaForm = Number(form.tasa) || 0;
+  // Los pagos de la reserva no guardan tasa: siempre van a la fija.
+  const tasaForm = esReserva ? TASA_USD_DOP : Number(form.tasa) || 0;
   // Lo que este pago descuenta del local, ya en la moneda del local.
   const aplicadoForm = aplicadoEn(
     { amount: montoForm, currency: form.currency, tasa: tasaForm },
     estado.moneda,
   );
   const progresoDespues =
-    estado.valor > 0
-      ? Math.min(
-          100,
-          ((estado.totalRecibido + aplicadoForm) / estado.valor) * 100,
-        )
+    base.valor > 0
+      ? Math.min(100, ((base.totalRecibido + aplicadoForm) / base.valor) * 100)
       : 0;
 
   const ocupado = guardando || eliminando || enviando;
@@ -151,6 +202,7 @@ export function LocalPaymentsModal({
   ) => setForm((f) => ({ ...f, [campo]: v }));
 
   const abrirFormulario = () => {
+    setEditando(null);
     setForm({
       ...formularioVacio(),
       documento: reciboSugerido,
@@ -161,6 +213,51 @@ export function LocalPaymentsModal({
     setAviso(null);
     setFormAbierto(true);
   };
+
+  const abrirEdicion = (fila: FilaEstado) => {
+    if (fila.pagoId) {
+      const pago = payments.find((p) => p.id === fila.pagoId);
+      if (!pago) return;
+      setEditando({ origen: "manual", id: pago.id });
+      setForm({
+        documento: pago.documento ?? "",
+        type: pago.type,
+        cuotaNumber: pago.cuotaNumber ? String(pago.cuotaNumber) : "",
+        date: pago.date,
+        amount: String(pago.amount),
+        currency: pago.currency ?? estado.moneda,
+        metodo: pago.metodo ?? "deposito",
+        cuenta: pago.cuenta ?? "",
+        tasa: String(pago.tasa ?? TASA_USD_DOP),
+        description: pago.description,
+      });
+    } else {
+      const pago = pagos.find((p) => p.id === fila.appDataId);
+      if (!pago) return;
+      setEditando({ origen: "reserva", id: pago.id });
+      setForm({
+        ...formularioVacio(),
+        date: String(pago.data?.created_at ?? "").slice(0, 10) || hoy(),
+        amount: String(pago.data?.amount ?? ""),
+        currency: fila.moneda,
+        metodo: String(pago.data?.payment_method ?? "transfer"),
+      });
+    }
+    setArchivo(null);
+    setErrores({});
+    setAviso(null);
+    setFormAbierto(true);
+  };
+
+  const cerrarFormulario = () => {
+    setFormAbierto(false);
+    setEditando(null);
+  };
+
+  // La fila editada puede estar muy abajo: el formulario queda sobre la tabla.
+  useEffect(() => {
+    if (editando) formRef.current?.scrollIntoView({ block: "nearest" });
+  }, [editando]);
 
   const guardarLista = async (lista: LocalPayment[]) => {
     const res = await fetch("/api/erp/appData", {
@@ -183,21 +280,25 @@ export function LocalPaymentsModal({
     const e: Record<string, string> = {};
     const monto = Number(form.amount);
     if (!(monto > 0)) e.amount = "Escribe un monto mayor que cero.";
-    else if (aplicadoForm > estado.pendiente + 0.005)
-      e.amount = `Equivale a ${importe(aplicadoForm, estado.moneda)} y supera el balance pendiente (${importe(estado.pendiente, estado.moneda)}).`;
+    else if (aplicadoForm > base.pendiente + 0.005)
+      e.amount = `Equivale a ${importe(aplicadoForm, estado.moneda)} y supera el balance pendiente (${importe(base.pendiente, estado.moneda)}).`;
     if (!form.date) e.date = "Indica la fecha del pago.";
-    if (otraMonedaPago && !(Number(form.tasa) > 0))
-      e.tasa = "Indica la tasa para convertir el pago a la moneda del local.";
-    else if (form.tasa && !(Number(form.tasa) > 0))
-      e.tasa = "La tasa debe ser un número mayor que cero.";
+    if (!esReserva) {
+      if (otraMonedaPago && !(Number(form.tasa) > 0))
+        e.tasa = "Indica la tasa para convertir el pago a la moneda del local.";
+      else if (form.tasa && !(Number(form.tasa) > 0))
+        e.tasa = "La tasa debe ser un número mayor que cero.";
+    }
     const doc = form.documento.trim();
+    const idPropio = editando?.origen === "manual" ? editando.id : null;
     const repetido =
+      !esReserva &&
       doc &&
       locales.some((l) =>
         (
           (l.id === local.id ? payments : l.data?.payments) as
             LocalPayment[] | undefined
-        )?.some((p) => p.documento === doc),
+        )?.some((p) => p.documento === doc && p.id !== idPropio),
       );
     if (repetido) e.documento = `El recibo ${doc} ya está en uso.`;
     return e;
@@ -212,7 +313,28 @@ export function LocalPaymentsModal({
     setGuardando(true);
     setAviso(null);
     try {
-      let receipt_url: string | undefined;
+      if (editando?.origen === "reserva") {
+        const original = pagos.find((p) => p.id === editando.id);
+        if (!original) throw new Error("pago");
+        // La hora se conserva: solo cambia el día.
+        const hora = String(original.data?.created_at ?? "").slice(10);
+        const actualizado = await editarPagoDeReserva(original, {
+          amount: Number(form.amount),
+          currency: form.currency,
+          payment_method: form.metodo,
+          created_at: `${form.date}${hora || "T12:00:00.000Z"}`,
+        });
+        onPagoActualizado(actualizado);
+        cerrarFormulario();
+        setAviso({ tipo: "ok", texto: "Pago actualizado." });
+        return;
+      }
+
+      const anterior =
+        editando?.origen === "manual"
+          ? payments.find((p) => p.id === editando.id)
+          : undefined;
+      let receipt_url: string | undefined = anterior?.receipt_url;
       if (archivo) {
         const cuerpo = new FormData();
         cuerpo.append("file", archivo);
@@ -227,7 +349,15 @@ export function LocalPaymentsModal({
 
       const cuota = Number(form.cuotaNumber) || undefined;
       const pago: LocalPayment = {
-        id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        id:
+          anterior?.id ??
+          `pay_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        ...(anterior?.beneficiario_id && {
+          beneficiario_id: anterior.beneficiario_id,
+        }),
+        ...(anterior?.beneficiario_nombre && {
+          beneficiario_nombre: anterior.beneficiario_nombre,
+        }),
         amount: Number(form.amount),
         currency: form.currency,
         date: form.date,
@@ -241,23 +371,28 @@ export function LocalPaymentsModal({
             localId: estado.localId,
             cliente: estado.cliente?.nombre,
           }),
-        metodo: form.metodo,
+        metodo: form.metodo as MetodoPago,
         ...(form.documento.trim() && { documento: form.documento.trim() }),
         ...(form.type === "cuota" && cuota && { cuotaNumber: cuota }),
         ...(form.cuenta.trim() && { cuenta: form.cuenta.trim() }),
         ...(otraMonedaPago && { tasa: Number(form.tasa) }),
         ...(receipt_url && { receipt_url }),
       };
-      await guardarLista([...payments, pago]);
-      setFormAbierto(false);
+      await guardarLista(
+        anterior
+          ? payments.map((p) => (p.id === anterior.id ? pago : p))
+          : [...payments, pago],
+      );
+      const verbo = anterior ? "actualizado" : "registrado";
+      cerrarFormulario();
       setAviso({
         tipo: "ok",
         texto: otraMonedaPago
-          ? `Pago de ${importe(pago.amount, form.currency)} registrado como ${importe(aplicadoForm, estado.moneda)} a tasa ${tasaForm.toFixed(2)}. El estado de cuenta ya lo incluye.`
-          : `Pago de ${importe(pago.amount, estado.moneda)} registrado. El estado de cuenta ya lo incluye.`,
+          ? `Pago de ${importe(pago.amount, form.currency)} ${verbo} como ${importe(aplicadoForm, estado.moneda)} a tasa ${tasaForm.toFixed(2)}. El estado de cuenta ya lo incluye.`
+          : `Pago de ${importe(pago.amount, estado.moneda)} ${verbo}. El estado de cuenta ya lo incluye.`,
       });
     } catch (error) {
-      console.error("Error al registrar el pago:", error);
+      console.error("Error al guardar el pago:", error);
       setAviso({
         tipo: "error",
         texto:
@@ -271,10 +406,24 @@ export function LocalPaymentsModal({
   };
 
   const eliminarPago = async () => {
-    if (!porEliminar?.pagoId) return;
+    if (!porEliminar) return;
     setEliminando(true);
     try {
-      await guardarLista(payments.filter((p) => p.id !== porEliminar.pagoId));
+      if (porEliminar.pagoId) {
+        await guardarLista(payments.filter((p) => p.id !== porEliminar.pagoId));
+      } else {
+        const pago = pagos.find((p) => p.id === porEliminar.appDataId);
+        if (!pago) throw new Error("pago");
+        await archivarPagoDeReserva(pago);
+        onPagoEliminado(pago.id);
+      }
+      if (
+        editando &&
+        (editando.origen === "manual"
+          ? editando.id === porEliminar.pagoId
+          : editando.id === porEliminar.appDataId)
+      )
+        cerrarFormulario();
       setAviso({ tipo: "ok", texto: "Pago eliminado." });
     } catch (error) {
       console.error("Error al eliminar el pago:", error);
@@ -449,22 +598,25 @@ export function LocalPaymentsModal({
 
           {formAbierto && (
             <form
+              ref={formRef}
               onSubmit={registrarPago}
               noValidate
               className="rounded-[8px] border border-rule bg-paper-2 p-4"
             >
-              <ModalSection title="Nuevo pago">
+              <ModalSection title={editando ? "Editar pago" : "Nuevo pago"}>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Campo label="Recibo" error={errores.documento}>
-                    {(id) => (
-                      <Input
-                        id={id}
-                        value={form.documento}
-                        onChange={(e) => cambiar("documento", e.target.value)}
-                        state={errores.documento ? "error" : "idle"}
-                      />
-                    )}
-                  </Campo>
+                  {!esReserva && (
+                    <Campo label="Recibo" error={errores.documento}>
+                      {(id) => (
+                        <Input
+                          id={id}
+                          value={form.documento}
+                          onChange={(e) => cambiar("documento", e.target.value)}
+                          state={errores.documento ? "error" : "idle"}
+                        />
+                      )}
+                    </Campo>
+                  )}
                   <Campo label="Fecha del pago" error={errores.date}>
                     {(id) => (
                       <Input
@@ -506,7 +658,7 @@ export function LocalPaymentsModal({
                       />
                     )}
                   </Campo>
-                  {otraMonedaPago && (
+                  {otraMonedaPago && !esReserva && (
                     <Campo label="Tasa (RD$ por US$1)" error={errores.tasa}>
                       {(id) => (
                         <Input
@@ -523,37 +675,41 @@ export function LocalPaymentsModal({
                       )}
                     </Campo>
                   )}
-                  <Campo label="Concepto">
-                    {(id) => (
-                      <NativeSelect
-                        id={id}
-                        value={form.type}
-                        onChange={(e) => cambiar("type", e.target.value)}
-                      >
-                        {TIPOS_PAGO.map((t) => (
-                          <option key={t.value} value={t.value}>
-                            {t.label}
-                          </option>
-                        ))}
-                      </NativeSelect>
-                    )}
-                  </Campo>
-                  {form.type === "cuota" && (
-                    <Campo label="Número de cuota">
-                      {(id) => (
-                        <Input
-                          id={id}
-                          type="number"
-                          inputMode="numeric"
-                          min="1"
-                          numeric
-                          value={form.cuotaNumber}
-                          onChange={(e) =>
-                            cambiar("cuotaNumber", e.target.value)
-                          }
-                        />
+                  {!esReserva && (
+                    <>
+                      <Campo label="Concepto">
+                        {(id) => (
+                          <NativeSelect
+                            id={id}
+                            value={form.type}
+                            onChange={(e) => cambiar("type", e.target.value)}
+                          >
+                            {TIPOS_PAGO.map((t) => (
+                              <option key={t.value} value={t.value}>
+                                {t.label}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        )}
+                      </Campo>
+                      {form.type === "cuota" && (
+                        <Campo label="Número de cuota">
+                          {(id) => (
+                            <Input
+                              id={id}
+                              type="number"
+                              inputMode="numeric"
+                              min="1"
+                              numeric
+                              value={form.cuotaNumber}
+                              onChange={(e) =>
+                                cambiar("cuotaNumber", e.target.value)
+                              }
+                            />
+                          )}
+                        </Campo>
                       )}
-                    </Campo>
+                    </>
                   )}
                   <Campo label="Método de pago">
                     {(id) => (
@@ -562,58 +718,73 @@ export function LocalPaymentsModal({
                         value={form.metodo}
                         onChange={(e) => cambiar("metodo", e.target.value)}
                       >
-                        {METODOS_PAGO.map((m) => (
-                          <option key={m.value} value={m.value}>
-                            {m.label}
-                          </option>
-                        ))}
+                        {(esReserva ? METODOS_RESERVA : METODOS_PAGO).map(
+                          (m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ),
+                        )}
                       </NativeSelect>
                     )}
                   </Campo>
-                  <Campo label="Cuenta que recibió (opcional)">
-                    {(id) => (
-                      <Input
-                        id={id}
-                        inputMode="numeric"
-                        value={form.cuenta}
-                        onChange={(e) => cambiar("cuenta", e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo
-                    label="Descripción (opcional)"
-                    className="sm:col-span-2"
-                  >
-                    {(id) => (
-                      <Input
-                        id={id}
-                        value={form.description}
-                        placeholder={describirPago({
-                          type: form.type,
-                          cuotaNumber: Number(form.cuotaNumber) || undefined,
-                          date: form.date || hoy(),
-                          localId: estado.localId,
-                          cliente: estado.cliente?.nombre,
-                        })}
-                        onChange={(e) => cambiar("description", e.target.value)}
-                      />
-                    )}
-                  </Campo>
-                  <Campo
-                    label="Comprobante (opcional)"
-                    className="sm:col-span-2"
-                  >
-                    {(id) => (
-                      <Input
-                        id={id}
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={(e) =>
-                          setArchivo(e.target.files?.[0] ?? null)
-                        }
-                      />
-                    )}
-                  </Campo>
+                  {!esReserva && (
+                    <Campo label="Cuenta que recibió (opcional)">
+                      {(id) => (
+                        <Input
+                          id={id}
+                          inputMode="numeric"
+                          value={form.cuenta}
+                          onChange={(e) => cambiar("cuenta", e.target.value)}
+                        />
+                      )}
+                    </Campo>
+                  )}
+                  {!esReserva && (
+                    <Campo
+                      label="Descripción (opcional)"
+                      className="sm:col-span-2"
+                    >
+                      {(id) => (
+                        <Input
+                          id={id}
+                          value={form.description}
+                          placeholder={describirPago({
+                            type: form.type,
+                            cuotaNumber: Number(form.cuotaNumber) || undefined,
+                            date: form.date || hoy(),
+                            localId: estado.localId,
+                            cliente: estado.cliente?.nombre,
+                          })}
+                          onChange={(e) =>
+                            cambiar("description", e.target.value)
+                          }
+                        />
+                      )}
+                    </Campo>
+                  )}
+                  {!esReserva && (
+                    <Campo
+                      label={
+                        editando &&
+                        payments.find((p) => p.id === editando.id)?.receipt_url
+                          ? "Reemplazar comprobante (opcional)"
+                          : "Comprobante (opcional)"
+                      }
+                      className="sm:col-span-2"
+                    >
+                      {(id) => (
+                        <Input
+                          id={id}
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) =>
+                            setArchivo(e.target.files?.[0] ?? null)
+                          }
+                        />
+                      )}
+                    </Campo>
+                  )}
                 </div>
                 <div
                   aria-live="polite"
@@ -631,7 +802,7 @@ export function LocalPaymentsModal({
                       </p>
                       <p className="tabular mt-0.5 text-ink-2">
                         {tasaForm > 0 || !otraMonedaPago
-                          ? `Progreso del cobro: ${estado.progreso.toFixed(1)} % → ${progresoDespues.toFixed(1)} %`
+                          ? `Progreso del cobro: ${base.progreso.toFixed(1)} % → ${progresoDespues.toFixed(1)} %`
                           : ""}
                       </p>
                     </>
@@ -647,13 +818,13 @@ export function LocalPaymentsModal({
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => setFormAbierto(false)}
+                    onClick={cerrarFormulario}
                     disabled={guardando}
                   >
                     Cancelar
                   </Button>
                   <Button type="submit" loading={guardando}>
-                    Guardar pago
+                    {editando ? "Guardar cambios" : "Guardar pago"}
                   </Button>
                 </div>
               </ModalSection>
@@ -731,17 +902,28 @@ export function LocalPaymentsModal({
                       <td className="tabular whitespace-nowrap px-3 py-2 text-right font-semibold text-ink">
                         {importe(f.balance, estado.moneda)}
                       </td>
-                      <td className="px-1 py-1 text-right">
-                        {f.pagoId && (
-                          <Button
-                            variant="ghost"
-                            size="iconSm"
-                            aria-label={`Eliminar el pago del ${fechaCorta(f.fecha)}`}
-                            onClick={() => setPorEliminar(f)}
-                            disabled={ocupado}
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden />
-                          </Button>
+                      <td className="whitespace-nowrap px-1 py-1 text-right">
+                        {(f.pagoId || f.appDataId) && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="iconSm"
+                              aria-label={`Editar el pago del ${fechaCorta(f.fecha)}`}
+                              onClick={() => abrirEdicion(f)}
+                              disabled={ocupado}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="iconSm"
+                              aria-label={`Eliminar el pago del ${fechaCorta(f.fecha)}`}
+                              onClick={() => setPorEliminar(f)}
+                              disabled={ocupado}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </Button>
+                          </>
                         )}
                       </td>
                     </tr>
@@ -757,7 +939,7 @@ export function LocalPaymentsModal({
             title="Eliminar pago"
             description={
               porEliminar
-                ? `Se quita del estado de cuenta el pago de ${importe(porEliminar.monto, porEliminar.moneda)} del ${fechaCorta(porEliminar.fecha)}${porEliminar.documento ? ` (${porEliminar.documento})` : ""}. El balance pendiente sube en ese monto.`
+                ? `Se quita del estado de cuenta el pago de ${importe(porEliminar.monto, porEliminar.moneda)} del ${fechaCorta(porEliminar.fecha)}${porEliminar.documento ? ` (${porEliminar.documento})` : ""}. El balance pendiente sube en ese monto.${porEliminar.appDataId ? " El registro se conserva en la base, marcado como eliminado." : ""}`
                 : ""
             }
             confirmLabel="Eliminar pago"

@@ -13,6 +13,7 @@ import {
   Receipt,
 } from "lucide-react";
 import type { AppData } from "@/src/types/erp";
+import { archivarPagoDeReserva } from "@/src/lib/locales/pagosReserva";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,14 +186,15 @@ export function LocalReservaModal({
   };
 
   const handleDeletePayment = async (payment: AppData) => {
-    if (!confirm("¿Eliminar este pago? Esta acción no se puede deshacer."))
+    if (
+      !confirm(
+        "¿Eliminar este pago? Deja de contar en el estado de cuenta; el registro se conserva en la base.",
+      )
+    )
       return;
     setDeletingPayment(payment.id);
     try {
-      const res = await fetch(`/api/erp/appData?id=${payment.id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Error al eliminar");
+      await archivarPagoDeReserva(payment);
       onPaymentDeleted(payment.id);
     } catch (err) {
       console.error(err);
