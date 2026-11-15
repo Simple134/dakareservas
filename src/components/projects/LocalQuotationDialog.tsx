@@ -1,5 +1,6 @@
 "use client";
 
+import { nombreDeLocal } from "@/src/lib/locales/nombre";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -314,7 +315,7 @@ export function LocalQuotationDialog({
             <FileText className="w-6 h-6 text-info" />
             <div>
               <h2 className="text-xl font-semibold text-ink">
-                Cotización de Local #{localData.id}
+                Cotización de {nombreDeLocal(localData)}
               </h2>
               <p className="text-sm text-ink-3">
                 Nivel {localData.level} • {localData.area_mt2.toFixed(2)} m²

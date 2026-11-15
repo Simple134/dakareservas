@@ -1,5 +1,6 @@
 "use client";
 
+import { nombreDeLocal } from "@/src/lib/locales/nombre";
 import { useState, useEffect } from "react";
 import { FileText, Pencil, CreditCard, BookOpen, X } from "lucide-react";
 import { Badge } from "@/src/components/ui/badge";
@@ -387,7 +388,7 @@ export function LocalesSection({
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h4 className="font-display text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">
-                      Local #{local.data?.id}
+                      {nombreDeLocal(local.data)}
                     </h4>
                     <p className="text-[0.75rem] text-ink-3">
                       Nivel {local.data?.level}

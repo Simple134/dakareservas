@@ -5,6 +5,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { NativeSelect } from "@/src/components/ui/native-select";
+import { BANCOS } from "@/src/lib/locales/bancos";
 import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
 import { FieldError, Modal, ModalSection } from "@/src/components/ui/modal";
 import type { AppData } from "@/src/types/erp";
@@ -495,7 +496,7 @@ export function LocalPaymentsModal({
         // Con la confirmación abierta, Escape debe cerrar solo a ella.
         busy={ocupado || porEliminar !== null}
         size="xl"
-        title={`Estado de cuenta, local ${estado.localId}`}
+        title={`Estado de cuenta, ${estado.nombre}`}
         description={[
           `Nivel ${estado.nivel}`,
           `${estado.area.toFixed(2)} m²`,
@@ -716,7 +717,19 @@ export function LocalPaymentsModal({
                       <NativeSelect
                         id={id}
                         value={form.metodo}
-                        onChange={(e) => cambiar("metodo", e.target.value)}
+                        onChange={(e) => {
+                          const metodo = e.target.value;
+                          setForm((f) => ({
+                            ...f,
+                            metodo,
+                            // Un nombre de persona no es un banco, ni al revés.
+                            cuenta:
+                              (metodo === "efectivo") ===
+                              (f.metodo === "efectivo")
+                                ? f.cuenta
+                                : "",
+                          }));
+                        }}
                       >
                         {(esReserva ? METODOS_RESERVA : METODOS_PAGO).map(
                           (m) => (
@@ -729,15 +742,43 @@ export function LocalPaymentsModal({
                     )}
                   </Campo>
                   {!esReserva && (
-                    <Campo label="Cuenta que recibió (opcional)">
-                      {(id) => (
-                        <Input
-                          id={id}
-                          inputMode="numeric"
-                          value={form.cuenta}
-                          onChange={(e) => cambiar("cuenta", e.target.value)}
-                        />
-                      )}
+                    <Campo
+                      label={
+                        form.metodo === "efectivo"
+                          ? "Recibido por (opcional)"
+                          : "Cuenta que recibió (opcional)"
+                      }
+                    >
+                      {(id) =>
+                        form.metodo === "efectivo" ? (
+                          <Input
+                            id={id}
+                            value={form.cuenta}
+                            placeholder="Nombre de quien recibió"
+                            maxLength={80}
+                            onChange={(e) => cambiar("cuenta", e.target.value)}
+                          />
+                        ) : (
+                          <NativeSelect
+                            id={id}
+                            value={form.cuenta}
+                            onChange={(e) => cambiar("cuenta", e.target.value)}
+                          >
+                            <option value="">Sin especificar</option>
+                            {form.cuenta &&
+                              !BANCOS.some((b) => b === form.cuenta) && (
+                                <option value={form.cuenta}>
+                                  {form.cuenta}
+                                </option>
+                              )}
+                            {BANCOS.map((b) => (
+                              <option key={b} value={b}>
+                                {b}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        )
+                      }
                     </Campo>
                   )}
                   {!esReserva && (

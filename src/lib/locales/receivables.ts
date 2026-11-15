@@ -1,3 +1,4 @@
+import { nombreDeLocal } from "@/src/lib/locales/nombre";
 import type { AppData } from "@/src/types/erp";
 import {
   TASA_USD_DOP,
@@ -15,6 +16,8 @@ const ESTADOS_CON_CUENTA = ["VENDIDO"];
 
 export interface CuentaLocal {
   localId: number;
+  /** Nombre que se muestra: el propio del local o "Local #id". */
+  nombre: string;
   nivel: number;
   estado: string;
   cliente: string | null;
@@ -116,6 +119,7 @@ export function cuentaDeLocal(
 
   return {
     localId: Number(local.data?.id),
+    nombre: nombreDeLocal(local.data),
     nivel: Number(local.data?.level),
     estado: String(local.data?.status ?? ""),
     cliente:

@@ -1,3 +1,4 @@
+import { nombreDeLocal } from "@/src/lib/locales/nombre";
 import type { AppData } from "@/src/types/erp";
 import { cuentaDeLocal } from "@/src/lib/locales/receivables";
 import {
@@ -81,6 +82,8 @@ export interface ClienteEstado {
 
 export interface EstadoDeCuenta {
   localId: number;
+  /** Nombre que se muestra: el propio del local o "Local #id". */
+  nombre: string;
   /** Como figura en los recibos: `M-203`. */
   codigo: string;
   nivel: number;
@@ -123,9 +126,12 @@ const MESES = [
 
 const etiquetaMetodo = (p: LocalPayment): string => {
   const metodo = METODOS_PAGO.find((m) => m.value === p.metodo)?.label ?? "";
-  return [metodo, p.cuenta ? `cuenta ${p.cuenta}` : ""]
-    .filter(Boolean)
-    .join(" ");
+  const detalle = p.cuenta
+    ? p.metodo === "efectivo"
+      ? `recibido por ${p.cuenta}`
+      : p.cuenta
+    : "";
+  return [metodo, detalle].filter(Boolean).join(" ");
 };
 
 const clienteDe = (
@@ -263,6 +269,7 @@ export function estadoDeCuentaDeLocal(
 
   return {
     localId,
+    nombre: nombreDeLocal(local.data),
     codigo: `M-${localId}`,
     nivel: cuenta.nivel,
     area: Number(local.data?.area_mt2) || 0,

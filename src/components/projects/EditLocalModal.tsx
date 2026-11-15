@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Save, Loader2 } from "lucide-react";
+import { nombreDeLocal } from "@/src/lib/locales/nombre";
 import type { Moneda } from "@/src/lib/locales/moneda";
 
 export type LocalStatus = "DISPONIBLE" | "RESERVADO" | "VENDIDO" | "BLOQUEADO";
@@ -16,6 +17,8 @@ interface LocalData {
   separation_10?: number;
   separation_45?: number;
   status: LocalStatus;
+  /** Nombre libre del local, p. ej. "Local de Juan". */
+  name?: string;
   [key: string]: unknown;
 }
 
@@ -49,6 +52,7 @@ export function EditLocalModal({
 }: EditLocalModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
+    name: local.data.name ?? "",
     status: local.data.status as LocalStatus,
     currency: (local.data.currency ?? monedaActual) as Moneda,
     area_mt2: local.data.area_mt2,
@@ -81,6 +85,7 @@ export function EditLocalModal({
       const updatedData = {
         ...local.data,
         ...form,
+        name: form.name.trim(),
       };
 
       const res = await fetch("/api/erp/appData", {
@@ -120,7 +125,7 @@ export function EditLocalModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-rule">
           <div>
             <h2 className="text-lg font-semibold text-ink">
-              Editar Local #{local.data.id}
+              Editar {nombreDeLocal(local.data)}
             </h2>
             <p className="text-sm text-ink-3">Nivel {local.data.level}</p>
           </div>
@@ -133,6 +138,28 @@ export function EditLocalModal({
         </div>
 
         <div className="p-6 space-y-5">
+          {/* Nombre */}
+          <div>
+            <label
+              htmlFor="local-nombre"
+              className="block text-sm font-medium text-ink-2 mb-1.5"
+            >
+              Nombre (opcional)
+            </label>
+            <input
+              id="local-nombre"
+              type="text"
+              maxLength={60}
+              value={form.name}
+              placeholder={`Local #${local.data.id}`}
+              onChange={(e) => handleChange("name", e.target.value)}
+              className="h-10 w-full rounded-[8px] border border-rule-strong bg-paper px-3 text-[0.8125rem] text-ink placeholder:text-ink-3 transition-colors duration-[120ms] hover:border-ink-3 focus:border-gold focus:outline-2 focus:outline-offset-[-1px] focus:outline-gold"
+            />
+            <p className="text-xs text-ink-3 mt-1">
+              Por ejemplo, &ldquo;Local de Juan&rdquo;. Vacío usa el número.
+            </p>
+          </div>
+
           {/* Status */}
           <div>
             <label className="block text-sm font-medium text-ink-2 mb-1.5">

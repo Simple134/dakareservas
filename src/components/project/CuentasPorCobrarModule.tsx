@@ -30,7 +30,7 @@ export function CuentasPorCobrarModule({
       cuentas.map((c) => ({
         id: `local-${c.localId}`,
         fecha: c.fecha,
-        descripcion: `Local #${c.localId} · Nivel ${c.nivel}`,
+        descripcion: `${c.nombre} · Nivel ${c.nivel}`,
         detalle: c.cliente ?? "Sin cliente asignado",
         itbis: 0,
         isrRetenido: 0,
